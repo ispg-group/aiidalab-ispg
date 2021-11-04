@@ -3,12 +3,18 @@
 import ipywidgets as ipw
 
 template = """
+<div align="center">
+    <img src="https://insilicophotochem.files.wordpress.com/2020/01/squirrel-logo.png" height="128px" width=453px">
+</div>
 <table>
 <tr>
-  <th style="text-align:center">DH Testing application</th>
+  <th style="text-align:center">ISPG testing Applications</th>
 <tr>
   <td valign="top"><ul>
-    <li><a href="{appbase}/example.ipynb" target="_blank">Example notebook</a></li>
+    <li><a href="{appbase}/example.ipynb" target="_blank">Notebook prototype</a></li>
+  </ul></td>
+  <td valign="top"><ul>
+    <li><a href="{appbase}/orca_optimization.ipynb" target="_blank">ORCA optimization</a></li>
   </ul></td>
 </tr>
 </table>

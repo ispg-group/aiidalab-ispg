@@ -1,0 +1,15 @@
+# Default builder parameters for the OrcaWorkChain
+
+## Codes
+orca_code: orca@localhost
+
+## Molecular parameters
+spin_mult: 1
+charge: 0
+
+## QM Method
+basis: def2-svp
+method: pbe
+
+## Calculation settings
+protocol: fast
