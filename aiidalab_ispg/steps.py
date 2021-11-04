@@ -5,7 +5,7 @@ Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
-from pprint import pformat, pprint
+from pprint import pformat
 
 import ipywidgets as ipw
 import traitlets
@@ -29,7 +29,7 @@ from aiidalab_ispg.widgets import QMSelectionWidget
 
 # from aiidalab_qe_workchain import QeAppWorkChain
 
-# from aiidalab_ispg.spectrum import Spectrum
+from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
 
@@ -419,8 +419,8 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder.metadata.description = "ORCA optimization from workflow"
 
-        print("ORCA parameters")
-        pprint(orca_parameters)
+        # print("ORCA parameters")
+        # pprint(orca_parameters)
 
         from aiida.orm import Dict
 
@@ -461,7 +461,7 @@ class ViewQeAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
 
         # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.2,
+            timeout=0.1,
             callbacks=[
                 self.process_tree.update,
                 self._update_state,
@@ -504,24 +504,53 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     process = traitlets.Instance(ProcessNode, allow_none=True)
 
     def __init__(self, **kwargs):
-        spectrum_title = ipw.HTML(
-            """<div style="padding-top: 0px; padding-bottom: 0px">
-            <h4>UV/Vis Spectrum</h4></div>"""
+        # Setup process monitor
+        self.process_monitor = ProcessMonitor(
+            timeout=0.1,
+            callbacks=[
+                self._show_spectrum,
+                self._update_state,
+            ],
         )
+        self.spectrum = SpectrumWidget()
 
-        # TODO: https://aiidalab-widgets-base.readthedocs.io/en/latest/widget-list/notebooks/aiida_datatypes_viewers.html
-        # View a process node?
+        ipw.dlink((self, "process"), (self.process_monitor, "process"))
 
-        super().__init__([spectrum_title], **kwargs)
+        super().__init__([self.spectrum], **kwargs)
 
     def reset(self):
         self.process = None
+
+    def _show_spectrum(self):
+        if self.process.process_state != ProcessState.FINISHED:
+            return
+
+        output_params = self.process.outputs.output_parameters.get_dict()
+        # TODO: Add error handling
+        en = output_params["etenergies"]
+        osc = output_params["etoscs"]
+        # TODO: Use atomic units both for energies and osc. strengths
+        CM2EV = 1 / 8065.7
+        transitions = [
+            {"energy": tr[0] * CM2EV, "osc_strength": tr[1]} for tr in zip(en, osc)
+        ]
+        self.spectrum.transitions = transitions
 
     def _update_state(self):
         if self.process is None:
             return
         process_state = self.process.process_state
-        print(process_state, self.process)
+        process_state = self.process.process_state
+        if process_state in (
+            ProcessState.CREATED,
+            ProcessState.RUNNING,
+            ProcessState.WAITING,
+        ):
+            self.state = self.State.ACTIVE
+        elif process_state in (ProcessState.EXCEPTED, ProcessState.KILLED):
+            self.state = self.State.FAIL
+        elif process_state is ProcessState.FINISHED:
+            self.state = self.State.SUCCESS
 
     @traitlets.observe("process")
     def _observe_process(self, change):

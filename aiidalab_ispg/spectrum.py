@@ -3,8 +3,13 @@
 Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
 """
+import ipywidgets as ipw
+import traitlets
 import scipy
 import numpy as np
+
+# import matplotlib.pyplot as plt
+import bqplot.pyplot as plt
 
 
 class Spectrum(object):
@@ -15,7 +20,7 @@ class Spectrum(object):
         * 1e4
         / (3 * scipy.constants.hbar * scipy.constants.epsilon_0 * scipy.constants.c)
     )
-    # Transition Dipole to Osc. Strength
+    # Transition Dipole to Osc. Strength in atomic units
     COEFF_NEW = COEFF * 3 / 2
     # COEFF =  scipy.constants.pi * AUtoCm**2 * 1e4 * scipy.constants.hbar / (2 * scipy.constants.epsilon_0 * scipy.constants.c * scipy.constants.m_e)
 
@@ -37,37 +42,148 @@ class Spectrum(object):
         # Default grid on x-axis in eV
         self.de = 0.02
 
-    # TODO: Specialize this function for Gaussian / Lorentzian broadening
+    # TODO
     def get_spectrum(self, x_min, x_max, x_units, y_units):
-        """Returns a computer spectrum as a tuple of x and y Numpy arrays"""
-
+        """Returns a non-broadened spectrum as a tuple of x and y Numpy arrays"""
         n_points = int((x_max - x_min) / self.de)
         x = np.arange(x_min, x_max, self.de)
         y = np.zeros(n_points)
         return x, y
 
+    # TODO: Make this function aware of units
+    def _get_energy_range(self):
+        x_min = max(0.0, self.excitation_energies.min() - 2.0)
+        x_max = self.excitation_energies.max() + 2.0
+        return x_min, x_max
+
     def get_gaussian_spectrum(self, sigma, x_units, y_units):
         """Returns Gaussian broadened spectrum"""
-        # TODO: Determine x_min automatically based on transition energies
-        # and x_units
-        x_min = 0
-        x_max = 5
-        assert x_min < x_max
+        # TODO: Should probably pass units here
+        x_min, x_max = self._get_energy_range()
         x = np.arange(x_min, x_max, self.de)
         y = np.zeros(len(x))
-        assert len(x) == len(y)
-        normalization_factor = 1 / np.sqrt(2 * scipy.constants.pi) / sigma / nsample
+
+        normalization_factor = (
+            1 / np.sqrt(2 * scipy.constants.pi) / sigma / self.nsample
+        )
+        # TODO: Support other units
+        unit_factor = self.COEFF_NEW
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
-            y += (
-                osc_strength
-                * self.COEFF_NEW
-                * np.exp(-((x - exc_energy) ** 2) / 2 / sigma ** 2)
-            )
-        y *= normalization_factor
+            prefactor = normalization_factor * unit_factor * osc_strength
+            y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma ** 2)
 
         return x, y
+
+    def get_lorentzian_spectrum(self, tau, x_units, y_units):
+        """Returns Gaussian broadened spectrum"""
+        # TODO: Determine x_min automatically based on transition energies
+        # and x_units
+        x_min, x_max = self._get_energy_range()
+        x = np.arange(x_min, x_max, self.de)
+        y = np.zeros(len(x))
+
+        normalization_factor = tau / 2 / scipy.constants.pi / self.nsample
+        unit_factor = self.COEFF_NEW
+
+        for exc_energy, osc_strength in zip(
+            self.excitation_energies, self.osc_strengths
+        ):
+            prefactor = normalization_factor * unit_factor * osc_strength
+            y += prefactor / ((x - exc_energy) ** 2 + (tau ** 2) / 4)
+
+        return x, y
+
+
+class SpectrumWidget(ipw.VBox):
+
+    transitions = traitlets.List()
+
+    def __init__(self, **kwargs):
+        title = ipw.HTML(
+            """<div style="padding-top: 0px; padding-bottom: 0px">
+            <h4>UV/Vis Spectrum</h4></div>"""
+        )
+
+        # TODO: Remove this debugging output later
+        self.output = ipw.Output()
+        self.spectrum_container = ipw.Box()
+        self.width_slider = ipw.FloatSlider(
+            min=0.05, max=1, step=0.05, value=0.5, description="Width / eV"
+        )
+        self.kernel_selector = ipw.ToggleButtons(
+            options=["gaussian", "lorentzian"],  # TODO: None option
+            description="Broadening kernel:",
+            disabled=False,
+            button_style="info",  # 'success', 'info', 'warning', 'danger' or ''
+            tooltips=[
+                "Description of slow",
+                "Description of regular",
+                "Description of fast",
+            ],
+        )
+
+        super().__init__(
+            [
+                title,
+                self.kernel_selector,
+                self.width_slider,
+                self.spectrum_container,
+                self.output,
+            ],
+            **kwargs,
+        )
+
+    def _plot_spectrum(self, kernel, width):
+        nsample = 1
+        spec = Spectrum(self.transitions, nsample)
+        energy_unit = "eV"
+        intensity_unit = "cm^-1"
+        if kernel == "lorentzian":
+            x, y = spec.get_lorentzian_spectrum(width, energy_unit, intensity_unit)
+        elif kernel == "gaussian":
+            x, y = spec.get_gaussian_spectrum(width, energy_unit, intensity_unit)
+        else:
+            with self.output:
+                print("Invalid broadening type")
+                return
+
+        # Determine min max of x and y axes so that they
+        # don't change when changing width
+        # fig = plt.figure()
+        plt.plot(x, y)
+        plt.xlabel(f"Energy / {energy_unit}")
+        plt.ylabel(f"Intensity / {intensity_unit}")
+        plt.show()
+
+    def _validate_transitions(self):
+        for tr in self.transitions:
+            if not isinstance(tr, dict) or (
+                "energy" not in tr or "osc_strength" not in tr
+            ):
+                with self.output:
+                    print("Invalid transition", tr)
+                    return False
+
+        return True
+
+    def _show_spectrum(self):
+        self.output.clear_output()
+
+        if self._validate_transitions:
+            spectrum = ipw.interactive_output(
+                self._plot_spectrum,
+                {"width": self.width_slider, "kernel": self.kernel_selector},
+            )
+            self.spectrum_container.children = [spectrum]
+        else:
+            # TODO: Add proper error handling
+            raise KeyError
+
+    @traitlets.observe("transitions")
+    def _observe_transitions(self, change):
+        self._show_spectrum()
 
 
 if __name__ == "__main__":
