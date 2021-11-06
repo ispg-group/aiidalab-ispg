@@ -6,16 +6,56 @@ Authors:
 import ipywidgets as ipw
 import traitlets
 import scipy
+from scipy import constants
 import numpy as np
 
-# import matplotlib.pyplot as plt
-import bqplot.pyplot as plt
+# TODO: Just pick one renderer to simplify all this mess.
+# Bokeh looks nicest by default and is fast out of the box.
+# RENDERER = 'MATPLOTLIB'
+RENDERER = "BOKEH"
+# RENDERER = 'BQPLOT'
+
+if RENDERER == "MATPLOTLIB":
+    import matplotlib.pyplot as plt
+elif RENDERER == "BQPLOT":
+    import bqplot.pyplot as plt
+
+    # https://coderzcolumn.com/tutorials/data-science/interactive-plotting-in-python-jupyter-notebook-using-bqplot#3
+elif RENDERER == "BOKEH":
+    # https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
+    # https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
+    # https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
+    from bokeh.io import push_notebook, show, output_notebook
+    import bokeh.plotting as plt
+
+    output_notebook()
+
+
+class BokehFigureContext(ipw.Output):
+    def __init__(self, fig):
+        super().__init__()
+        self._figure = fig
+        self.on_displayed(lambda x: x.set_handle())
+
+    def set_handle(self):
+        self.clear_output()
+        with self:
+            self._handle = show(self._figure, notebook_handle=True)
+
+    def get_handle(self):
+        return self._handle
+
+    def get_figure(self):
+        return self._figure
+
+    def update(self):
+        push_notebook(handle=self._handle)
 
 
 class Spectrum(object):
     AUtoCm = 8.478354e-30
     COEFF = (
-        scipy.constants.pi
+        constants.pi
         * AUtoCm ** 2
         * 1e4
         / (3 * scipy.constants.hbar * scipy.constants.epsilon_0 * scipy.constants.c)
@@ -35,12 +75,6 @@ class Spectrum(object):
         )
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
-        self.set_defaults()
-
-    # TODO: These parameters should be passed as arguments to get_spectrum()
-    def set_defaults(self):
-        # Default grid on x-axis in eV
-        self.de = 0.02
 
     # TODO
     def get_spectrum(self, x_min, x_max, x_units, y_units):
@@ -50,49 +84,111 @@ class Spectrum(object):
         y = np.zeros(n_points)
         return x, y
 
-    # TODO: Make this function aware of units
-    def _get_energy_range(self):
-        x_min = max(0.0, self.excitation_energies.min() - 2.0)
+    # TODO: Make this function aware of units?
+    def _get_energy_range(self, energy_unit):
+        # NOTE: We don't include zero to prevent
+        # division by zero when converting to wavelength
+        x_min = max(0.01, self.excitation_energies.min() - 2.0)
         x_max = self.excitation_energies.max() + 2.0
+
+        # conversion to nanometers is handled later
+        if energy_unit.lower() == "nm":
+            return x_min, x_max
+
+        # energy_factor_unit = self._get_energy_unit_factor(energy_unit)
+        # x_min *= energy_factor_unit
+        # x_max *= energy_factor_unit
         return x_min, x_max
 
-    def get_gaussian_spectrum(self, sigma, x_units, y_units):
+    def _get_energy_unit_factor(self, unit):
+        # TODO: We should probably start from atomic units
+        if unit.lower() == "ev":
+            return 1.0
+        # TODO: Construct these factors from scipy.constants
+        elif unit.lower() == "nm":
+            return 1239.8
+        elif unit.lower() == "cm^-1":
+            return 8065.7
+
+    def get_gaussian_spectrum(self, sigma, x_unit, y_unit):
         """Returns Gaussian broadened spectrum"""
-        # TODO: Should probably pass units here
-        x_min, x_max = self._get_energy_range()
-        x = np.arange(x_min, x_max, self.de)
+
+        x_min, x_max = self._get_energy_range(x_unit)
+
+        # Conversion factor from eV to given energy unit
+        # (should probably switch to atomic units as default)
+        energy_unit_factor = self._get_energy_unit_factor(x_unit)
+
+        energies = np.copy(self.excitation_energies)
+        # Conversion to wavelength in nm is done at the end instead
+        # Since it's not a linear transformation
+        # if x_unit.lower() != 'nm':
+        #    sigma *= energy_unit_factor
+        #    energies *= energy_unit_factor
+
+        # TODO: How to determine this properly to cover a given interval?
+        n_sample = 500
+        x = np.linspace(x_min, x_max, num=n_sample)
         y = np.zeros(len(x))
 
         normalization_factor = (
             1 / np.sqrt(2 * scipy.constants.pi) / sigma / self.nsample
         )
-        # TODO: Support other units
+        # TODO: Support other intensity units
         unit_factor = self.COEFF_NEW
-        for exc_energy, osc_strength in zip(
-            self.excitation_energies, self.osc_strengths
-        ):
+        for exc_energy, osc_strength in zip(energies, self.osc_strengths):
             prefactor = normalization_factor * unit_factor * osc_strength
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma ** 2)
 
+        if x_unit.lower() == "nm":
+            x, y = self._convert_to_nanometers(x, y)
+        else:
+            x *= energy_unit_factor
+
         return x, y
 
-    def get_lorentzian_spectrum(self, tau, x_units, y_units):
+    def get_lorentzian_spectrum(self, tau, x_unit, y_unit):
         """Returns Gaussian broadened spectrum"""
         # TODO: Determine x_min automatically based on transition energies
         # and x_units
-        x_min, x_max = self._get_energy_range()
-        x = np.arange(x_min, x_max, self.de)
+        x_min, x_max = self._get_energy_range(x_unit)
+
+        # Conversion factor from eV to given energy unit
+        # (should probably switch to atomic units as default)
+        energy_unit_factor = self._get_energy_unit_factor(x_unit)
+
+        energies = np.copy(self.excitation_energies)
+
+        # TODO: How to determine this properly to cover a given interval?
+        n_sample = 500
+        x = np.linspace(x_min, x_max, num=n_sample)
         y = np.zeros(len(x))
 
         normalization_factor = tau / 2 / scipy.constants.pi / self.nsample
         unit_factor = self.COEFF_NEW
 
-        for exc_energy, osc_strength in zip(
-            self.excitation_energies, self.osc_strengths
-        ):
+        for exc_energy, osc_strength in zip(energies, self.osc_strengths):
             prefactor = normalization_factor * unit_factor * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau ** 2) / 4)
 
+        if x_unit.lower() == "nm":
+            x, y = self._convert_to_nanometers(x, y)
+        else:
+            x *= energy_unit_factor
+
+        return x, y
+
+    def _convert_to_nanometers(self, x, y):
+        x = self._get_energy_unit_factor("nm") / x
+        # Filtering out ultralong wavelengths
+        # TODO: Generalize this based on self.transitions
+        nm_thr = 1000
+        to_delete = []
+        for i in range(len(x)):
+            if x[i] > nm_thr:
+                to_delete.append(i)
+        x = np.delete(x, to_delete)
+        y = np.delete(y, to_delete)
         return x, y
 
 
@@ -106,9 +202,6 @@ class SpectrumWidget(ipw.VBox):
             <h4>UV/Vis Spectrum</h4></div>"""
         )
 
-        # TODO: Remove this debugging output later
-        self.output = ipw.Output()
-        self.spectrum_container = ipw.Box()
         self.width_slider = ipw.FloatSlider(
             min=0.05, max=1, step=0.05, value=0.5, description="Width / eV"
         )
@@ -123,87 +216,138 @@ class SpectrumWidget(ipw.VBox):
                 "Description of fast",
             ],
         )
+        self.xunit_selector = ipw.RadioButtons(
+            # TODO: Make an enum with different energy units
+            options=["eV", "nm", "cm^-1"],
+            disabled=False,
+            description="Energy unit",
+        )
+
+        controls = ipw.HBox(
+            children=[
+                ipw.VBox(children=[self.kernel_selector, self.width_slider]),
+                self.xunit_selector,
+            ]
+        )
+
+        self._init_figure()
+        self.spectrum_container = ipw.Box()
+        if RENDERER == "BOKEH":
+            # TODO: Convert other renderers to this as well,
+            # or get rid of them.
+            self.spectrum_container.children = [self.figure]
+            self.kernel_selector.observe(self._handle_ui_event, names="value")
+            self.xunit_selector.observe(self._handle_ui_event, names="value")
+            self.width_slider.observe(self._handle_ui_event, names="value")
 
         super().__init__(
             [
                 title,
-                self.kernel_selector,
-                self.width_slider,
+                controls,
                 self.spectrum_container,
-                self.output,
             ],
             **kwargs,
         )
 
-    def _plot_spectrum(self, kernel, width):
+    def _handle_ui_event(self, change):
+        """Updates the spectrum when user touches the UI controls
+        We're trying to use the same handler for all controls,
+        since we need to redraw the spectrum in all cases."""
+        self._plot_spectrum(
+            width=self.width_slider.value,
+            kernel=self.kernel_selector.value,
+            energy_unit=self.xunit_selector.value,
+        )
+
+    def _plot_spectrum(self, kernel, width, energy_unit):
+        if not self._validate_transitions():
+            return
         nsample = 1
         spec = Spectrum(self.transitions, nsample)
-        energy_unit = "eV"
-        intensity_unit = "cm^-1"
+        intensity_unit = "cm^2 per molecule"
         if kernel == "lorentzian":
             x, y = spec.get_lorentzian_spectrum(width, energy_unit, intensity_unit)
         elif kernel == "gaussian":
             x, y = spec.get_gaussian_spectrum(width, energy_unit, intensity_unit)
         else:
-            with self.output:
-                print("Invalid broadening type")
-                return
+            print("Invalid broadening type")
+            return
 
-        # Determine min max of x and y axes so that they
-        # don't change when changing width
-        # fig = plt.figure()
-        plt.plot(x, y)
-        plt.xlabel(f"Energy / {energy_unit}")
-        plt.ylabel(f"Intensity / {intensity_unit}")
-        plt.show()
+        # Matplotlib with ipywidgets
+        # https://kapernikov.com/ipywidgets-with-matplotlib/
+
+        # TODO: Maybe determine optimal min max of x and y axes
+        # so that they don't change for different widths?
+        #
+        # Remove previous lines.
+        # This does not seem to be needed for matplotlib,
+        # but somehow needed for bqplot.
+        # [l.remove() for l in self.axes.lines]
+        # Note for improving performance when using matplotlib
+        # https://matplotlib.org/stable/tutorials/advanced/blitting.html#sphx-glr-tutorials-advanced-blitting-py
+        xlabel = f"Energy / {energy_unit}"
+        ylabel = f"Intensity / {intensity_unit}"
+        if RENDERER == "BOKEH":
+            # Rendering by BOKEH by
+            f = self.figure.get_figure()
+            rend = f.renderers[0]
+            rend.data_source.data = {"x": x, "y": y}
+            f.xaxis.axis_label = xlabel
+            f.yaxis.axis_label = ylabel
+            self.figure.update()
+        else:
+            plt.plot(x, y)
+            plt.xlabel(xlabel)
+            plt.ylabel(ylabel)
+            plt.show()
 
     def _validate_transitions(self):
+        # TODO: Maybe use named tuple instead of dictionary?
+        # We should probably make a traitType for this and export it.
+        # https://realpython.com/python-namedtuple/
+        if len(self.transitions) == 0:
+            return False
+
         for tr in self.transitions:
             if not isinstance(tr, dict) or (
                 "energy" not in tr or "osc_strength" not in tr
             ):
-                with self.output:
-                    print("Invalid transition", tr)
-                    return False
-
+                print("Invalid transition", tr)
+                return False
         return True
 
-    def _show_spectrum(self):
-        self.output.clear_output()
-
-        if self._validate_transitions:
-            spectrum = ipw.interactive_output(
-                self._plot_spectrum,
-                {"width": self.width_slider, "kernel": self.kernel_selector},
-            )
-            self.spectrum_container.children = [spectrum]
+    def _init_figure(self, *args, **kwargs):
+        if RENDERER == "BOKEH":
+            self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
+            # Need to initialize the line plot here
+            x = np.array([0.0, 1.0])
+            y = np.copy(x)
+            self.figure.get_figure().line(x, y, line_width=2)
         else:
+            self.figure = plt.Figure(*args, **kwargs)
+
+    def _show_spectrum(self):
+        if not self._validate_transitions:
             # TODO: Add proper error handling
             raise KeyError
+
+        if RENDERER == "BOKEH":
+            self._plot_spectrum(
+                width=self.width_slider.value,
+                kernel=self.kernel_selector.value,
+                energy_unit=self.xunit_selector.value,
+            )
+        else:
+            spectrum = ipw.interactive_output(
+                self._plot_spectrum,
+                {
+                    "width": self.width_slider,
+                    "kernel": self.kernel_selector,
+                    "energy_unit": self.xunit_selector,
+                },
+            )
+            self.spectrum_container.children = [spectrum]
 
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self._show_spectrum()
-
-
-if __name__ == "__main__":
-
-    transition1 = {"energy": 1, "osc_strength": "0.016510951"}  # Excited energy in eV
-    transition2 = {"energy": 2.0, "osc_strength": "0.0"}  # Excited energy in eV
-    transitions = [transition1, transition2]
-    nsample = 1
-    spec = Spectrum(transitions, nsample)
-    x, y = spec.get_gaussian_spectrum(0.3, "ev", "cross_section")
-
-    from bokeh.plotting import figure
-    from bokeh.io import show, output_notebook
-
-    output_notebook()
-    p = figure(
-        title="Spectrum test",
-        x_axis_label="E / eV",
-        y_axis_label="I / cm^-2 * molecule ^ -1",
-    )
-    # p.line(x, y, legend_label='legend title', line_width=2)
-    p.line(x, y, line_width=2)
-    show(p)

@@ -8,7 +8,7 @@ spin_mult: 1
 charge: 0
 
 ## QM Method
-basis: def2-svp
+basis: sto-3g
 method: pbe
 
 ## Calculation settings

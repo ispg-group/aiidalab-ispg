@@ -538,7 +538,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _update_state(self):
         if self.process is None:
+            self.state = self.State.INIT
             return
+
         process_state = self.process.process_state
         process_state = self.process.process_state
         if process_state in (
