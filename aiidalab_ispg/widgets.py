@@ -17,7 +17,9 @@ from aiidalab_widgets_base import register_viewer_widget, viewer
 from IPython.display import clear_output, display
 
 # trigger registration of the viewer widget:
-# DH: Commenting out for now
+# DH: Commenting out for now to prevent this error
+# ImportError: cannot import name 'node_view' from partially initialized module 'aiidalab_ispg.widgets' (most likely due to a circular import) (/home/aiida/apps/aiidalab-dhtest/aiidalab_ispg/widgets.py)
+
 # from aiidalab_ispg.widgets import node_view  # noqa: F401
 
 __all__ = [
@@ -283,49 +285,6 @@ class QMSelectionWidget(ipw.VBox):
         """<div style="line-height:120%; padding-top:0px">
         <p style="padding-bottom:10px">
         Specify DFT functional and basis set
-        </p></div>"""
-    )
-
-    def __init__(self, **kwargs):
-        style = {"description_width": "initial"}
-        self.method = ipw.Text(
-            value="pbe",
-            description="DFT functional",
-            placeholder="Type DFT functional",
-            style=style,
-        )
-
-        self.basis = ipw.Text(
-            value="def2-svp", description="Basis set", placeholder="Type Basis Set"
-        )
-
-        super().__init__(
-            children=[
-                self.title,
-                ipw.HBox(children=[self.method, self.basis]),
-            ]
-        )
-
-    def reset(self):
-        self.method = "pbe"
-        self.basis = "def2-svp"
-
-
-class SpectrumWidget(ipw.VBox):
-    """Widget for selecting ab initio level (basis set, method, etc.)"""
-
-    calcjob = traitlets.Instance(CalcJobNode, allow_none=True)
-
-    title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>UV-VIS TDDFT spectrum</h4>
-        </div>"""
-    )
-
-    promp = ipw.HTML(
-        """<div style="line-height:120%; padding-top:0px">
-        <p style="padding-bottom:10px">
-        TDDFT single point spectrum
         </p></div>"""
     )
 

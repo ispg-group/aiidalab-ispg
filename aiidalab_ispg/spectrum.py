@@ -9,6 +9,8 @@ import scipy
 from scipy import constants
 import numpy as np
 
+from aiida.plugins import DataFactory
+
 # TODO: Just pick one renderer to simplify all this mess.
 # Bokeh looks nicest by default and is fast out of the box.
 # RENDERER = 'MATPLOTLIB'
@@ -351,3 +353,17 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self._show_spectrum()
+
+    # TODO1: Figure out how to render experimental spectrum that is
+    # internally stored as XyData with extras.smiles
+    # TODO2: Figure out how to pass smiles through the workflow.
+    # (we probably should pass it from initial structure
+    # to RelaxedStructure that is the output from ORCA.
+    def _render_experimental_spectrum(self, smiles):
+        from aiida.orm import QueryBuilder
+
+        XyData = DataFactory("array.xy")
+        qb = QueryBuilder()
+        qb.append(XyData, filters={"extras.smiles": "C=CC=O"})
+        for spec in qb.iterall():
+            pass

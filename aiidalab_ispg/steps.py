@@ -7,14 +7,16 @@ Authors:
 """
 from pprint import pformat
 
+# DH: Hopefully we will be able to remove this
+from copy import deepcopy
+
 import ipywidgets as ipw
 import traitlets
 from aiida.common import NotExistent
 from aiida.engine import ProcessState, submit
 from aiida.orm import ProcessNode, load_code
 
-# DH addition
-from aiida.orm import CalcJobNode
+from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import (
     CodeDropdown,
@@ -27,11 +29,13 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
-# from aiidalab_qe_workchain import QeAppWorkChain
-
+# TODO: Move this to a separate plugin or package somehow
+from aiidalab_ispg.workflows.base import OrcaRelaxAndTDDFTWorkChain
 from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
+Dict = DataFactory("dict")
+Bool = DataFactory("bool")
 
 
 class WorkChainSettings(ipw.VBox):
@@ -134,9 +138,7 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     """Step for submission of a bands workchain."""
 
     input_structure = traitlets.Instance(StructureData, allow_none=True)
-    # DH Changing this for now.
-    # process = traitlets.Instance(WorkChainNode, allow_none=True)
-    process = traitlets.Instance(CalcJobNode, allow_none=True)
+    process = traitlets.Instance(WorkChainNode, allow_none=True)
     disabled = traitlets.Bool()
     builder_parameters = traitlets.Dict()
     expert_mode = traitlets.Bool()
@@ -276,12 +278,15 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.observe("process")
     def _observe_process(self, change):
         with self.hold_trait_notifications():
-            process_node = change["new"]
-            if process_node is not None:
-                self.input_structure = process_node.inputs.structure
-                builder_parameters = process_node.get_extra("builder_parameters", None)
-                if builder_parameters is not None:
-                    self.set_trait("builder_parameters", builder_parameters)
+            # process_node = change["new"]
+            # DH: Not sure why this is here, but I don't think
+            # it quite works for our current setup,
+            # so commenting out?
+            # if process_node is not None:
+            # self.input_structure = process_node.inputs.structure
+            # builder_parameters = process_node.get_extra("builder_parameters", None)
+            # if builder_parameters is not None:
+            #    self.set_trait("builder_parameters", builder_parameters)
             self._update_state()
 
     def _on_submit_button_clicked(self, _):
@@ -357,23 +362,11 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             self.qm_config.method.value = bp["method"]
             self.qm_config.basis.value = bp["basis"]
 
-    def build_orca_params(self, builder_parameters):
+    def build_base_orca_params(self, builder_parameters):
         """A bit of indirection to decouple aiida-orca plugin
         from this code"""
 
         input_keywords = [builder_parameters[key] for key in ("basis", "method")]
-
-        compute_tddft = False
-        if self.workchain_settings.geo_opt_type.value == "OPT":
-            input_keywords.append("Opt")
-            # DH: Try getting frequencies as well
-            input_keywords.append("AnFreq")
-        # Hack to compute single point TDDFT
-        else:
-            compute_tddft = True
-            tddft = {
-                "nroots": 3,
-            }
 
         params = {
             "charge": builder_parameters["charge"],
@@ -385,10 +378,15 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             "extra_input_keywords": [],
         }
 
-        if compute_tddft:
-            params["input_blocks"]["tddft"] = tddft
-
         return params
+
+    def add_tddft_orca_params(self, orca_parameters, nroots):
+        parameters = deepcopy(orca_parameters)
+        tddft = {
+            "nroots": nroots,
+        }
+        parameters["input_blocks"]["tddft"] = tddft
+        return parameters
 
     def submit(self, _=None):
 
@@ -396,40 +394,47 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder_parameters = self.builder_parameters.copy()
 
-        orca = self.codes_selector.orca.selected_code
-        builder = orca.get_builder()
+        builder = OrcaRelaxAndTDDFTWorkChain.get_builder()
+
+        orca_code = self.codes_selector.orca.selected_code
+        builder.code = orca_code
         builder.structure = self.input_structure
 
-        # TODO: Do we need a dict? Why does QE code not need it?
-        orca_parameters = self.build_orca_params(builder_parameters)
+        orca_parameters = self.build_base_orca_params(builder_parameters)
+        # TODO: Make this an option in the UI
+        # or rather, autodetermine based on requested energy range.
+        nroots = 3
+        tddft_parameters = self.add_tddft_orca_params(orca_parameters, nroots)
+        optimization_parameters = deepcopy(orca_parameters)
+        optimization_parameters["input_keywords"].append("Opt")
+        # optimization_parameters['input_keywords'].append('AnFreq')
 
-        builder.metadata.options.withmpi = False
-        builder.metadata.options.resources = {
-            "tot_num_mpiprocs": 1,
-        }
+        builder.exc.orca.parameters = Dict(dict=tddft_parameters)
+        builder.opt.orca.parameters = Dict(dict=optimization_parameters)
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
             print(f"Running on {num_proc} CPUs")
-            # For statically linked ORCA, this needs to be false
-            # ORCA should run mpirun internally.
-            builder.metadata.options.withmpi = False
-            builder.metadata.options.resources["tot_num_mpiprocs"] = num_proc
+            # Not sure if this works
             orca_parameters["input_blocks"]["pal"] = {"nproc": num_proc}
 
-        builder.metadata.description = "ORCA optimization from workflow"
+        metadata = {
+            "options": {
+                "withmpi": False,
+                "resources": {"tot_num_mpiprocs": num_proc},
+            }
+        }
+        builder.exc.orca.metadata = metadata
+        builder.opt.orca.metadata = metadata
 
-        # print("ORCA parameters")
-        # pprint(orca_parameters)
+        builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
+        builder.opt.orca.metadata.description = "ORCA geometry optimization"
 
-        from aiida.orm import Dict
-
-        builder.parameters = Dict(dict=orca_parameters)
+        if self.workchain_settings.geo_opt_type.value == "NONE":
+            builder.optimize = Bool(False)
 
         self.process = submit(builder)
 
-        # DH TODO: Why is this here? Maybe instead of storing
-        # builder_parameters as Dict()?
         self.process.set_extra("builder_parameters", self.builder_parameters.copy())
 
     def reset(self):

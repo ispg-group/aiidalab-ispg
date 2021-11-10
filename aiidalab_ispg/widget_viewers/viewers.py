@@ -230,6 +230,9 @@ class _StructureDataBaseViewer(ipw.VBox):
         else:
             children = [view_box]
 
+        # DH TODO: Instead of hacking in this file, we could
+        # apparently just pass children here and
+        # set configure_view=False
         if "children" in kwargs:
             children += kwargs.pop("children")
 
