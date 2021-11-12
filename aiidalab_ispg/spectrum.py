@@ -9,7 +9,10 @@ import scipy
 from scipy import constants
 import numpy as np
 
+from aiida.orm import QueryBuilder
 from aiida.plugins import DataFactory
+
+XyData = DataFactory("array.xy")
 
 # TODO: Just pick one renderer to simplify all this mess.
 # Bokeh looks nicest by default and is fast out of the box.
@@ -102,6 +105,9 @@ class Spectrum(object):
         # x_max *= energy_factor_unit
         return x_min, x_max
 
+    # TODO: Define energy units as Enum in this file.
+    # TODO: Put this function outside of this class
+    # So that it can be useful for experimental spectrum as well
     def _get_energy_unit_factor(self, unit):
         # TODO: We should probably start from atomic units
         if unit.lower() == "ev":
@@ -197,6 +203,13 @@ class Spectrum(object):
 class SpectrumWidget(ipw.VBox):
 
     transitions = traitlets.List()
+    # We use SMILES to find matching experimental spectra
+    # that are possibly stored in our DB as XyData.
+    smiles = traitlets.Unicode()
+    experimental_spectrum = traitlets.Instance(XyData, allow_none=True)
+
+    # For now, we do not allow different intensity units
+    intensity_unit = "cm^2 per molecule"
 
     def __init__(self, **kwargs):
         title = ipw.HTML(
@@ -218,7 +231,7 @@ class SpectrumWidget(ipw.VBox):
                 "Description of fast",
             ],
         )
-        self.xunit_selector = ipw.RadioButtons(
+        self.energy_unit_selector = ipw.RadioButtons(
             # TODO: Make an enum with different energy units
             options=["eV", "nm", "cm^-1"],
             disabled=False,
@@ -228,7 +241,7 @@ class SpectrumWidget(ipw.VBox):
         controls = ipw.HBox(
             children=[
                 ipw.VBox(children=[self.kernel_selector, self.width_slider]),
-                self.xunit_selector,
+                self.energy_unit_selector,
             ]
         )
 
@@ -238,9 +251,9 @@ class SpectrumWidget(ipw.VBox):
             # TODO: Convert other renderers to this as well,
             # or get rid of them.
             self.spectrum_container.children = [self.figure]
-            self.kernel_selector.observe(self._handle_ui_event, names="value")
-            self.xunit_selector.observe(self._handle_ui_event, names="value")
-            self.width_slider.observe(self._handle_ui_event, names="value")
+            self.kernel_selector.observe(self._handle_kernel_update, names="value")
+            self.energy_unit_selector.observe(self._handle_energy_unit_update, names="value")
+            self.width_slider.observe(self._handle_width_update, names="value")
 
         super().__init__(
             [
@@ -251,26 +264,56 @@ class SpectrumWidget(ipw.VBox):
             **kwargs,
         )
 
-    def _handle_ui_event(self, change):
-        """Updates the spectrum when user touches the UI controls
-        We're trying to use the same handler for all controls,
-        since we need to redraw the spectrum in all cases."""
+    def _handle_width_update(self, change):
+        """Redraw spectra when user changes broadening width via slider"""
+        # TODO: We don't need to redraw axis labels in this case
+        width = change['new']
+        self._plot_spectrum(
+            width=width,
+            kernel=self.kernel_selector.value,
+            energy_unit=self.energy_unit_selector.value,
+        )
+        self.figure.update()
+
+    def _handle_kernel_update(self, change):
+        """Redraw spectra when user changes kernel for broadening"""
+        kernel = change['new']
+        self._plot_spectrum(
+            width=self.width_slider.value,
+            kernel=kernel,
+            energy_unit=self.energy_unit_selector.value,
+        )
+        self.figure.update()
+
+    def _handle_energy_unit_update(self, change):
+        """Updates the spectrum when user changes energy units
+           In this case, we also redraw experimental spectra, if available."""
+
+        energy_unit = change['new']
+        xlabel = f"Energy / {energy_unit}"
+        self.figure.get_figure().xaxis.axis_label = xlabel
+
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
-            energy_unit=self.xunit_selector.value,
+            energy_unit=energy_unit,
         )
+        if self.experimental_spectrum is not None:
+            self._plot_experimental_spectrum(
+                spectrum_node=self.experimental_spectrum,
+                energy_unit=energy_unit
+            )
+        self.figure.update()
 
     def _plot_spectrum(self, kernel, width, energy_unit):
         if not self._validate_transitions():
             return
         nsample = 1
         spec = Spectrum(self.transitions, nsample)
-        intensity_unit = "cm^2 per molecule"
         if kernel == "lorentzian":
-            x, y = spec.get_lorentzian_spectrum(width, energy_unit, intensity_unit)
+            x, y = spec.get_lorentzian_spectrum(width, energy_unit, self.intensity_unit)
         elif kernel == "gaussian":
-            x, y = spec.get_gaussian_spectrum(width, energy_unit, intensity_unit)
+            x, y = spec.get_gaussian_spectrum(width, energy_unit, self.intensity_unit)
         else:
             print("Invalid broadening type")
             return
@@ -278,25 +321,17 @@ class SpectrumWidget(ipw.VBox):
         # Matplotlib with ipywidgets
         # https://kapernikov.com/ipywidgets-with-matplotlib/
 
-        # TODO: Maybe determine optimal min max of x and y axes
-        # so that they don't change for different widths?
-        #
         # Remove previous lines.
         # This does not seem to be needed for matplotlib,
         # but somehow needed for bqplot.
         # [l.remove() for l in self.axes.lines]
         # Note for improving performance when using matplotlib
         # https://matplotlib.org/stable/tutorials/advanced/blitting.html#sphx-glr-tutorials-advanced-blitting-py
-        xlabel = f"Energy / {energy_unit}"
-        ylabel = f"Intensity / {intensity_unit}"
         if RENDERER == "BOKEH":
             # Rendering by BOKEH by
             f = self.figure.get_figure()
-            rend = f.renderers[0]
-            rend.data_source.data = {"x": x, "y": y}
-            f.xaxis.axis_label = xlabel
-            f.yaxis.axis_label = ylabel
-            self.figure.update()
+            line = f.select_one({'name': 'theory'})
+            line.data_source.data = {"x": x, "y": y}
         else:
             plt.plot(x, y)
             plt.xlabel(xlabel)
@@ -319,14 +354,25 @@ class SpectrumWidget(ipw.VBox):
         return True
 
     def _init_figure(self, *args, **kwargs):
-        if RENDERER == "BOKEH":
-            self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
-            # Need to initialize the line plot here
-            x = np.array([0.0, 1.0])
-            y = np.copy(x)
-            self.figure.get_figure().line(x, y, line_width=2)
-        else:
-            self.figure = plt.Figure(*args, **kwargs)
+        self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
+        f = self.figure.get_figure()
+        f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value}"
+        f.yaxis.axis_label = f"Intensity / {self.intensity_unit}"
+
+        # Initialize lines for theoretical and possible experimental spectra
+        # NOTE: Hardly earned experience: It is crucial that both lines
+        # are initiated here, before the figure is first shown. Otherwise,
+        # apparently updates via line.data_source are not picked up.
+        x = np.array([0.0, 1.0])
+        y = np.copy(x)
+        # TODO: Choose inclusive colors!
+        f.line(x, y, line_width=2, name='theory')
+        l = f.line(
+                x, y, line_width=2, line_dash='dashed', line_color='orange',
+                name='experiment'
+        )
+        # Experimental spectrum only available for some molecules
+        l.visible = False
 
     def _show_spectrum(self):
         if not self._validate_transitions:
@@ -337,15 +383,16 @@ class SpectrumWidget(ipw.VBox):
             self._plot_spectrum(
                 width=self.width_slider.value,
                 kernel=self.kernel_selector.value,
-                energy_unit=self.xunit_selector.value,
+                energy_unit=self.energy_unit_selector.value,
             )
+            self.figure.update()
         else:
             spectrum = ipw.interactive_output(
                 self._plot_spectrum,
                 {
                     "width": self.width_slider,
                     "kernel": self.kernel_selector,
-                    "energy_unit": self.xunit_selector,
+                    "energy_unit": self.energy_unit_selector,
                 },
             )
             self.spectrum_container.children = [spectrum]
@@ -354,16 +401,54 @@ class SpectrumWidget(ipw.VBox):
     def _observe_transitions(self, change):
         self._show_spectrum()
 
-    # TODO1: Figure out how to render experimental spectrum that is
-    # internally stored as XyData with extras.smiles
-    # TODO2: Figure out how to pass smiles through the workflow.
-    # (we probably should pass it from initial structure
-    # to RelaxedStructure that is the output from ORCA.
-    def _render_experimental_spectrum(self, smiles):
-        from aiida.orm import QueryBuilder
+    @traitlets.observe("smiles")
+    def _observe_smiles(self, change):
+        self._find_experimental_spectrum(change['new'])
 
-        XyData = DataFactory("array.xy")
+    # TODO: Put the experimental spectrum stuff in its own class?
+    def _find_experimental_spectrum(self, smiles):
         qb = QueryBuilder()
-        qb.append(XyData, filters={"extras.smiles": "C=CC=O"})
-        for spec in qb.iterall():
-            pass
+        qb.append(XyData, filters={"extras.smiles": smiles})
+
+        if qb.count() == 0:
+            # TODO: Remove this debug print
+            print(f"No experimental spectrum available for SMILES {smiles}")
+            return
+
+        # for spectrum in qb.iterall():
+        # TODO: For now let's just assume we have one canonical experiment
+        self.experimental_spectrum = qb.first()[0]
+        self._plot_experimental_spectrum(
+            spectrum_node=self.experimental_spectrum,
+            energy_unit=self.energy_unit_selector.value,
+        )
+        self.figure.update()
+
+    def _plot_experimental_spectrum(self, spectrum_node, energy_unit):
+        """Render experimental spectrum that was loaded to AiiDA database manually
+        param: spectrum_node: XyData node"""
+        # TODO: When we're creating spectrum as XyData,
+        # can we choose nicer names for x and y?
+        try:
+            # TODO: Extract units as well.
+            # TODO: Do this extraction only once for performance
+            # when switching units.
+            energy = spectrum_node.get_array("x_array")
+            cross_section = spectrum_node.get_array("y_array_0")
+        except:
+            print("ERROR: Could not extract experimental spectra from DB")
+
+        # TODO: Refactor how units are handled in this file for forks sake!
+        # We should decouple changing units from spectra plotting in general
+        # (e.g. do not recalculate the intensity of theoretical spectrum
+        # when units are changed!
+        if energy_unit.lower() == "ev":
+            energy = 1239.8 / energy
+        elif energy_unit.lower() == "cm^-1":
+            energy = 8065.7 * 1239.8 / energy
+
+        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
+        f = self.figure.get_figure()
+        line = f.select_one({'name': 'experiment'})
+        line.visible = True
+        line.data_source.data = {"x": energy, "y": cross_section}

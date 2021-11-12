@@ -540,6 +540,13 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             {"energy": tr[0] * CM2EV, "osc_strength": tr[1]} for tr in zip(en, osc)
         ]
         self.spectrum.transitions = transitions
+        if "smiles" in self.process.inputs.structure.extras:
+            self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
+            # We're attaching smiles extra for the optimized structure as well
+            # NOTE: You can distinguish between new / optimized geometries
+            # by looking at the 'creator' attribute of the Structure node.
+            if 'relaxed_structure' in self.process.outputs:
+                self.process.outputs.relaxed_structure.set_extra('smiles', self.spectrum.smiles)
 
     def _update_state(self):
         if self.process is None:
