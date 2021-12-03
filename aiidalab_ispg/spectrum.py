@@ -99,6 +99,8 @@ class Spectrum(object):
     # TODO: Put this function outside of this class
     # So that it can be useful for experimental spectrum as well
     def _get_energy_unit_factor(self, unit):
+
+        # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
         # TODO: We should probably start from atomic units
         if unit.lower() == "ev":
             return 1.0
@@ -106,7 +108,8 @@ class Spectrum(object):
         elif unit.lower() == "nm":
             return 1239.8
         elif unit.lower() == "cm^-1":
-            return 8065.7
+            # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
+            return 8065.547937
 
     def get_gaussian_spectrum(self, sigma, x_unit, y_unit):
         """Returns Gaussian broadened spectrum"""
@@ -192,14 +195,17 @@ class Spectrum(object):
 
 class SpectrumWidget(ipw.VBox):
 
-    transitions = traitlets.List()
+    transitions = traitlets.List(allow_none=True)
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
-    smiles = traitlets.Unicode()
+    smiles = traitlets.Unicode(allow_none=True)
     experimental_spectrum = traitlets.Instance(XyData, allow_none=True)
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm^2 per molecule"
+
+    THEORY_SPEC_LABEL = "theory"
+    EXP_SPEC_LABEL = "experiment"
 
     def __init__(self, **kwargs):
         title = ipw.HTML(
@@ -254,6 +260,21 @@ class SpectrumWidget(ipw.VBox):
             **kwargs,
         )
 
+    def _validate_transitions(self):
+        # TODO: Maybe use named tuple instead of dictionary?
+        # We should probably make a traitType for this and export it.
+        # https://realpython.com/python-namedtuple/
+        if self.transitions is None or len(self.transitions) == 0:
+            return False
+
+        for tr in self.transitions:
+            if not isinstance(tr, dict) or (
+                "energy" not in tr or "osc_strength" not in tr
+            ):
+                print("Invalid transition", tr)
+                return False
+        return True
+
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
         width = change["new"]
@@ -295,7 +316,9 @@ class SpectrumWidget(ipw.VBox):
 
     def _plot_spectrum(self, kernel, width, energy_unit):
         if not self._validate_transitions():
+            self.hide_line(self.THEORY_SPEC_LABEL)
             return
+
         # TODO: Pass in the number of geometries in NEA,
         # needed to normalize the spectrum.
         nsample = 1
@@ -308,30 +331,36 @@ class SpectrumWidget(ipw.VBox):
             print("Invalid broadening type")
             return
 
+        self.plot_line(x, y, self.THEORY_SPEC_LABEL)
+
+    # plot_line() and hide_line() are public, we allow for additinal studff to be plotted
+    def plot_line(self, x, y, label):
+        """To actually display the line, calling this function must be
+        followed by self.figure.update()"""
+        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         f = self.figure.get_figure()
-        line = f.select_one({"name": "theory"})
+        line = f.select_one({"name": label})
+        if line is None:
+            line = f.line(x, y, line_width=2, name=label)
+        line.visible = True
         line.data_source.data = {"x": x, "y": y}
+        # TODO: Remove this for performance
+        self.figure.update()
 
-    def _validate_transitions(self):
-        # TODO: Maybe use named tuple instead of dictionary?
-        # We should probably make a traitType for this and export it.
-        # https://realpython.com/python-namedtuple/
-        if len(self.transitions) == 0:
-            return False
-
-        for tr in self.transitions:
-            if not isinstance(tr, dict) or (
-                "energy" not in tr or "osc_strength" not in tr
-            ):
-                print("Invalid transition", tr)
-                return False
-        return True
+    def hide_line(self, label):
+        """Hide given line from the plot"""
+        f = self.figure.get_figure()
+        line = f.select_one({"name": label})
+        if line is None:
+            return
+        line.visible = False
+        self.figure.update()
 
     def _init_figure(self, *args, **kwargs):
         self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = self.figure.get_figure()
         f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value}"
-        f.yaxis.axis_label = f"Intensity / {self.intensity_unit}"
+        f.yaxis.axis_label = f"Cross section / {self.intensity_unit}"
 
         # Initialize lines for theoretical and possible experimental spectra
         # NOTE: Hardly earned experience: It is crucial that both lines
@@ -341,22 +370,21 @@ class SpectrumWidget(ipw.VBox):
         y = np.copy(x)
         # TODO: Choose inclusive colors!
         # https://doi.org/10.1038/s41467-020-19160-7
-        f.line(x, y, line_width=2, name="theory")
+        theory_line = f.line(x, y, line_width=2, name=self.THEORY_SPEC_LABEL)
+        theory_line.visible = False
         exp_line = f.line(
             x,
             y,
             line_width=2,
             line_dash="dashed",
             line_color="orange",
-            name="experiment",
+            name=self.EXP_SPEC_LABEL,
         )
         # Experimental spectrum only available for some molecules
         exp_line.visible = False
 
-    def _show_spectrum(self):
-        if not self._validate_transitions:
-            # TODO: Add error handling.
-            return
+    @traitlets.observe("transitions")
+    def _observe_transitions(self, change):
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
@@ -364,23 +392,25 @@ class SpectrumWidget(ipw.VBox):
         )
         self.figure.update()
 
-    @traitlets.observe("transitions")
-    def _observe_transitions(self, change):
-        self._show_spectrum()
-
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
         self._find_experimental_spectrum(change["new"])
 
-    # TODO: Put the experimental spectrum stuff in its own class?
     def _find_experimental_spectrum(self, smiles):
+        """Find an experimental spectrum for a given SMILES
+        and plot it if it is available in our DB"""
+        if smiles is None or smiles == "":
+            self.hide_line(self.EXP_SPEC_LABEL)
+            return
+
         qb = QueryBuilder()
         # TODO: Should we subclass XyData specifically for UV/Vis spectra?
         # Or should we differentiate from other possible Xy nodes
-        # by looking at attributes or extras?
+        # by looking at attributes or extras? Maybe label?
         qb.append(XyData, filters={"extras.smiles": smiles})
 
         if qb.count() == 0:
+            self.hide_line(self.EXP_SPEC_LABEL)
             return
 
         # for spectrum in qb.iterall():
@@ -399,6 +429,7 @@ class SpectrumWidget(ipw.VBox):
         energy_unit: energy unit of the plotted spectra"""
         # TODO: When we're creating spectrum as XyData,
         # can we choose nicer names for x and y?
+        # This would also serve as a validation.
 
         if (
             "x_array" not in spectrum_node.get_arraynames()
@@ -407,7 +438,7 @@ class SpectrumWidget(ipw.VBox):
             return
         energy = spectrum_node.get_array("x_array")
         cross_section = spectrum_node.get_array("y_array_0")
-        # TODO: TODO: Extract units
+        # TODO: Extract units
         # TODO: We really need to define units as Enum and use them
         # consistently everywhere.
         # data_energy_unit = spectrum.node.get_attribute('x_units')
@@ -422,8 +453,4 @@ class SpectrumWidget(ipw.VBox):
         elif energy_unit.lower() == "cm^-1":
             energy = 8065.7 * 1239.8 / energy
 
-        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
-        f = self.figure.get_figure()
-        line = f.select_one({"name": "experiment"})
-        line.visible = True
-        line.data_source.data = {"x": energy, "y": cross_section}
+        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL)

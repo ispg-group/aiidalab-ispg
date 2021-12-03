@@ -134,7 +134,7 @@ class CodeSettings(ipw.VBox):
         )
 
 
-class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
+class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     """Step for submission of a bands workchain."""
 
     input_structure = traitlets.Instance(StructureData, allow_none=True)
@@ -388,6 +388,19 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         parameters["input_blocks"]["tddft"] = tddft
         return parameters
 
+    def add_compound_optimization(self, orca_parameters, basis, method):
+        parameters = deepcopy(orca_parameters)
+        # TODO: Make this work in orca plugin
+        parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
+        # TODO:
+        # with open("parameters/iterativeOptimization.cmp") as f:
+        #    s = f.read().format(basis=basis, method=method)
+        # TODO: Store s as "SingleFileData"
+        # https://stackoverflow.com/questions/7585435/best-way-to-convert-string-to-bytes-in-python-3
+        # file_node = SingleFileData(s)
+        # parameters.file['compound'] = file_node
+        return parameters
+
     def submit(self, _=None):
 
         assert self.input_structure is not None
@@ -448,7 +461,7 @@ class SubmitQeAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         return DEFAULT_PARAMETERS
 
 
-class ViewQeAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
+class ViewOrcaAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
 
     process = traitlets.Instance(ProcessNode, allow_none=True)
 
@@ -525,6 +538,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def reset(self):
         self.process = None
+        self.spectrum.smiles = None
+        self.spectrum.transitions = None
 
     def _show_spectrum(self):
         if self.process.process_state != ProcessState.FINISHED:
@@ -539,14 +554,19 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         transitions = [
             {"energy": tr[0] * CM2EV, "osc_strength": tr[1]} for tr in zip(en, osc)
         ]
+        # Resetting smiles in case we already plotted experimental
+        # spectrum before. TODO: Is this the best way to reset it?
+        self.spectrum.smiles = None
         self.spectrum.transitions = transitions
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structure as well
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
-            if 'relaxed_structure' in self.process.outputs:
-                self.process.outputs.relaxed_structure.set_extra('smiles', self.spectrum.smiles)
+            if "relaxed_structure" in self.process.outputs:
+                self.process.outputs.relaxed_structure.set_extra(
+                    "smiles", self.spectrum.smiles
+                )
 
     def _update_state(self):
         if self.process is None:
