@@ -318,10 +318,14 @@ class SpectrumWidget(ipw.VBox):
         if not self._validate_transitions():
             self.hide_line(self.THEORY_SPEC_LABEL)
             return
+        # TODO: Remove this try/except, and figure out a better
+        # way to pass number of samples maybe.
+        try:
+            nsample = self.transitions[-1]["geom_index"] + 1
+        except KeyError:
+            print("Could not determine number of samples")
+            nsample = 1
 
-        # TODO: Pass in the number of geometries in NEA,
-        # needed to normalize the spectrum.
-        nsample = 1
         spec = Spectrum(self.transitions, nsample)
         if kernel == "lorentzian":
             x, y = spec.get_lorentzian_spectrum(width, energy_unit, self.intensity_unit)
@@ -351,7 +355,7 @@ class SpectrumWidget(ipw.VBox):
         """Hide given line from the plot"""
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
-        if line is None:
+        if line is None or not line.visible:
             return
         line.visible = False
         self.figure.update()

@@ -36,6 +36,7 @@ from aiidalab_ispg.spectrum import SpectrumWidget
 StructureData = DataFactory("structure")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
+Int = DataFactory("int")
 
 
 class WorkChainSettings(ipw.VBox):
@@ -419,8 +420,8 @@ class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         nroots = 3
         tddft_parameters = self.add_tddft_orca_params(orca_parameters, nroots)
         optimization_parameters = deepcopy(orca_parameters)
-        optimization_parameters["input_keywords"].append("Opt")
-        # optimization_parameters['input_keywords'].append('AnFreq')
+        optimization_parameters["input_keywords"].append("TightOpt")
+        optimization_parameters["input_keywords"].append("AnFreq")
 
         builder.exc.orca.parameters = Dict(dict=tddft_parameters)
         builder.opt.orca.parameters = Dict(dict=optimization_parameters)
@@ -445,6 +446,10 @@ class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         if self.workchain_settings.geo_opt_type.value == "NONE":
             builder.optimize = Bool(False)
+
+        # TODO: Make this configurable
+        # Wigner will be sampled only when optimize == True
+        builder.nwigner = Int(3)
 
         self.process = submit(builder)
 
@@ -542,21 +547,37 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.spectrum.transitions = None
 
     def _show_spectrum(self):
+        # TODO: Show single point spectrum before Wigner
         if self.process.process_state != ProcessState.FINISHED:
             return
 
-        output_params = self.process.outputs.output_parameters.get_dict()
-        # TODO: Add error handling
-        en = output_params["etenergies"]
-        osc = output_params["etoscs"]
         # TODO: Use atomic units both for energies and osc. strengths
-        CM2EV = 1 / 8065.7
-        transitions = [
-            {"energy": tr[0] * CM2EV, "osc_strength": tr[1]} for tr in zip(en, osc)
-        ]
-        # Resetting smiles in case we already plotted experimental
-        # spectrum before. TODO: Is this the best way to reset it?
-        self.spectrum.smiles = None
+        CM2EV = 1 / 8065.547937
+
+        # TODO: Handle different kind of spectra
+        # output_params = self.process.outputs.single_point_tddft.get_dict()
+        wigner_outputs = self.process.outputs.wigner_tddft.get_list()
+        nsample = len(wigner_outputs)
+        transitions = []
+        for i, params in zip(range(nsample), wigner_outputs):
+            en = params["etenergies"]
+            osc = params["etoscs"]
+            transitions += [
+                {
+                    "energy": tr[0] * CM2EV,
+                    "osc_strength": tr[1],
+                    "geom_index": i,
+                }
+                for tr in zip(en, osc)
+            ]
+        # TODO: Add error handling
+        # en = output_params["etenergies"]
+        # osc = output_params["etoscs"]
+        # TODO: Use atomic units both for energies and osc. strengths
+        # transitions = [
+        #    {"energy": tr[0] * CM2EV, "osc_strength": tr[1], "geom_index": 0} for tr in zip(en, osc)
+        # ]
+
         self.spectrum.transitions = transitions
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
@@ -567,6 +588,10 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 self.process.outputs.relaxed_structure.set_extra(
                     "smiles", self.spectrum.smiles
                 )
+        else:
+            # Resetting smiles in case we already plotted experimental
+            # spectrum before.
+            self.spectrum.smiles = None
 
     def _update_state(self):
         if self.process is None:
