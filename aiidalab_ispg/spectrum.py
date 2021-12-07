@@ -219,7 +219,7 @@ class SpectrumWidget(ipw.VBox):
 
         self.kernel_selector = ipw.ToggleButtons(
             options=["gaussian", "lorentzian"],
-            description="Broadening kernel:",
+            description="Broadening",
             disabled=False,
             button_style="info",
             tooltips=[
@@ -242,7 +242,18 @@ class SpectrumWidget(ipw.VBox):
             ]
         )
 
-        self._init_figure()
+        # TODO: Add Download button for downloading raw data
+        # as an CSV file
+        # https://github.com/bokeh/bokeh/tree/branch-3.0/examples/app/export_csv
+
+        # We use this for Debug output for now
+        self.debug_output = ipw.Output()
+
+        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
+        tools = "pan,wheel_zoom,box_zoom,reset"
+        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
+        tooltips = [("(energy, cross_section)", "($x,$y)")]
+        self._init_figure(tools=tools, tooltips=tooltips)
         self.spectrum_container = ipw.Box()
         self.spectrum_container.children = [self.figure]
         self.kernel_selector.observe(self._handle_kernel_update, names="value")
@@ -254,6 +265,7 @@ class SpectrumWidget(ipw.VBox):
         super().__init__(
             [
                 title,
+                self.debug_output,
                 controls,
                 self.spectrum_container,
             ],
@@ -271,7 +283,7 @@ class SpectrumWidget(ipw.VBox):
             if not isinstance(tr, dict) or (
                 "energy" not in tr or "osc_strength" not in tr
             ):
-                print("Invalid transition", tr)
+                self.debug_print("Invalid transition", tr)
                 return False
         return True
 
@@ -323,7 +335,7 @@ class SpectrumWidget(ipw.VBox):
         try:
             nsample = self.transitions[-1]["geom_index"] + 1
         except KeyError:
-            print("Could not determine number of samples")
+            self.debug_print("Could not determine number of samples")
             nsample = 1
 
         spec = Spectrum(self.transitions, nsample)
@@ -332,10 +344,14 @@ class SpectrumWidget(ipw.VBox):
         elif kernel == "gaussian":
             x, y = spec.get_gaussian_spectrum(width, energy_unit, self.intensity_unit)
         else:
-            print("Invalid broadening type")
+            self.debug_print("Invalid broadening type")
             return
 
         self.plot_line(x, y, self.THEORY_SPEC_LABEL)
+
+    def debug_print(self, *args):
+        with self.debug_output:
+            print(*args)
 
     # plot_line() and hide_line() are public, we allow for additinal studff to be plotted
     def plot_line(self, x, y, label):
@@ -361,6 +377,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.update()
 
     def _init_figure(self, *args, **kwargs):
+        """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = self.figure.get_figure()
         f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value}"
@@ -386,6 +403,15 @@ class SpectrumWidget(ipw.VBox):
         )
         # Experimental spectrum only available for some molecules
         exp_line.visible = False
+
+    def reset(self):
+        with self.hold_trait_notifications():
+            self.transitions = None
+            self.smiles = None
+
+        self.hide_line(self.EXP_SPEC_LABEL)
+        self.hide_line(self.THEORY_SPEC_LABEL)
+        self.debug_output.clear_output()
 
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):

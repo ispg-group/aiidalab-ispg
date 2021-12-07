@@ -35,8 +35,6 @@ from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
 Dict = DataFactory("dict")
-Bool = DataFactory("bool")
-Int = DataFactory("int")
 
 
 class WorkChainSettings(ipw.VBox):
@@ -445,11 +443,10 @@ class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         builder.opt.orca.metadata.description = "ORCA geometry optimization"
 
         if self.workchain_settings.geo_opt_type.value == "NONE":
-            builder.optimize = Bool(False)
+            builder.optimize = False
 
-        # TODO: Make this configurable
         # Wigner will be sampled only when optimize == True
-        builder.nwigner = Int(3)
+        builder.nwigner = self.qm_config.nwigner.value
 
         self.process = submit(builder)
 
@@ -543,40 +540,43 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def reset(self):
         self.process = None
-        self.spectrum.smiles = None
-        self.spectrum.transitions = None
+        self.spectrum.reset()
 
-    def _show_spectrum(self):
-        # TODO: Show single point spectrum before Wigner
-        if self.process.process_state != ProcessState.FINISHED:
-            return
-
+    def _orca_output_to_transitions(self, output_dict, geom_index):
         # TODO: Use atomic units both for energies and osc. strengths
         CM2EV = 1 / 8065.547937
+        # TODO: Add error handling
+        en = output_dict["etenergies"]
+        osc = output_dict["etoscs"]
+        assert len(en) == len(osc)
+        # TODO: Use atomic units both for energies and osc. strengths
+        return [
+            {"energy": tr[0] * CM2EV, "osc_strength": tr[1], "geom_index": geom_index}
+            for tr in zip(en, osc)
+        ]
 
-        # TODO: Handle different kind of spectra
-        # output_params = self.process.outputs.single_point_tddft.get_dict()
-        wigner_outputs = self.process.outputs.wigner_tddft.get_list()
+    def _wigner_output_to_transitions(self, wigner_outputs):
         nsample = len(wigner_outputs)
         transitions = []
         for i, params in zip(range(nsample), wigner_outputs):
-            en = params["etenergies"]
-            osc = params["etoscs"]
-            transitions += [
-                {
-                    "energy": tr[0] * CM2EV,
-                    "osc_strength": tr[1],
-                    "geom_index": i,
-                }
-                for tr in zip(en, osc)
-            ]
-        # TODO: Add error handling
-        # en = output_params["etenergies"]
-        # osc = output_params["etoscs"]
-        # TODO: Use atomic units both for energies and osc. strengths
-        # transitions = [
-        #    {"energy": tr[0] * CM2EV, "osc_strength": tr[1], "geom_index": 0} for tr in zip(en, osc)
-        # ]
+            transitions += self._orca_output_to_transitions(params, i)
+        return transitions
+
+    def _show_spectrum(self):
+        # TODO: Show single point spectrum before Wigner
+        if self.process is None or self.process.process_state != ProcessState.FINISHED:
+            return
+
+        # TODO: Handle different kind of computed spectra simultaneously.
+        output_params = self.process.outputs.single_point_tddft.get_dict()
+        transitions = self._orca_output_to_transitions(output_params, 0)
+
+        if "wigner_tddft" in self.process.outputs:
+            wigner_outputs = self.process.outputs.wigner_tddft.get_list()
+            transitions = self._wigner_output_to_transitions(wigner_outputs)
+            self.spectrum.debug_print("NEA Wigner spectrum")
+        else:
+            self.spectrum.debug_print("Single point spectrum")
 
         self.spectrum.transitions = transitions
         if "smiles" in self.process.inputs.structure.extras:

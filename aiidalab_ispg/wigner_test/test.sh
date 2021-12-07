@@ -6,5 +6,5 @@ rm -f initconds_new.xyz initconds.xyz
 
 # TODO: This currently fails
 echo "Testing wigner_test.py"
-../wigner_test.py > /dev/null
+../test_wigner.py > /dev/null
 diff initconds.xyz initconds_new.xyz

@@ -4,6 +4,7 @@ import ase
 from aiida.engine import WorkChain, calcfunction
 from aiida.engine import append_, ToContext, if_  # while_
 from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
+from aiida.orm import to_aiida_type
 
 from aiidalab_ispg.wigner import Wigner
 
@@ -107,9 +108,16 @@ class OrcaRelaxAndTDDFTWorkChain(WorkChain):
         spec.input("code", valid_type=Code)
 
         # Whether to perform geometry optimization or not
-        spec.input("optimize", valid_type=Bool, default=lambda: Bool(True))
+        spec.input(
+            "optimize",
+            valid_type=Bool,
+            default=lambda: Bool(True),
+            serializer=to_aiida_type,
+        )
         # Number of Wigner geometries (computed only when optimize==True)
-        spec.input("nwigner", valid_type=Int, default=lambda: Int(2))
+        spec.input(
+            "nwigner", valid_type=Int, default=lambda: Int(2), serializer=to_aiida_type
+        )
 
         spec.output("relaxed_structure", valid_type=StructureData, required=False)
         spec.output(
@@ -138,7 +146,7 @@ class OrcaRelaxAndTDDFTWorkChain(WorkChain):
             ),
             cls.excite,
             cls.inspect_excitation,
-            if_(cls.should_optimize)(
+            if_(cls.should_run_wigner)(
                 cls.wigner_sampling,
                 cls.wigner_excite,
                 cls.inspect_wigner_excitation,
@@ -195,7 +203,6 @@ class OrcaRelaxAndTDDFTWorkChain(WorkChain):
         self.ctx.wigner_structures = generate_wigner_structures(
             self.ctx.calc_opt.outputs.output_parameters, self.inputs.nwigner
         )
-        return
 
     def wigner_excite(self):
         inputs = self.exposed_inputs(
@@ -254,6 +261,9 @@ class OrcaRelaxAndTDDFTWorkChain(WorkChain):
             return True
         return False
 
+    def should_run_wigner(self):
+        return self.should_optimize() and self.inputs.nwigner > 0
+
     def results(self):
         """Expose results from child workchains"""
 
@@ -262,6 +272,8 @@ class OrcaRelaxAndTDDFTWorkChain(WorkChain):
             # cannot use out_many, since we only want to take
             # relaxed_structure, and not output_parameters
             self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
+
+        if self.inputs.optimize and self.inputs.nwigner > 0:
             self.out("wigner_tddft", self.ctx.wigner_outputs)
 
         self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)

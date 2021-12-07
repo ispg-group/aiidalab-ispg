@@ -275,21 +275,28 @@ class ResourceSelectionWidget(ipw.VBox):
 class QMSelectionWidget(ipw.VBox):
     """Widget for selecting ab initio level (basis set, method, etc.)"""
 
-    title = ipw.HTML(
+    qm_title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
         <h4>QM method selection</h4>
         </div>"""
     )
 
-    promp = ipw.HTML(
+    spectra_title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Spectrum settings</h4>
+        </div>"""
+    )
+
+    spectra_desc = ipw.HTML(
         """<div style="line-height:120%; padding-top:0px">
         <p style="padding-bottom:10px">
-        Specify DFT functional and basis set
+        Settings for modeling UV/VIS spectrum
         </p></div>"""
     )
 
     def __init__(self, **kwargs):
         style = {"description_width": "initial"}
+
         self.method = ipw.Text(
             value="pbe",
             description="DFT functional",
@@ -301,13 +308,26 @@ class QMSelectionWidget(ipw.VBox):
             value="def2-svp", description="Basis set", placeholder="Type Basis Set"
         )
 
+        self.nwigner = ipw.BoundedIntText(
+            value=1,
+            step=1,
+            min=0,
+            max=1000,
+            style=style,
+            description="Number of Wigner samples",
+        )
+
         super().__init__(
             children=[
-                self.title,
+                self.qm_title,
                 ipw.HBox(children=[self.method, self.basis]),
+                self.spectra_title,
+                self.spectra_desc,
+                self.nwigner,
             ]
         )
 
     def reset(self):
         self.method = "pbe"
         self.basis = "def2-svp"
+        self.nwigner = 1
