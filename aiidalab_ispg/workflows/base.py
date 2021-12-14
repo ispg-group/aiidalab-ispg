@@ -92,7 +92,7 @@ def generate_wigner_structures(orca_output_dict, nsample):
     return TrajectoryData(structurelist=wigner_list)
 
 
-class OrcaRelaxAndTDDFTWorkChain(WorkChain):
+class OrcaWignerSpectrumWorkChain(WorkChain):
     """Basic workchain for single point TDDFT on optimized geometry"""
 
     @classmethod

@@ -8,7 +8,7 @@ import traitlets
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node
 
-WORKCHAIN_LABEL = "OrcaRelaxAndTDDFTWorkChain"
+WORKCHAIN_LABEL = "OrcaWignerSpectrumWorkChain"
 
 
 class WorkChainSelector(ipw.HBox):

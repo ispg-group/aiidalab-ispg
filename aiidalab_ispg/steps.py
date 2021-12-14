@@ -30,7 +30,7 @@ from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
 # TODO: Move this to a separate plugin or package somehow
-from aiidalab_ispg.workflows.base import OrcaRelaxAndTDDFTWorkChain
+from aiidalab_ispg.workflows.base import OrcaWignerSpectrumWorkChain
 from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
@@ -406,7 +406,7 @@ class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder_parameters = self.builder_parameters.copy()
 
-        builder = OrcaRelaxAndTDDFTWorkChain.get_builder()
+        builder = OrcaWignerSpectrumWorkChain.get_builder()
 
         orca_code = self.codes_selector.orca.selected_code
         builder.code = orca_code

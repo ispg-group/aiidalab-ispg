@@ -387,8 +387,8 @@ class SpectrumWidget(ipw.VBox):
         # NOTE: Hardly earned experience: It is crucial that both lines
         # are initiated here, before the figure is first shown. Otherwise,
         # apparently updates via line.data_source are not picked up.
-        x = np.array([0.0, 1.0])
-        y = np.copy(x)
+        x = np.array([4.0])
+        y = np.array([0.0])
         # TODO: Choose inclusive colors!
         # https://doi.org/10.1038/s41467-020-19160-7
         theory_line = f.line(x, y, line_width=2, name=self.THEORY_SPEC_LABEL)

@@ -11,10 +11,13 @@ template = """
   <th style="text-align:center">ISPG testing Applications</th>
 <tr>
   <td valign="top"><ul>
-    <li><a href="{appbase}/example.ipynb" target="_blank">Notebook prototype</a></li>
+    <li><a href="{appbase}/example.ipynb" target="_blank">Notebook prototyping</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/orca_optimization.ipynb" target="_blank">ORCA optimization</a></li>
+    <li><a href="{appbase}/spectrum_widget.ipynb" target="_blank">Spectrum Widget</a></li>
+  </ul></td>
+  <td valign="top"><ul>
+    <li><a href="{appbase}/orca_optimization.ipynb" target="_blank">NEA UV/VIS spectrum</a></li>
   </ul></td>
 </tr>
 </table>
