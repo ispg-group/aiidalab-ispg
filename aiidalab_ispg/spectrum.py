@@ -250,7 +250,7 @@ class SpectrumWidget(ipw.VBox):
         self.debug_output = ipw.Output()
 
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
-        tools = "pan,wheel_zoom,box_zoom,reset"
+        tools = "pan,wheel_zoom,box_zoom,reset,save"
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
         tooltips = [("(energy, cross_section)", "($x,$y)")]
         self._init_figure(tools=tools, tooltips=tooltips)
@@ -295,7 +295,6 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.figure.update()
 
     def _handle_kernel_update(self, change):
         """Redraw spectra when user changes kernel for broadening"""
@@ -305,7 +304,6 @@ class SpectrumWidget(ipw.VBox):
             kernel=kernel,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.figure.update()
 
     def _handle_energy_unit_update(self, change):
         """Updates the spectrum when user changes energy units
@@ -324,7 +322,6 @@ class SpectrumWidget(ipw.VBox):
             self._plot_experimental_spectrum(
                 spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
             )
-        self.figure.update()
 
     def _plot_spectrum(self, kernel, width, energy_unit):
         if not self._validate_transitions():
@@ -353,18 +350,22 @@ class SpectrumWidget(ipw.VBox):
         with self.debug_output:
             print(*args)
 
-    # plot_line() and hide_line() are public, we allow for additinal studff to be plotted
-    def plot_line(self, x, y, label):
-        """To actually display the line, calling this function must be
-        followed by self.figure.update()"""
+    # plot_line(), hide_line() and remove_line() are public
+    # so that additinal stuff can be plotted.
+    def plot_line(self, x, y, label, **args):
+        """Update existing plot line or create a new one.
+        Updating existing plot lines unfortunately only work for label=theory
+        and label=experiment, that are predefined in _init_figure()
+        To modify a custom line, first remove it by calling remove_line(label)
+
+        **args additional arguments are passed into Figure.line()"""
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
         if line is None:
-            line = f.line(x, y, line_width=2, name=label)
+            line = f.line(x, y, line_width=2, name=label, **args)
         line.visible = True
         line.data_source.data = {"x": x, "y": y}
-        # TODO: Remove this for performance
         self.figure.update()
 
     def hide_line(self, label):
@@ -374,6 +375,19 @@ class SpectrumWidget(ipw.VBox):
         if line is None or not line.visible:
             return
         line.visible = False
+        self.figure.update()
+
+    def remove_line(self, label):
+        # This approach is potentially britle, see:
+        # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
+        # Observation: Removing and adding lines via
+        # plot_line() and remove_line() works well. However, doing
+        # updates on existing lines only works for lines defined in _init_figure()
+        f = self.figure.get_figure()
+        line = f.select_one({"name": label})
+        if line is None:
+            return
+        f.renderers.remove(line)
         self.figure.update()
 
     def _init_figure(self, *args, **kwargs):
@@ -386,7 +400,7 @@ class SpectrumWidget(ipw.VBox):
         # Initialize lines for theoretical and possible experimental spectra
         # NOTE: Hardly earned experience: It is crucial that both lines
         # are initiated here, before the figure is first shown. Otherwise,
-        # apparently updates via line.data_source are not picked up.
+        # updates via line.data_source are not picked up for some unknown reason.
         x = np.array([4.0])
         y = np.array([0.0])
         # TODO: Choose inclusive colors!
@@ -420,7 +434,6 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.figure.update()
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
@@ -451,7 +464,6 @@ class SpectrumWidget(ipw.VBox):
             spectrum_node=self.experimental_spectrum,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.figure.update()
 
     def _plot_experimental_spectrum(self, spectrum_node, energy_unit):
         """Render experimental spectrum that was loaded to AiiDA database manually
