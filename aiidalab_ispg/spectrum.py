@@ -397,34 +397,25 @@ class SpectrumWidget(ipw.VBox):
         f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value}"
         f.yaxis.axis_label = f"Cross section / {self.intensity_unit}"
 
-        # Initialize lines for theoretical and possible experimental spectra
-        # NOTE: Hardly earned experience: It is crucial that both lines
-        # are initiated here, before the figure is first shown. Otherwise,
-        # updates via line.data_source are not picked up for some unknown reason.
+        # Initialize line for theoretical spectrum.
+        # NOTE: Hardly earned experience: For any lines added later, their updates
+        # via line.data_source are not picked up for some unknown reason.
+        # Thus, if they need to be updated (e.g. experimental spectrum),
+        # they have to be removed (remove_line()) and added again.
         x = np.array([4.0])
         y = np.array([0.0])
         # TODO: Choose inclusive colors!
         # https://doi.org/10.1038/s41467-020-19160-7
         theory_line = f.line(x, y, line_width=2, name=self.THEORY_SPEC_LABEL)
         theory_line.visible = False
-        exp_line = f.line(
-            x,
-            y,
-            line_width=2,
-            line_dash="dashed",
-            line_color="orange",
-            name=self.EXP_SPEC_LABEL,
-        )
-        # Experimental spectrum only available for some molecules
-        exp_line.visible = False
 
     def reset(self):
         with self.hold_trait_notifications():
             self.transitions = None
             self.smiles = None
 
-        self.hide_line(self.EXP_SPEC_LABEL)
         self.hide_line(self.THEORY_SPEC_LABEL)
+        self.remove_line(self.EXP_SPEC_LABEL)
         self.debug_output.clear_output()
 
     @traitlets.observe("transitions")
@@ -443,7 +434,7 @@ class SpectrumWidget(ipw.VBox):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
         if smiles is None or smiles == "":
-            self.hide_line(self.EXP_SPEC_LABEL)
+            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         qb = QueryBuilder()
@@ -453,7 +444,7 @@ class SpectrumWidget(ipw.VBox):
         qb.append(XyData, filters={"extras.smiles": smiles})
 
         if qb.count() == 0:
-            self.hide_line(self.EXP_SPEC_LABEL)
+            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         # for spectrum in qb.iterall():
@@ -495,4 +486,8 @@ class SpectrumWidget(ipw.VBox):
         elif energy_unit.lower() == "cm^-1":
             energy = 8065.7 * 1239.8 / energy
 
-        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL)
+        line_options = {
+            "line_color": "orange",
+            "line_dash": "dashed",
+        }
+        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
