@@ -85,7 +85,10 @@ def generate_wigner_structures(orca_output_dict, nsample):
         # TODO: We shouldn't need to specify cell
         # https://github.com/aiidateam/aiida-core/issues/5248
         ase_struct = ase.Atoms(
-            positions=wigner_coord_ang, symbols=elements, cell=(1.0, 1.0, 1.0)
+            positions=wigner_coord_ang,
+            symbols=elements,
+            cell=(1.0, 1.0, 1.0),
+            pbc=False,
         )
         wigner_list.append(StructureData(ase=ase_struct))
 

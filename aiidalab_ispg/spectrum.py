@@ -18,7 +18,8 @@ from aiida.plugins import DataFactory
 from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
-output_notebook()
+# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
+output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
 
 

@@ -12,15 +12,15 @@ from threading import Event, Lock, Thread
 
 import ipywidgets as ipw
 import traitlets
+import nglview
 from aiida.orm import CalcJobNode, Node
 from aiidalab_widgets_base import register_viewer_widget, viewer
+from aiidalab_widgets_base.viewers import StructureDataViewer
 from IPython.display import clear_output, display
 
-# trigger registration of the viewer widget:
-# DH: Commenting out for now to prevent this error
-# ImportError: cannot import name 'node_view' from partially initialized module 'aiidalab_ispg.widgets' (most likely due to a circular import) (/home/aiida/apps/aiidalab-dhtest/aiidalab_ispg/widgets.py)
+from aiida.plugins import DataFactory
 
-# from aiidalab_ispg.widgets import node_view  # noqa: F401
+TrajectoryData = DataFactory("array.trajectory")
 
 __all__ = [
     "CalcJobOutputFollower",
@@ -215,6 +215,76 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         restrict_num_lines = None if self.calcjob.is_sealed else -10
         new_lines = "\n".join(self.output_follower.output[restrict_num_lines:])
         self.log_output.value = self.output_follower.filename, new_lines
+
+
+@register_viewer_widget("data.array.trajectory.TrajectoryData.")
+class TrajectoryDataViewer(StructureDataViewer):
+
+    trajectory = traitlets.Instance(Node, allow_none=True)
+    _structures = []
+
+    def __init__(self, trajectory=None, **kwargs):
+        # Trajectory navigator.
+        self._step_selector = ipw.IntSlider(
+            min=1,
+            max=1,
+            disabled=True,
+            description="Frame:",
+        )
+        self._step_selector.observe(self.update_selection, names="value")
+        children = [self._step_selector]
+
+        super().__init__(
+            children=children, configuration_tabs=["Selection", "Download"], **kwargs
+        )
+
+        self.trajectory = trajectory
+
+    def update_selection(self, change):
+        """Display selected structure"""
+        self.structure = self._structures[change["new"] - 1]
+
+    @traitlets.observe("trajectory")
+    def _update_trajectory(self, change):
+        trajectory = change["new"]
+        if trajectory is None:
+            self._step_selector.min = 1
+            self._step_selector.max = 1
+            self._step_selector.disabled = True
+            return
+
+        if isinstance(trajectory, TrajectoryData):
+            self._structures = [
+                trajectory.get_step_structure(i) for i in self.trajectory.get_stepids()
+            ]
+        else:
+            self._structures = [trajectory]
+
+        nframes = len(self._structures)
+        self._step_selector.max = nframes
+        if nframes == 1:
+            self.structure = self._structures[0]
+        else:
+            self._step_selector.disabled = False
+            # For some reason, this does not trigger observer
+            # if this value was already there, so we update manually
+            if self._step_selector.value == 1:
+                self.structure = self._structures[0]
+            else:
+                self._step_selector.value = 1
+
+    # Slightly modified from StructureDataViewer for performance
+    @traitlets.observe("displayed_structure")
+    def _update_structure_viewer(self, change):
+        """Update the view if displayed_structure trait was modified."""
+        with self.hold_trait_notifications():
+            for (
+                comp_id
+            ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+                self._viewer.remove_component(comp_id)
+            self.selection = list()
+            if change["new"] is not None:
+                self._viewer.add_component(nglview.ASEStructure(change["new"]))
 
 
 class NodeViewWidget(ipw.VBox):
