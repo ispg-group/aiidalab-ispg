@@ -6,7 +6,7 @@ from aiida.engine import append_, ToContext, if_  # while_
 from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
 
-from aiidalab_ispg.wigner import Wigner
+from .wigner import Wigner
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
@@ -323,3 +323,5 @@ class OrcaTddftWorkchain(WorkChain):
 
     def setup(self):
         pass
+
+__version__ = "1.0"

@@ -29,8 +29,7 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
-# TODO: Move this to a separate plugin or package somehow
-from aiidalab_ispg.workflows.base import OrcaWignerSpectrumWorkChain
+from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
 from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
