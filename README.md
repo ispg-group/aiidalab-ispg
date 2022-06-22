@@ -68,7 +68,7 @@ so the command above only needs to be executed once, even if you restart the con
 
 6. Setup ORCA code on localhost.
 ```sh
-$ aiidalab-launch exec -- bash /home/$USER/apps/aiidalab-ispg/setup_codes_on_localhost.sh
+$ aiidalab-launch exec -- bash /home/aiida/apps/aiidalab-ispg/setup_codes_on_localhost.sh
 ```
 This sets up the required code nodes in AiiDA DB. Since the DB is persisted in the
 'home_mount' volume, this needs to only be done once for a give aiidalab profile.
