@@ -74,3 +74,9 @@ This sets up the required code nodes in AiiDA DB. Since the DB is persisted in t
 'home_mount' volume, this needs to only be done once for a give aiidalab profile.
 
 If you are planning to launch codes on external computer, this step needs to be modified.
+
+7. [Optional] Re-install packages for development
+```sh
+$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-ispg/
+$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-widgets-base/
+```
