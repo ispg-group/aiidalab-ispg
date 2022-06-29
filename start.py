@@ -4,7 +4,7 @@ import ipywidgets as ipw
 
 template = """
 <div align="center">
-    <img src="{appbase}/atmospec_logo-01.png" height="128px" width=453px">
+    <img src="{appbase}/aiidalab_ispg/static/atmospec_logo-01.png" height="128px" width=453px">
 </div>
 <table>
 <tr>
@@ -21,6 +21,9 @@ template = """
   </ul></td>
   <td valign="top"><ul>
     <li><a href="{appbase}/orca_optimization.ipynb" target="_blank">NEA UV/VIS spectrum</a></li>
+  </ul></td>
+  <td valign="top"><ul>
+    <li><a href="{appbase}/atmospec.ipynb" target="_blank">ATMOSPEC</a></li>
   </ul></td>
 </tr>
 </table>
