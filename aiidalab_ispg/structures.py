@@ -7,14 +7,19 @@ Authors:
 import aiida
 import ipywidgets as ipw
 import traitlets
+from traitlets import Union, Instance
 from aiidalab_widgets_base import WizardAppWidgetStep
+
+from aiida.plugins import DataFactory
+StructureData = DataFactory('structure')
+TrajectoryData = DataFactory('array.trajectory')
 
 
 class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
-    confirmed_structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
+    structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
+    confirmed_structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
 
     def __init__(self, manager, description=None, **kwargs):
         self.manager = manager
@@ -79,8 +84,9 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
         with self.hold_trait_notifications():
             if structure is None:
                 self.structure_name_text.value = ""
-            else:
-                self.structure_name_text.value = str(self.structure.get_formula())
+            # TODO: Special case this for TrajectoryData
+            #else:
+            #    self.structure_name_text.value = str(self.structure.get_formula())
             self._update_state()
 
     @traitlets.observe("confirmed_structure")

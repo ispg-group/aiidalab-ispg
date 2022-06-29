@@ -251,6 +251,7 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._step_selector.min = 1
             self._step_selector.max = 1
             self._step_selector.disabled = True
+            self._step_selector.layout.visibility = 'hidden'
             return
 
         if isinstance(trajectory, TrajectoryData):
@@ -264,7 +265,9 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.max = nframes
         if nframes == 1:
             self.structure = self._structures[0]
+            self._step_selector.layout.visibility = 'hidden'
         else:
+            self._step_selector.layout.visibility = 'visible'
             self._step_selector.disabled = False
             # For some reason, this does not trigger observer
             # if this value was already there, so we update manually

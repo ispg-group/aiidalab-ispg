@@ -12,6 +12,7 @@ from copy import deepcopy
 
 import ipywidgets as ipw
 import traitlets
+from traitlets import Union, Instance
 from aiida.common import NotExistent
 from aiida.engine import ProcessState, submit
 from aiida.orm import ProcessNode, load_code
@@ -33,6 +34,7 @@ from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
 from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
+TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 
 
@@ -135,8 +137,8 @@ class CodeSettings(ipw.VBox):
 class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     """Step for submission of a bands workchain."""
 
-    input_structure = traitlets.Instance(StructureData, allow_none=True)
-    process = traitlets.Instance(WorkChainNode, allow_none=True)
+    input_structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
+    process = Instance(WorkChainNode, allow_none=True)
     disabled = traitlets.Bool()
     builder_parameters = traitlets.Dict()
     expert_mode = traitlets.Bool()

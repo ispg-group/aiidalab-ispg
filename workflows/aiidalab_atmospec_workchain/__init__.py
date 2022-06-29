@@ -107,7 +107,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         spec.expose_inputs(
             OrcaBaseWorkChain, namespace="exc", exclude=["orca.structure", "orca.code"]
         )
-        spec.input("structure", valid_type=StructureData)
+        spec.input("structure", valid_type=(StructureData, TrajectoryData))
         spec.input("code", valid_type=Code)
 
         # Whether to perform geometry optimization or not
@@ -180,6 +180,13 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         """Setup workchain"""
         # TODO: This should be base on some input parameter
         self.ctx.nstates = 3
+        # HACK to support input trajectory, we only take the first structure here
+        # TODO: Actually implement workflow for conformers
+        if isinstance(self.inputs.structure, TrajectoryData):
+            step_id = self.trajectory.get_stepids()[0]
+            self.ctx.input_structure = self.inputs.structure.get_step_structure(step_id)
+        else:
+            self.ctx.input_structure = self.inputs.structure
 
     def excite(self):
         """Calculate excited states for a given geometry"""
@@ -192,7 +199,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if self.inputs.optimize:
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
         else:
-            inputs.orca.structure = self.inputs.structure
+            inputs.orca.structure = self.ctx.input_structure
+            #inputs.orca.structure = self.inputs.structure
         inputs.orca.code = self.inputs.code
         calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
         calc_exc.label = "single-point-tddft"
@@ -225,7 +233,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs = self.exposed_inputs(
             OrcaBaseWorkChain, namespace="opt", agglomerate=False
         )
-        inputs.orca.structure = self.inputs.structure
+        #inputs.orca.structure = self.inputs.structure
+        inputs.orca.structure = self.ctx.input_structure
         inputs.orca.code = self.inputs.code
 
         calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
@@ -324,4 +333,4 @@ class OrcaTddftWorkchain(WorkChain):
     def setup(self):
         pass
 
-__version__ = "1.0"
+__version__ = "0.1-alpha"

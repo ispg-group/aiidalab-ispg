@@ -7,6 +7,9 @@ import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node
+from aiida.plugins import DataFactory
+
+StructureData = DataFactory('structure')
 
 WORKCHAIN_LABEL = "OrcaWignerSpectrumWorkChain"
 
@@ -82,7 +85,12 @@ class WorkChainSelector(ipw.HBox):
 
         for process in projected[1:]:
             pk = process[0]
-            formula = load_node(pk).inputs.structure.get_formula()
+            structure = load_node(pk).inputs.structure
+            if isinstance(structure, StructureData):
+                formula = structure.get_formula()
+            else:
+                # TODO: Extract formula from the trajectory
+                formula = ""
             yield cls.WorkChainData(formula=formula, *process)
 
     @traitlets.default("busy")
