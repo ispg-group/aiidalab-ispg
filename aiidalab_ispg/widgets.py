@@ -222,6 +222,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     trajectory = traitlets.Instance(Node, allow_none=True)
     _structures = []
+    _energies = None
 
     def __init__(self, trajectory=None, **kwargs):
         # Trajectory navigator.
@@ -232,7 +233,14 @@ class TrajectoryDataViewer(StructureDataViewer):
             description="Frame:",
         )
         self._step_selector.observe(self.update_selection, names="value")
-        children = [self._step_selector]
+
+        # Display energy if available
+        self._energy = ipw.HTML(
+            value="Energy = ",
+            placeholder="Energy",
+        )
+
+        children = [self._step_selector, self._energy]
 
         super().__init__(
             children=children, configuration_tabs=["Selection", "Download"], **kwargs
@@ -242,7 +250,11 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     def update_selection(self, change):
         """Display selected structure"""
-        self.structure = self._structures[change["new"] - 1]
+        index = change["new"] - 1
+        self.structure = self._structures[index]
+        # TODO: We should pass energy units as well somehow
+        if self._energies is not None:
+            self._energy.value = f"Energy = {self._energies[index]:.2f} eV"
 
     @traitlets.observe("trajectory")
     def _update_trajectory(self, change):
@@ -252,12 +264,20 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._step_selector.max = 1
             self._step_selector.disabled = True
             self._step_selector.layout.visibility = 'hidden'
+            self._energy.layout.visibility = 'hidden'
             return
 
         if isinstance(trajectory, TrajectoryData):
             self._structures = [
                 trajectory.get_step_structure(i) for i in self.trajectory.get_stepids()
             ]
+            if "energies" in trajectory.get_arraynames():
+                self._energies = trajectory.get_array("energies")
+                self._energy.layout.visibility = 'visible'
+                self._energy.value = f"Energy = {self._energies[0]:.2f} eV"
+            else:
+                self._energies = None
+                self._energy.layout.visibility = 'hidden'
         else:
             self._structures = [trajectory]
 

@@ -183,7 +183,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         # HACK to support input trajectory, we only take the first structure here
         # TODO: Actually implement workflow for conformers
         if isinstance(self.inputs.structure, TrajectoryData):
-            step_id = self.trajectory.get_stepids()[0]
+            step_id = self.inputs.structure.get_stepids()[0]
             self.ctx.input_structure = self.inputs.structure.get_step_structure(step_id)
         else:
             self.ctx.input_structure = self.inputs.structure

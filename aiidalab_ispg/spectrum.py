@@ -215,7 +215,7 @@ class SpectrumWidget(ipw.VBox):
         )
 
         self.width_slider = ipw.FloatSlider(
-            min=0.05, max=1, step=0.05, value=0.5, description="Width / eV"
+            min=0.05, max=1, step=0.05, value=0.1, description="Width / eV"
         )
 
         self.kernel_selector = ipw.ToggleButtons(

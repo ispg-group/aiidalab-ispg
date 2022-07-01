@@ -575,9 +575,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if "wigner_tddft" in self.process.outputs:
             wigner_outputs = self.process.outputs.wigner_tddft.get_list()
             transitions = self._wigner_output_to_transitions(wigner_outputs)
-            self.spectrum.debug_print("NEA Wigner spectrum")
-        else:
-            self.spectrum.debug_print("Single point spectrum")
 
         self.spectrum.transitions = transitions
         if "smiles" in self.process.inputs.structure.extras:
