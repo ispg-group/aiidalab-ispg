@@ -21,7 +21,7 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     selenium.set_window_size(1920, 1100)
     time.sleep(10)
     smiles_textarea = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
-    smiles_textarea.sendKeys("C")
+    smiles_textarea.send_keys("C")
     generate_mol_button = selenium.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
