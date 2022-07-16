@@ -30,7 +30,12 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
-from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
+try:
+    from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
+except ImportError:
+    # TODO: Can we do something better than print here?
+    print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+
 from aiidalab_ispg.spectrum import SpectrumWidget
 
 StructureData = DataFactory("structure")
@@ -137,7 +142,9 @@ class CodeSettings(ipw.VBox):
 class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     """Step for submission of a bands workchain."""
 
-    input_structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
+    input_structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
     process = Instance(WorkChainNode, allow_none=True)
     disabled = traitlets.Bool()
     builder_parameters = traitlets.Dict()
