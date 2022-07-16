@@ -25,6 +25,7 @@ MIT
 NOTE: The details of some of the commands will depend on your
 OS and its version. The concrete examples are based on Ubuntu 20.04.
 
+0. Install ab initio dependencies (ORCA)
 0. Install Docker (concrete commands will depend on your OS)
    `$ sudo apt install docker.io`
    - Add yourself to the docker group and restart shell session
@@ -63,9 +64,6 @@ $ aiidalab-launch start
 $ aiidalab-launch exec --privileged -- conda install xtb-python
 ```
 
-Note that aiidalab-launch creates a separate docker volume for Conda,
-so the command above only needs to be executed once, even if you restart the container.
-
 6. Setup ORCA code on localhost.
 ```sh
 $ aiidalab-launch exec -- bash /home/aiida/apps/aiidalab-ispg/setup_codes_on_localhost.sh
@@ -77,7 +75,7 @@ If you are planning to launch codes on external computer, this step needs to be 
 
 7. [Optional] Re-install packages for development
 ```sh
-$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-ispg/
-$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
-$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-widgets-base/
+$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
+$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
+$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-widgets-base/
 ```
