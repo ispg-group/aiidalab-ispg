@@ -10,3 +10,9 @@ repos:
     hooks:
     - id: flake8
       args: [--count, --show-source, --statistics]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.5.0
+    hooks:
+    - id: nbstripout
+
