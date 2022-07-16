@@ -21,14 +21,15 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     selenium.set_window_size(1920, 1100)
     time.sleep(10)
     smiles_textarea = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
-    smiles_textarea.value = "C"
+    smiles_textarea.sendKeys("C")
     generate_mol_button = selenium.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
     generate_mol_button.click()
-    # Once we figure out how to install xtb automaticaly,
-    # we can click the Confirm button to get to the next step
+
+    # Once the structure is generated, proceed to the next step
+    time.sleep(1)
     confirm_button = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
     confirm_button.location_once_scrolled_into_view  # scroll into view
-    # confirm_button.click()
+    confirm_button.click()
     selenium.get_screenshot_as_file("screenshots/atmospec-mol-confirmed.png")
