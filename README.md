@@ -78,5 +78,6 @@ If you are planning to launch codes on external computer, this step needs to be 
 7. [Optional] Re-install packages for development
 ```sh
 $ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-ispg/
+$ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
 $ aiidalab-launch exec --privileged -- pip install -e /home/aiida/apps/aiidalab-widgets-base/
 ```
