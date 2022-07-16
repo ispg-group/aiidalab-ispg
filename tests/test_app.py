@@ -22,13 +22,14 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     time.sleep(10)
     smiles_textarea = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
     smiles_textarea.send_keys("C")
+    time.sleep(1)
     generate_mol_button = selenium.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
     generate_mol_button.click()
 
     # Once the structure is generated, proceed to the next step
-    time.sleep(1)
+    time.sleep(2)
     confirm_button = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
     confirm_button.location_once_scrolled_into_view  # scroll into view
     confirm_button.click()
