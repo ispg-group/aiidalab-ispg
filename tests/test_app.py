@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+import time
+
 from selenium.webdriver.common.by import By
 
 # https://selenium-python.readthedocs.io/locating-elements.html
