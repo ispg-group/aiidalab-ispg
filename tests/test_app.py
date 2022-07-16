@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 
 def test_atmospec_app_take_screenshot(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
-    selenium.set_window_size(1920, 1300)
+    selenium.set_window_size(1920, 1350)
     time.sleep(10)
     selenium.find_element(By.ID, "ipython-main-app")
     selenium.find_element(By.ID, "notebook-container")
@@ -18,12 +18,13 @@ def test_atmospec_app_take_screenshot(selenium, url):
 
 def test_atmospec_generate_mol_from_smiles(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
-    selenium.set_window_size(1920, 1200)
+    selenium.set_window_size(1920, 1100)
     time.sleep(10)
+    smiles_textarea = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
+    smiles_textarea.value = "C"
     generate_mol_button = selenium.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
-    # TODO: Find the input SMILES textarea, and set it to "C"
     generate_mol_button.click()
     # Once we figure out how to install xtb automaticaly,
     # we can click the Confirm button to get to the next step
