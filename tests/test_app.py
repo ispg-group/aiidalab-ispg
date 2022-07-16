@@ -22,7 +22,7 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     # This will likely fail since xtb is missing. Once we figure out
     # how to install it automatically, we can click on Confirm button
     # to get to the next step
-    generate_mol_button = selenium.find_element(By.XPATH, "//button[contains(.,'Generate molecule')]")
+    #generate_mol_button = selenium.find_element(By.XPATH, "//button[contains(.,'Generate molecule')]")
     # generate_mol_button.click()
     # Once we figure out how to install xtb automaticaly,
     # we can click the Confirm button to get to the next step
