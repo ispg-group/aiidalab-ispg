@@ -26,8 +26,8 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     # generate_mol_button.click()
     # Once we figure out how to install xtb automaticaly,
     # we can click the Confirm button to get to the next step
-    confirm_button = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
-    confirm_button.location_once_scrolled_into_view  # scroll into view
+    #confirm_button = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
+    #confirm_button.location_once_scrolled_into_view  # scroll into view
     #confirm_button.click()
     selenium.get_screenshot_as_file("screenshots/atmospec-mol-confirmed.png")
 
