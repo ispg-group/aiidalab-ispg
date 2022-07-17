@@ -31,7 +31,7 @@ from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
 try:
-    from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
+    from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
     # TODO: Can we do something better than print here?
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
@@ -414,7 +414,7 @@ class SubmitOrcaAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder_parameters = self.builder_parameters.copy()
 
-        builder = OrcaWignerSpectrumWorkChain.get_builder()
+        builder = AtmospecWorkChain.get_builder()
 
         orca_code = self.codes_selector.orca.selected_code
         builder.code = orca_code

@@ -200,7 +200,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
         else:
             inputs.orca.structure = self.ctx.input_structure
-            #inputs.orca.structure = self.inputs.structure
+            # inputs.orca.structure = self.inputs.structure
         inputs.orca.code = self.inputs.code
         calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
         calc_exc.label = "single-point-tddft"
@@ -220,10 +220,10 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             OrcaBaseWorkChain, namespace="exc", agglomerate=False
         )
         inputs.orca.code = self.inputs.code
-        # TODO: Calculate all Wigner structures
-        traj = self.ctx.wigner_structures
-        for i in traj.get_stepids():
-            inputs.orca.structure = pick_wigner_structure(traj, Int(i))
+        for i in self.ctx.wigner_structures.get_stepids():
+            inputs.orca.structure = pick_wigner_structure(
+                self.ctx.wigner_structures, Int(i)
+            )
             calc = self.submit(OrcaBaseWorkChain, **inputs)
             calc.label = "wigner-single-point-tddft"
             self.to_context(wigner_calcs=append_(calc))
@@ -233,7 +233,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs = self.exposed_inputs(
             OrcaBaseWorkChain, namespace="opt", agglomerate=False
         )
-        #inputs.orca.structure = self.inputs.structure
+        # inputs.orca.structure = self.inputs.structure
         inputs.orca.structure = self.ctx.input_structure
         inputs.orca.code = self.inputs.code
 
@@ -299,6 +299,92 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         # )
 
 
+class AtmospecWorkChain(WorkChain):
+    """The top-level ATMOSPEC workchain"""
+
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        spec.expose_inputs(OrcaWignerSpectrumWorkChain, exclude=["structure"])
+        spec.input("structure", valid_type=(StructureData, TrajectoryData))
+
+        spec.expose_outputs(OrcaWignerSpectrumWorkChain, exclude=["relaxed_structure"])
+
+        spec.outline(
+            cls.setup,
+            cls.launch,
+            cls.collect,
+        )
+
+        spec.output(
+            "orca_outputs",
+            valid_type=List,
+            required=False,
+            help="Outputs from all conformers",
+        )
+        spec.output(
+            "relaxed_structures",
+            valid_type=TrajectoryData,
+            required=False,
+            help="Minimized structures of all conformers",
+        )
+
+        # Very generic error now
+        spec.exit_code(410, "CONFORMER_ERROR", "Conformer spectrum generation failed")
+
+    def setup(self):
+        pass
+
+    def collect(self):
+        # For single conformer
+        if isinstance(self.inputs.structure, StructureData):
+            if not self.ctx.conf.is_finished_ok:
+                return self.exit_codes.CONFORMER_ERROR
+            self.out_many(
+                self.exposed_outputs(self.ctx.conf, OrcaWignerSpectrumWorkChain)
+            )
+            return
+
+        for wc in self.ctx.confs:
+            # TODO: Specialize erros. Can we expose errors from child workflows?
+            if not wc.is_finished_ok:
+                return self.exit_codes.CONFORMER_ERROR
+
+        # TODO: Collect output dictionaries
+
+        # TODO: Include energies and boltzmann weights in TrajectoryData for optimized structures
+        if self.inputs.optimize:
+            structs = [
+                workchain.outputs.relaxed_structure for workchain in self.ctx.confs
+            ]
+            # TODO: Preserve provenance via ConcatenateOutputs workchain
+            self.out(
+                "relaxed_structures", TrajectoryData(structurelist=structs).store()
+            )
+
+        self.out_many(
+            self.exposed_outputs(self.ctx.confs[0], OrcaWignerSpectrumWorkChain)
+        )
+
+    def launch(self):
+        inputs = self.exposed_inputs(OrcaWignerSpectrumWorkChain, agglomerate=False)
+        # Single conformer
+        # TODO: Test this!
+        if isinstance(self.inputs.structure, StructureData):
+            self.report("Launching ATMOSPEC for 1 conformer")
+            inputs.structure = self.inputs.structure
+            return ToContext(conf=self.submit(OrcaWignerSpectrumWorkChain, **inputs))
+
+        self.report(
+            f"Launching ATMOSPEC for {len(self.inputs.structure.get_stepids())} conformers"
+        )
+        for conf_id in self.inputs.structure.get_stepids():
+            inputs.structure = self.inputs.structure.get_step_structure(conf_id)
+            workflow = self.submit(OrcaWignerSpectrumWorkChain, **inputs)
+            # workflow.label = 'conformer-wigner-spectrum'
+            self.to_context(confs=append_(workflow))
+
+
 # TODO:
 class OrcaRobustRelaxWorkchain(WorkChain):
     """Minimization of molecular geometry in ORCA
@@ -332,5 +418,6 @@ class OrcaTddftWorkchain(WorkChain):
 
     def setup(self):
         pass
+
 
 __version__ = "0.1-alpha"
