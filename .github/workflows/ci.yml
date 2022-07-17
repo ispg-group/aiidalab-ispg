@@ -14,7 +14,9 @@ jobs:
 
     strategy:
       matrix:
-        tag: [ stable, latest ]
+        # For now, we're only targeting latest aiidalab image.
+        #tag: [ stable, latest ]
+        tag: [ latest ]
         browser: [ chrome, firefox ]
       fail-fast: false
 
