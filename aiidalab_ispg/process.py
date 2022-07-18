@@ -9,9 +9,9 @@ from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node
 from aiida.plugins import DataFactory
 
-StructureData = DataFactory('structure')
+StructureData = DataFactory("structure")
 
-WORKCHAIN_LABEL = "OrcaWignerSpectrumWorkChain"
+WORKCHAIN_LABEL = "AtmospecWorkChain"
 
 
 class WorkChainSelector(ipw.HBox):
