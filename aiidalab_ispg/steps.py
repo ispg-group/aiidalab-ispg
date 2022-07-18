@@ -550,6 +550,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.process = None
         self.spectrum.reset()
 
+    # TODO: Move this to the workflow
     def _orca_output_to_transitions(self, output_dict, geom_index):
         # TODO: Use atomic units both for energies and osc. strengths
         CM2EV = 1 / 8065.547937
@@ -571,26 +572,29 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         return transitions
 
     def _show_spectrum(self):
-        # TODO: Show single point spectrum before Wigner
+
+        # TODO: Return if process is not finished_ok
         if self.process is None or self.process.process_state != ProcessState.FINISHED:
             return
 
         # TODO: Handle different kind of computed spectra simultaneously.
-        output_params = self.process.outputs.single_point_tddft.get_dict()
-        transitions = self._orca_output_to_transitions(output_params, 0)
+        # This is a single-point spectrum
+        # output_params = self.process.outputs.single_point_tddft.get_dict()
+        # transitions = self._orca_output_to_transitions(output_params, 0)
 
-        if "wigner_tddft" in self.process.outputs:
-            wigner_outputs = self.process.outputs.wigner_tddft.get_list()
-            transitions = self._wigner_output_to_transitions(wigner_outputs)
+        # TODO: This is a hack for now until we do a proper Boltzmann weighting.
+        conformer_transitions = []
+        for conformer in self.process.outputs.spectrum_data.get_list():
+            conformer_transitions += self._wigner_output_to_transitions(conformer)
 
-        self.spectrum.transitions = transitions
+        self.spectrum.transitions = conformer_transitions
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
-            # We're attaching smiles extra for the optimized structure as well
+            # We're attaching smiles extra for the optimized structures as well
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
-            if "relaxed_structure" in self.process.outputs:
-                self.process.outputs.relaxed_structure.set_extra(
+            if "relaxed_structures" in self.process.outputs:
+                self.process.outputs.relaxed_structures.set_extra(
                     "smiles", self.spectrum.smiles
                 )
         else:

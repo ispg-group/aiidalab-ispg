@@ -2,7 +2,10 @@
 
 import ase
 from aiida.engine import WorkChain, calcfunction
-from aiida.engine import append_, ToContext, if_  # while_
+from aiida.engine import append_, ToContext, if_
+
+# not sure if this is needed? Can we use self.run()?
+from aiida.engine import run
 from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
 
@@ -19,28 +22,56 @@ Dict = DataFactory("dict")
 OrcaCalculation = CalculationFactory("orca_main")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
-# TODO: aiida daemon must be able to load this class,
-# as a hot fix, run export PYTHONPATH=~/apps/aiidalab-dhtest:$PYTHONPATH
 
-# TODO: Refactor this...
-# We probably don't want to use calcfunction for this.
-# Instead, we should probably use the get_builder_from_protocol paradigm.
+# Meta WorkChain for combining all inputs from a dynamic namespace into List.
+# Used to combine outputs from several subworkflows into one output.
+# It should be launched via run() instead of submit()
+# NOTE: The code has special handling for Dict nodes,
+# which otherwise fail with not being serializable,
+# so we need the get the value with Dict.get_dict() first.
+# We should check whether this is still needed in aiida-2.0
+# Note we cannot make this more general since List and Dict
+# don't have the .value attribute.
+# https://github.com/aiidateam/aiida-core/issues/5313
+class ConcatInputsToList(WorkChain):
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        spec.input_namespace("ns", dynamic=True)
+        spec.output("output", valid_type=List)
+        spec.outline(cls.combine)
+
+    def combine(self):
+        input_list = [
+            self.inputs.ns[k].get_dict()
+            if isinstance(self.inputs.ns[k], Dict)
+            else self.inputs.ns[k]
+            for k in self.inputs.ns
+        ]
+        self.out("output", List(list=input_list).store())
+
+
+# TODO: Allow optional inputs for array data to store energies
+class ConcatStructuresToTrajectory(WorkChain):
+    """WorkChain for combining a list of StructureData into TrajectoryData"""
+
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        # TODO: Maybe allow other types other than StructureData?
+        # Not sure what are the requirements for TrajectoryData
+        spec.input_namespace("structures", dynamic=True, valid_type=StructureData)
+        spec.output("trajectory", valid_type=TrajectoryData)
+        spec.outline(cls.combine)
+
+    def combine(self):
+        structurelist = [self.inputs.structures[k] for k in self.inputs.structures]
+        self.out("trajectory", TrajectoryData(structurelist=structurelist).store())
 
 
 @calcfunction
 def pick_wigner_structure(wigner_structures, index):
     return wigner_structures.get_step_structure(index.value)
-
-
-# TODO: Instead of this, we may want to do a general concatenation
-# workchain, with dynamic input namespece per
-# https://aiida.readthedocs.io/projects/aiida-core/en/latest/topics/processes/usage.html?highlight=dynamic%20inputs#dynamic-namespaces
-@calcfunction
-def concatenate_wigner_outputs(wigner_dicts):
-    output_dicts = []
-    for d in wigner_dicts.get_list():
-        output_dicts.append(d)
-    return List(list=output_dicts)
 
 
 @calcfunction
@@ -110,16 +141,17 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
         spec.input("code", valid_type=Code)
 
-        # Whether to perform geometry optimization or not
+        # Whether to perform geometry optimization
         spec.input(
             "optimize",
             valid_type=Bool,
             default=lambda: Bool(True),
             serializer=to_aiida_type,
         )
+
         # Number of Wigner geometries (computed only when optimize==True)
         spec.input(
-            "nwigner", valid_type=Int, default=lambda: Int(2), serializer=to_aiida_type
+            "nwigner", valid_type=Int, default=lambda: Int(1), serializer=to_aiida_type
         )
 
         spec.output("relaxed_structure", valid_type=StructureData, required=False)
@@ -130,19 +162,16 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             help="Output parameters from a single-point TDDFT calculation",
         )
 
+        # TODO: Rename this port
         spec.output(
             "wigner_tddft",
             valid_type=List,
-            # valid_type=Dict,
             required=False,
             help="Output parameters from all Wigner TDDFT calculation",
         )
 
         spec.outline(
             cls.setup,
-            # WARNING: Be mega careful with while_!
-            # Possibility of infinite loop is nasty here.
-            # while_(cls.should_optimize) (
             if_(cls.should_optimize)(
                 cls.optimize,
                 cls.inspect_optimization,
@@ -156,16 +185,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             ),
             cls.results,
         )
-        # spec.expose_outputs(
-        #        OrcaBaseWorkChain,
-        #        include=['output_parameters']
-        #        )
-        # spec.expose_outputs(
-        #        OrcaBaseWorkChain,
-        #        include=['relaxed_structure']
-        #        )
-        # Cannot use namespace here due to bug in ProcessNodesTreeWidget
-        #        namespace='exc')
 
         spec.exit_code(
             401,
@@ -180,36 +199,30 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         """Setup workchain"""
         # TODO: This should be base on some input parameter
         self.ctx.nstates = 3
-        # HACK to support input trajectory, we only take the first structure here
-        # TODO: Actually implement workflow for conformers
-        if isinstance(self.inputs.structure, TrajectoryData):
-            step_id = self.inputs.structure.get_stepids()[0]
-            self.ctx.input_structure = self.inputs.structure.get_step_structure(step_id)
-        else:
-            self.ctx.input_structure = self.inputs.structure
 
     def excite(self):
-        """Calculate excited states for a given geometry"""
-        # Either take optimized structure or input structure here
-        # structure = self.ctx.structure
-        self.report(f"Will calculate {self.ctx.nstates} excited states")
+        """Calculate excited states for a single geometry"""
         inputs = self.exposed_inputs(
             OrcaBaseWorkChain, namespace="exc", agglomerate=False
         )
+        inputs.orca.code = self.inputs.code
+
         if self.inputs.optimize:
+            self.report(
+                f"Calculating {self.ctx.nstates} excited states for optimized geometry"
+            )
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
         else:
-            inputs.orca.structure = self.ctx.input_structure
-            # inputs.orca.structure = self.inputs.structure
-        inputs.orca.code = self.inputs.code
+            self.report(
+                f"Calculating {self.ctx.nstates} excited states for input geometry"
+            )
+            inputs.orca.structure = self.inputs.structure
+
         calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
         calc_exc.label = "single-point-tddft"
         return ToContext(calc_exc=calc_exc)
 
     def wigner_sampling(self):
-        """Calculate excited states for a given geometry"""
-        # Either take optimized structure or input structure here
-        # structure = self.ctx.structure
         self.report(f"Generating {self.inputs.nwigner.value} Wigner geometries")
         self.ctx.wigner_structures = generate_wigner_structures(
             self.ctx.calc_opt.outputs.output_parameters, self.inputs.nwigner
@@ -233,8 +246,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs = self.exposed_inputs(
             OrcaBaseWorkChain, namespace="opt", agglomerate=False
         )
-        # inputs.orca.structure = self.inputs.structure
-        inputs.orca.structure = self.ctx.input_structure
+        inputs.orca.structure = self.inputs.structure
         inputs.orca.code = self.inputs.code
 
         calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
@@ -242,7 +254,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
     def inspect_optimization(self):
         """Check whether optimization succeeded"""
-        # Not sure what to do here, maybe we should have an error handler instead?
         if not self.ctx.calc_opt.is_finished_ok:
             self.report("Optimization failed :-(")
             return self.exit_codes.ERROR_OPTIMIZATION_FAILED
@@ -250,7 +261,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def inspect_excitation(self):
         """Check whether excitation succeeded"""
         if not self.ctx.calc_exc.is_finished_ok:
-            self.report("Excitation failed :-(")
+            self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
 
     def inspect_wigner_excitation(self):
@@ -260,13 +271,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 # TODO: Report all failed calcs at once
                 self.report("Wigner excitation failed :-(")
                 return self.exit_codes.ERROR_EXCITATION_FAILED
-
-        self.report("Concatenating Wigner outputs")
-        # TODO: Figure out how to do this properly
-        output_dicts = []
-        for calc in self.ctx.wigner_calcs:
-            output_dicts.append(calc.outputs.output_parameters.get_dict())
-        self.ctx.wigner_outputs = concatenate_wigner_outputs(List(list=output_dicts))
 
     def should_optimize(self):
         if self.inputs.optimize:
@@ -279,24 +283,22 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def results(self):
         """Expose results from child workchains"""
 
-        if self.inputs.optimize:
-            # Since we're not currently using namespace,
-            # cannot use out_many, since we only want to take
-            # relaxed_structure, and not output_parameters
+        if self.should_optimize():
             self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
 
-        if self.inputs.optimize and self.inputs.nwigner > 0:
-            self.out("wigner_tddft", self.ctx.wigner_outputs)
+        if self.should_run_wigner():
+            self.report("Concatenating Wigner outputs")
+            # TODO: Instead of deepcopying all dicts,
+            # only pick the data that we need for the spectrum to save space.
+            # We should introduce a special aiida type for spectrum data
+            data = {
+                str(i): wc.outputs.output_parameters
+                for i, wc in enumerate(self.ctx.wigner_calcs)
+            }
+            all_results = run(ConcatInputsToList, ns=data)
+            self.out("wigner_tddft", all_results["output"])
 
         self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)
-        # self.out_many(
-        #     self.exposed_outputs(
-        #         self.ctx.calc_exc,
-        #         OrcaBaseWorkChain,
-        # namespace='exc',
-        #         agglomerate=True
-        #     )
-        # )
 
 
 class AtmospecWorkChain(WorkChain):
@@ -308,20 +310,13 @@ class AtmospecWorkChain(WorkChain):
         spec.expose_inputs(OrcaWignerSpectrumWorkChain, exclude=["structure"])
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
 
-        spec.expose_outputs(OrcaWignerSpectrumWorkChain, exclude=["relaxed_structure"])
-
-        spec.outline(
-            cls.setup,
-            cls.launch,
-            cls.collect,
-        )
-
         spec.output(
-            "orca_outputs",
+            "spectrum_data",
             valid_type=List,
-            required=False,
-            help="Outputs from all conformers",
+            required=True,
+            help="All data necessary to construct spectrum in SpectrumWidget",
         )
+
         spec.output(
             "relaxed_structures",
             valid_type=TrajectoryData,
@@ -329,42 +324,13 @@ class AtmospecWorkChain(WorkChain):
             help="Minimized structures of all conformers",
         )
 
+        spec.outline(
+            cls.launch,
+            cls.collect,
+        )
+
         # Very generic error now
         spec.exit_code(410, "CONFORMER_ERROR", "Conformer spectrum generation failed")
-
-    def setup(self):
-        pass
-
-    def collect(self):
-        # For single conformer
-        if isinstance(self.inputs.structure, StructureData):
-            if not self.ctx.conf.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
-            self.out_many(
-                self.exposed_outputs(self.ctx.conf, OrcaWignerSpectrumWorkChain)
-            )
-            return
-
-        for wc in self.ctx.confs:
-            # TODO: Specialize erros. Can we expose errors from child workflows?
-            if not wc.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
-
-        # TODO: Collect output dictionaries
-
-        # TODO: Include energies and boltzmann weights in TrajectoryData for optimized structures
-        if self.inputs.optimize:
-            structs = [
-                workchain.outputs.relaxed_structure for workchain in self.ctx.confs
-            ]
-            # TODO: Preserve provenance via ConcatenateOutputs workchain
-            self.out(
-                "relaxed_structures", TrajectoryData(structurelist=structs).store()
-            )
-
-        self.out_many(
-            self.exposed_outputs(self.ctx.confs[0], OrcaWignerSpectrumWorkChain)
-        )
 
     def launch(self):
         inputs = self.exposed_inputs(OrcaWignerSpectrumWorkChain, agglomerate=False)
@@ -384,40 +350,38 @@ class AtmospecWorkChain(WorkChain):
             # workflow.label = 'conformer-wigner-spectrum'
             self.to_context(confs=append_(workflow))
 
+    def collect(self):
+        # For single conformer
+        # TODO: This currently does not work
+        if isinstance(self.inputs.structure, StructureData):
+            if not self.ctx.conf.is_finished_ok:
+                return self.exit_codes.CONFORMER_ERROR
+            self.out_many(
+                self.exposed_outputs(self.ctx.conf, OrcaWignerSpectrumWorkChain)
+            )
+            return
 
-# TODO:
-class OrcaRobustRelaxWorkchain(WorkChain):
-    """Minimization of molecular geometry in ORCA
-    including the frequency calculation at the end.
-    Imaginary frequencies are automatically handled by shifting
-    the geometry along the imaginary mode and rerunning the optimization"""
+        # Check for errors
+        # TODO: Raise if subworkflows raised?
+        for wc in self.ctx.confs:
+            # TODO: Specialize errors. Can we expose errors from child workflows?
+            if not wc.is_finished_ok:
+                return self.exit_codes.CONFORMER_ERROR
 
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.expose_inputs(OrcaCalculation, namespace="orca")
+        # Combine all spectra data
+        data = {str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)}
+        all_results = run(ConcatInputsToList, ns=data)
+        self.out("spectrum_data", all_results["output"])
 
-    def setup(self):
-        pass
-
-
-# TODO:
-class OrcaTddftWorkchain(WorkChain):
-    """Single point TDDFT calculation"""
-
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.expose_inputs(OrcaBaseWorkChain, namespace="orca")
-        spec.outline(
-            cls.setup,
-            cls.excite,
-            cls.inspect_excitation,
-            cls.results,
-        )
-
-    def setup(self):
-        pass
+        # Combine all optimized geometries into single TrajectoryData
+        # TODO: Include energies in TrajectoryData for optimized structures
+        if self.inputs.optimize:
+            relaxed_structures = {
+                str(i): wc.outputs.relaxed_structure
+                for i, wc in enumerate(self.ctx.confs)
+            }
+            output = run(ConcatStructuresToTrajectory, structures=relaxed_structures)
+            self.out("relaxed_structures", output["trajectory"])
 
 
 __version__ = "0.1-alpha"

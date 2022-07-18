@@ -52,7 +52,7 @@ class Spectrum(object):
     AUtoCm = 8.478354e-30
     COEFF = (
         constants.pi
-        * AUtoCm ** 2
+        * AUtoCm**2
         * 1e4
         / (3 * scipy.constants.hbar * scipy.constants.epsilon_0 * scipy.constants.c)
     )
@@ -140,7 +140,7 @@ class Spectrum(object):
         unit_factor = self.COEFF_NEW
         for exc_energy, osc_strength in zip(energies, self.osc_strengths):
             prefactor = normalization_factor * unit_factor * osc_strength
-            y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma ** 2)
+            y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
         if x_unit.lower() == "nm":
             x, y = self._convert_to_nanometers(x, y)
@@ -171,7 +171,7 @@ class Spectrum(object):
 
         for exc_energy, osc_strength in zip(energies, self.osc_strengths):
             prefactor = normalization_factor * unit_factor * osc_strength
-            y += prefactor / ((x - exc_energy) ** 2 + (tau ** 2) / 4)
+            y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
         if x_unit.lower() == "nm":
             x, y = self._convert_to_nanometers(x, y)
@@ -328,8 +328,8 @@ class SpectrumWidget(ipw.VBox):
         if not self._validate_transitions():
             self.hide_line(self.THEORY_SPEC_LABEL)
             return
-        # TODO: Remove this try/except, and figure out a better
-        # way to pass number of samples maybe.
+        # TODO: Need to fix this normalization now that we have multiple conformers!
+        # We should have explicit metadata about number of conformers, number of states, number of geometries
         try:
             nsample = self.transitions[-1]["geom_index"] + 1
         except KeyError:
@@ -431,6 +431,7 @@ class SpectrumWidget(ipw.VBox):
     def _observe_smiles(self, change):
         self._find_experimental_spectrum(change["new"])
 
+    # TODO: Make sure that this does not slow us down too much
     def _find_experimental_spectrum(self, smiles):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
