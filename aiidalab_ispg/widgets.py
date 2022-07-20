@@ -6,6 +6,7 @@ Authors:
 """
 
 import base64
+import re
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
@@ -13,12 +14,15 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 import nglview
-from aiida.orm import CalcJobNode, Node
-from aiidalab_widgets_base import register_viewer_widget, viewer
-from aiidalab_widgets_base.viewers import StructureDataViewer
 from IPython.display import clear_output, display
 
+from aiida.orm import CalcJobNode, Node
+from aiida.cmdline.utils.common import get_workchain_report
 from aiida.plugins import DataFactory
+
+from aiidalab_widgets_base import register_viewer_widget, viewer
+from aiidalab_widgets_base.viewers import StructureDataViewer
+
 
 TrajectoryData = DataFactory("array.trajectory")
 
@@ -217,6 +221,21 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         self.log_output.value = self.output_follower.filename, new_lines
 
 
+@register_viewer_widget("process.workflow.workchain.WorkChainNode.")
+class WorkChainNodeViewerWidget(ipw.VBox):
+    def __init__(self, workchain, **kwargs):
+        self.workchain = workchain
+        # Displaying reports only from the selected workchain,
+        # NOT from its descendants
+        report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
+        # Filter out the first column with date
+        # TODO: Color WARNING|ERROR|CRITICAL reports
+        report = re.sub(r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE)
+        report = ipw.HTML(f"<pre>{report}</pre>")
+
+        super().__init__([report], **kwargs)
+
+
 @register_viewer_widget("data.array.trajectory.TrajectoryData.")
 class TrajectoryDataViewer(StructureDataViewer):
 
@@ -263,8 +282,8 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._step_selector.min = 1
             self._step_selector.max = 1
             self._step_selector.disabled = True
-            self._step_selector.layout.visibility = 'hidden'
-            self._energy.layout.visibility = 'hidden'
+            self._step_selector.layout.visibility = "hidden"
+            self._energy.layout.visibility = "hidden"
             return
 
         if isinstance(trajectory, TrajectoryData):
@@ -273,11 +292,11 @@ class TrajectoryDataViewer(StructureDataViewer):
             ]
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
-                self._energy.layout.visibility = 'visible'
+                self._energy.layout.visibility = "visible"
                 self._energy.value = f"Energy = {self._energies[0]:.2f} eV"
             else:
                 self._energies = None
-                self._energy.layout.visibility = 'hidden'
+                self._energy.layout.visibility = "hidden"
         else:
             self._structures = [trajectory]
 
@@ -285,9 +304,9 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.max = nframes
         if nframes == 1:
             self.structure = self._structures[0]
-            self._step_selector.layout.visibility = 'hidden'
+            self._step_selector.layout.visibility = "hidden"
         else:
-            self._step_selector.layout.visibility = 'visible'
+            self._step_selector.layout.visibility = "visible"
             self._step_selector.disabled = False
             # For some reason, this does not trigger observer
             # if this value was already there, so we update manually
