@@ -263,8 +263,8 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._step_selector.min = 1
             self._step_selector.max = 1
             self._step_selector.disabled = True
-            self._step_selector.layout.visibility = 'hidden'
-            self._energy.layout.visibility = 'hidden'
+            self._step_selector.layout.visibility = "hidden"
+            self._energy.layout.visibility = "hidden"
             return
 
         if isinstance(trajectory, TrajectoryData):
@@ -273,11 +273,11 @@ class TrajectoryDataViewer(StructureDataViewer):
             ]
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
-                self._energy.layout.visibility = 'visible'
+                self._energy.layout.visibility = "visible"
                 self._energy.value = f"Energy = {self._energies[0]:.2f} eV"
             else:
                 self._energies = None
-                self._energy.layout.visibility = 'hidden'
+                self._energy.layout.visibility = "hidden"
         else:
             self._structures = [trajectory]
 
@@ -285,9 +285,9 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.max = nframes
         if nframes == 1:
             self.structure = self._structures[0]
-            self._step_selector.layout.visibility = 'hidden'
+            self._step_selector.layout.visibility = "hidden"
         else:
-            self._step_selector.layout.visibility = 'visible'
+            self._step_selector.layout.visibility = "visible"
             self._step_selector.disabled = False
             # For some reason, this does not trigger observer
             # if this value was already there, so we update manually
@@ -308,6 +308,24 @@ class TrajectoryDataViewer(StructureDataViewer):
             self.selection = list()
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
+                # Interestingly, this doesn't work, I am getting (True, True, True)
+                # Even when supposedly it should be set to False in SmilesWidget
+                # if any(change["new"].pbc):
+                #    self._viewer.add_unitcell() # pylint: disable=no-member
+
+    # Monkey patched download button to download all conformers in a single file
+    def _prepare_payload(self, file_format=None):
+        """Prepare binary information."""
+        from tempfile import NamedTemporaryFile
+
+        file_format = file_format if file_format else self.file_format.value
+        tmp = NamedTemporaryFile()
+
+        for struct in self._structures:
+            struct.get_ase().write(tmp.name, format=file_format, append=True)
+
+        with open(tmp.name, "rb") as raw:
+            return base64.b64encode(raw.read()).decode()
 
 
 class NodeViewWidget(ipw.VBox):
