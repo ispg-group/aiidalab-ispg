@@ -12,6 +12,8 @@ by running the following command from within the AiiDAlab Docker container.
 aiidalab install aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main
 ```
 
+See below for complete installation instructions.
+
 ## Usage
 
 Here may go a few sreenshots / animated gifs illustrating how to use the app.
