@@ -6,6 +6,7 @@ Authors:
 """
 
 import base64
+import re
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
@@ -13,12 +14,15 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 import nglview
-from aiida.orm import CalcJobNode, Node
-from aiidalab_widgets_base import register_viewer_widget, viewer
-from aiidalab_widgets_base.viewers import StructureDataViewer
 from IPython.display import clear_output, display
 
+from aiida.orm import CalcJobNode, Node
+from aiida.cmdline.utils.common import get_workchain_report
 from aiida.plugins import DataFactory
+
+from aiidalab_widgets_base import register_viewer_widget, viewer
+from aiidalab_widgets_base.viewers import StructureDataViewer
+
 
 TrajectoryData = DataFactory("array.trajectory")
 
@@ -215,6 +219,21 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         restrict_num_lines = None if self.calcjob.is_sealed else -10
         new_lines = "\n".join(self.output_follower.output[restrict_num_lines:])
         self.log_output.value = self.output_follower.filename, new_lines
+
+
+@register_viewer_widget("process.workflow.workchain.WorkChainNode.")
+class WorkChainNodeViewerWidget(ipw.VBox):
+    def __init__(self, workchain, **kwargs):
+        self.workchain = workchain
+        # Displaying reports only from the selected workchain,
+        # NOT from its descendants
+        report = get_workchain_report(self.workchain, "REPORT", max_depth=1)
+        # Filter out the first column with date
+        # TODO: Color WARNING|ERROR|CRITICAL reports
+        report = re.sub(r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE)
+        report = ipw.HTML(f"<pre>{report}</pre>")
+
+        super().__init__([report], **kwargs)
 
 
 @register_viewer_widget("data.array.trajectory.TrajectoryData.")
