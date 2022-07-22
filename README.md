@@ -1,6 +1,7 @@
-# AiiDALab Testing application
+# AiiDALab ISPG applications
 
-UV/VIS spectroscopy app
+ATMOSPEC - automatic ab initio workflow for UV/VIS spectroscopy
+of atmospherically relevant molecules. 
 
 ## Installation
 
