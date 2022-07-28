@@ -118,15 +118,18 @@ class CodeSettings(ipw.VBox):
 
     def __init__(self, **kwargs):
 
+        # TODO: CodeDropdown is deprecated, migrate to ComputationalResourcesWidget
+        # TODO: Can we set a stable default here?
         self.orca = CodeDropdown(
             input_plugin="orca_main",
             description="main orca program",
             setup_code_params={
                 "computer": "localhost",
-                "description": "orca in AiiDAlab container.",
+                "description": "ORCA in AiiDAlab container.",
                 "label": "orca",
                 "input_plugin": "orca_main",
-                "remote_abs_path": "/home/aiida/software/orca/orca_5_0_1_openmpi422/orca",
+                "remote_abs_path": "/opt/orca/orca",
+                "prepend_text": "export PATH=/opt/orca:$PATH",
             },
         )
         super().__init__(
@@ -441,7 +444,11 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         metadata = {
             "options": {
                 "withmpi": False,
-                "resources": {"tot_num_mpiprocs": num_proc},
+                "resources": {
+                    "tot_num_mpiprocs": num_proc,
+                    "num_mpiprocs_per_machine": num_proc,
+                    "num_machines": 1,
+                },
             }
         }
         builder.exc.orca.metadata = metadata

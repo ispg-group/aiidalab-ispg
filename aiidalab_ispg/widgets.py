@@ -377,7 +377,7 @@ class ResourceSelectionWidget(ipw.VBox):
         """<div style="line-height:120%; padding-top:0px">
         <p style="padding-bottom:10px">
         Specify the number of MPI tasks for this calculation.
-        In general, larger structures will require a larger number of tasks.
+        (Currently ignored).
         </p></div>"""
     )
 
@@ -389,7 +389,7 @@ class ResourceSelectionWidget(ipw.VBox):
         }
 
         self.num_mpi_tasks = ipw.BoundedIntText(
-            value=1, step=1, min=1, description="# MPI tasks", **extra
+            value=1, step=1, min=1, max=16, description="# MPI tasks", **extra
         )
 
         super().__init__(
