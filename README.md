@@ -1,19 +1,19 @@
-# AiiDALab ISPG applications
+# AiiDAlab ISPG applications
 
 ATMOSPEC - automatic ab initio workflow for UV/VIS spectroscopy
 of atmospherically relevant molecules. 
 
 ## Installation
 
-This Jupyter-based app is intended to be run with [AiiDAlab](https://www.materialscloud.org/aiidalab).
+This Jupyter-based app is intended to be run within the [AiiDAlab environment](https://www.materialscloud.org/aiidalab).
 
-If you already run AiiDaLab, you can install the latest version from Github
+If you already run AiiDAlab you can install the latest version from Github
 by running the following command from within the AiiDAlab Docker container.
 ```
 aiidalab install aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main
 ```
 
-See below for complete installation instructions.
+See below for complete installation instructions on local machine.
 
 ## Usage
 
@@ -23,60 +23,91 @@ Here may go a few sreenshots / animated gifs illustrating how to use the app.
 
 MIT
 
-## aiidalab-launch based installation
+## Local installation
 
 NOTE: The details of some of the commands will depend on your
 OS and its version. The concrete examples are based on Ubuntu 20.04.
 
+### Install dependencies
 0. Install ab initio dependencies (ORCA)
-0. Install Docker (concrete commands will depend on your OS)
-   `$ sudo apt install docker.io`
-   - Add yourself to the docker group and restart shell session
-   `$ sudo usermod -a -G docker $USER
-1. Install pipx
-   `$ apt install python-venv pipx`
-2. Install aiidalab-launch to manage the aiidalab containers
-   `$ pipx install aiidalab`
-   If pipx is giving you trouble, you should be able to install via pip as well.
-3. Modify default profile to include aiidalab-ispg app
+
+1. Install Docker
+
+```sh
+$ sudo apt install docker.io
+```
+
+1.1 Add yourself to the docker group and restart shell session
+
+```sh
+$ sudo usermod -a -G docker $USER`
+```
+
+2. Install pipx
+
+```sh
+$ apt install python-venv pipx
+```
+
+3. Install aiidalab-launch to manage the AiiDAlab containers
+
+```sh
+$ pipx install aiidalab-launch
+```
+
+If pipx is giving you trouble, you should be able to install via pip as well.
+
+
+### Build AiiDAlab ISPG Docker image
+
+In principle, you could use the official [AiiDAlab docker image](https://hub.docker.com/r/maxcentre/aiidalab-docker-stack),
+which would be downloaded automatically when launching the Docker container.
+It is however preferable to build our custom image that contains additional
+dependencies pre-installed and includes the SLURM queuing manager.
+See (installation instructions here)[https://github.com/danielhollas/aiidalab-ispg-docker-stack#readme].
+
+### Setup AiiDAlab launch
+
+Modify default profile to include aiidalab-ispg app
 
 ```sh
 $ aiidalab-launch profiles edit default
 ```
 
-Profile configuration
+Copy paste this profile configuration (substitute path to ORCA and the Docker image name if needed)
 ```
 port = 8888
 default_apps = [ "aiidalab-widgets-base", "aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main",]
 system_user = "aiida"
-image = "aiidalab/aiidalab-docker-stack:latest"
+image = aiidalab-ispg:latest"
 home_mount = "aiidalab_ispg_home"
 extra_mounts = ["/home/hollas/software/orca/5.0.3/arch/linux_x86-64_openmpi411_static:/opt/orca:ro",]
 ```
 
-4. Launch the container
+### Launch and manage container
+
+ - Launch the container
 
 ```sh
 $ aiidalab-launch start
 ```
+This command will print the URL that you can then access in the browser
 
-5. Install xtb-python, cannot be declared as a pip dependency since it is not published in PyPI.
-   Instead, it needs to be installed by Conda.
+ - Stop the container
 
 ```sh
-$ aiidalab-launch exec --privileged -- conda install xtb-python
+$ aiidalab-launch stop
 ```
 
-6. Setup ORCA code on localhost.
+ - Print container status
+
 ```sh
-$ aiidalab-launch exec -- bash /home/aiida/apps/aiidalab-ispg/setup_codes_on_localhost.sh
+$ aiidalab-launch status
 ```
-This sets up the required code nodes in AiiDA DB. Since the DB is persisted in the
-'home_mount' volume, this needs to only be done once for a give aiidalab profile.
 
-If you are planning to launch codes on external computer, this step needs to be modified.
+## Development
 
-7. [Optional] Re-install packages for development
+Re-install packages for development in the container
 ```sh
 $ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
 $ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
