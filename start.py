@@ -4,7 +4,7 @@ import ipywidgets as ipw
 
 template = """
 <div align="center">
-    <img src="{appbase}/aiidalab_ispg/static/atmospec_logo-01.png" height="128px" width=453px">
+    <img src="{appbase}/aiidalab_ispg/static/atmospec_logo-640.png" height="128px" width=453px">
 </div>
 <table>
 <tr>
