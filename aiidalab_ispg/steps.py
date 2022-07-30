@@ -41,6 +41,7 @@ from aiidalab_ispg.spectrum import SpectrumWidget
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
+Bool = DataFactory("bool")
 
 
 class WorkChainSettings(ipw.VBox):
@@ -453,6 +454,11 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         }
         builder.exc.orca.metadata = metadata
         builder.opt.orca.metadata = metadata
+
+        # Clean the remote directory by default,
+        # we're copying back the main output file and gbw file anyway.
+        builder.exc.clean_workdir = Bool(True)
+        builder.opt.clean_workdir = Bool(True)
 
         builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
         builder.opt.orca.metadata.description = "ORCA geometry optimization"
