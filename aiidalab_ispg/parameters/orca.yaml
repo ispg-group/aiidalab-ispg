@@ -1,15 +1,13 @@
 # Default builder parameters for the OrcaWorkChain
 
 ## Codes
-orca_code: orca@localhost
+orca_code: orca@slurm
 
 ## Molecular parameters
 spin_mult: 1
 charge: 0
+nstates: 3
 
 ## QM Method
 basis: sto-3g
 method: pbe
-
-## Calculation settings
-protocol: fast
