@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import time
 
-import pytest
 from selenium.webdriver.common.by import By
 
 # https://selenium-python.readthedocs.io/locating-elements.html
 
 
-def test_atmospec_app_take_screenshot(selenium, url):
+def test_atmospec_app_init(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
     selenium.set_window_size(1920, 1450)
     time.sleep(10)
@@ -17,7 +16,6 @@ def test_atmospec_app_take_screenshot(selenium, url):
     selenium.get_screenshot_as_file("screenshots/atmospec-app.png")
 
 
-@pytest.mark.skip(reason="temporarily disabled till aiidalab-widgets-base is updated")
 def test_atmospec_generate_mol_from_smiles(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
     # selenium.set_window_size(1920, 1000)
@@ -27,12 +25,19 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     generate_mol_button = selenium.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
-    # TODO: Looks like the click does not work
     generate_mol_button.click()
 
     # Once the structure is generated, proceed to the next workflow step
     time.sleep(1)
-    confirm_button = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
-    # confirm_button.location_once_scrolled_into_view  # scroll into view
-    confirm_button.click()
+    selenium.get_screenshot_as_file("screenshots/atmospec-mol-generated.png")
+
+    confirm_btn = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
+    confirm_btn.click()
     selenium.get_screenshot_as_file("screenshots/atmospec-mol-confirmed.png")
+
+    # Test that we have indeed proceeded to the next step
+    selenium.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
+
+    # Note, the element is found even if it is hidden behind fold
+    # Can't actually click submit, obviously
+    selenium.find_element(By.XPATH, "//button[contains(.,'Submit')]")

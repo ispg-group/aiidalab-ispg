@@ -15,9 +15,16 @@ jobs:
     strategy:
       matrix:
         # For now, we're only targeting latest aiidalab image.
-        #tag: [ stable, latest ]
-        tag: [ latest ]
-        browser: [ chrome, firefox ]
+        # tag: [ stable, latest ]
+        tag: [latest]
+        # Chrome seems to fail fairly often with timeout errors coming from
+        # the selenium.get_screenshot_as_file()
+        # ```
+        # WARNING: Failed to gather screenshot: Message: timeout: Timed out receiving message from renderer: 10.000
+        # ```
+        # Googling around, this seems to be a common problem so disabling for now.
+        # browser: [ chrome, firefox ]
+        browser: [firefox]
       fail-fast: false
 
     steps:
