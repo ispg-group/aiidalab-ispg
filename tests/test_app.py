@@ -6,7 +6,7 @@ from selenium.webdriver.common.by import By
 # https://selenium-python.readthedocs.io/locating-elements.html
 
 
-def test_atmospec_app_take_screenshot(selenium, url):
+def test_atmospec_app_init(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
     selenium.set_window_size(1920, 1450)
     time.sleep(10)
