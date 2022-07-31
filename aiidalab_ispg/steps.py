@@ -79,7 +79,7 @@ class WorkChainSettings(ipw.VBox):
             min=1,
             max=7,
             step=1,
-            description="Spin Multiplicity",
+            description="SpinMult",
             disabled=False,
             value=1,
         )
@@ -90,6 +90,13 @@ class WorkChainSettings(ipw.VBox):
             value=0,
         )
 
+        self.nstates = ipw.IntText(
+            description="Nstate",
+            tooltip="Number of excited states",
+            disabled=False,
+            value=3,
+        )
+
         super().__init__(
             children=[
                 self.structure_title,
@@ -98,6 +105,7 @@ class WorkChainSettings(ipw.VBox):
                 self.electronic_structure_title,
                 self.charge,
                 self.spin_mult,
+                self.nstates,
             ],
             **kwargs,
         )
@@ -120,7 +128,6 @@ class CodeSettings(ipw.VBox):
     def __init__(self, **kwargs):
 
         # TODO: CodeDropdown is deprecated, migrate to ComputationalResourcesWidget
-        # TODO: Can we set a stable default here?
         self.orca = CodeDropdown(
             input_plugin="orca_main",
             description="main orca program",
@@ -311,6 +318,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.workchain_settings.geo_opt_type.observe(update, ["value"])
         self.workchain_settings.spin_mult.observe(update, ["value"])
         self.workchain_settings.charge.observe(update, ["value"])
+        self.workchain_settings.nstates.observe(update, ["value"])
         # Codes
         self.codes_selector.orca.observe(update, ["selected_code"])
         # QM settings
@@ -349,11 +357,11 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             "builder_parameters",
             self._serialize_builder_parameters(
                 dict(
-                    # Codes
                     orca_code=self.codes_selector.orca.selected_code,
                     method=self.qm_config.method.value,
                     basis=self.qm_config.basis.value,
                     charge=self.workchain_settings.charge.value,
+                    nstates=self.workchain_settings.nstates.value,
                     spin_mult=self.workchain_settings.spin_mult.value,
                 )
             ),
@@ -367,6 +375,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             # Workchain settings
             self.workchain_settings.spin_mult.value = bp["spin_mult"]
             self.workchain_settings.charge.value = bp["charge"]
+            self.workchain_settings.nstates.value = bp["nstates"]
             # Codes
             self.codes_selector.orca.selected_code = bp.get("orca_code")
             # QM settings
@@ -399,10 +408,10 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         parameters["input_blocks"]["tddft"] = tddft
         return parameters
 
-    def add_compound_optimization(self, orca_parameters, basis, method):
-        parameters = deepcopy(orca_parameters)
-        # TODO: Make this work in orca plugin
-        parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
+    # TODO: Make this work in aiida-orca plugin
+    #def add_compound_optimization(self, orca_parameters, basis, method):
+        # parameters = deepcopy(orca_parameters)
+        # parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
         # TODO:
         # with open("parameters/iterativeOptimization.cmp") as f:
         #    s = f.read().format(basis=basis, method=method)
@@ -410,7 +419,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         # https://stackoverflow.com/questions/7585435/best-way-to-convert-string-to-bytes-in-python-3
         # file_node = SingleFileData(s)
         # parameters.file['compound'] = file_node
-        return parameters
+        # return parameters
 
     def submit(self, _=None):
 
@@ -427,7 +436,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         orca_parameters = self.build_base_orca_params(builder_parameters)
         # TODO: Make this an option in the UI
         # or rather, autodetermine based on requested energy range.
-        nroots = 3
+        nroots = builder_parameters["nstates"]
         tddft_parameters = self.add_tddft_orca_params(orca_parameters, nroots)
         optimization_parameters = deepcopy(orca_parameters)
         optimization_parameters["input_keywords"].append("TightOpt")
