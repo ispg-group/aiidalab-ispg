@@ -240,6 +240,7 @@ class WorkChainNodeViewerWidget(ipw.VBox):
 @register_viewer_widget("data.array.trajectory.TrajectoryData.")
 class TrajectoryDataViewer(StructureDataViewer):
 
+    # TODO: Do not subclass StructureDataViewer, but have it as a component
     trajectory = traitlets.Instance(Node, allow_none=True)
     _structures = []
     _energies = None
@@ -256,11 +257,11 @@ class TrajectoryDataViewer(StructureDataViewer):
 
         # Display energy if available
         self._energy = ipw.HTML(
-            value="Energy = ",
+            value="Energy ",
             placeholder="Energy",
         )
 
-        children = [self._step_selector, self._energy]
+        children = [ipw.HBox(children=[self._step_selector, self._energy])]
 
         super().__init__(
             children=children, configuration_tabs=["Selection", "Download"], **kwargs
