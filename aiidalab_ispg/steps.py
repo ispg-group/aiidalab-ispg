@@ -90,11 +90,13 @@ class WorkChainSettings(ipw.VBox):
             value=0,
         )
 
-        self.nstates = ipw.IntText(
+        self.nstates = ipw.BoundedIntText(
             description="Nstate",
             tooltip="Number of excited states",
             disabled=False,
             value=3,
+            min=1,
+            max=50,
         )
 
         super().__init__(
@@ -409,17 +411,17 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         return parameters
 
     # TODO: Make this work in aiida-orca plugin
-    #def add_compound_optimization(self, orca_parameters, basis, method):
-        # parameters = deepcopy(orca_parameters)
-        # parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
-        # TODO:
-        # with open("parameters/iterativeOptimization.cmp") as f:
-        #    s = f.read().format(basis=basis, method=method)
-        # TODO: Store s as "SingleFileData"
-        # https://stackoverflow.com/questions/7585435/best-way-to-convert-string-to-bytes-in-python-3
-        # file_node = SingleFileData(s)
-        # parameters.file['compound'] = file_node
-        # return parameters
+    # def add_compound_optimization(self, orca_parameters, basis, method):
+    # parameters = deepcopy(orca_parameters)
+    # parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
+    # TODO:
+    # with open("parameters/iterativeOptimization.cmp") as f:
+    #    s = f.read().format(basis=basis, method=method)
+    # TODO: Store s as "SingleFileData"
+    # https://stackoverflow.com/questions/7585435/best-way-to-convert-string-to-bytes-in-python-3
+    # file_node = SingleFileData(s)
+    # parameters.file['compound'] = file_node
+    # return parameters
 
     def submit(self, _=None):
 
