@@ -533,18 +533,22 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
     def _update_state(self):
         if self.process is None:
             self.state = self.State.INIT
-        else:
-            process_state = self.process.process_state
-            if process_state in (
-                ProcessState.CREATED,
-                ProcessState.RUNNING,
-                ProcessState.WAITING,
-            ):
-                self.state = self.State.ACTIVE
-            elif process_state in (ProcessState.EXCEPTED, ProcessState.KILLED):
-                self.state = self.State.FAIL
-            elif process_state is ProcessState.FINISHED:
-                self.state = self.State.SUCCESS
+            return
+
+        process_state = self.process.process_state
+        if process_state in (
+            ProcessState.CREATED,
+            ProcessState.RUNNING,
+            ProcessState.WAITING,
+        ):
+            self.state = self.State.ACTIVE
+        elif (
+            process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
+            or self.process.is_failed
+        ):
+            self.state = self.State.FAIL
+        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
+            self.state = self.State.SUCCESS
 
     @traitlets.observe("process")
     def _observe_process(self, change):
@@ -632,16 +636,18 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             return
 
         process_state = self.process.process_state
-        process_state = self.process.process_state
         if process_state in (
             ProcessState.CREATED,
             ProcessState.RUNNING,
             ProcessState.WAITING,
         ):
             self.state = self.State.ACTIVE
-        elif process_state in (ProcessState.EXCEPTED, ProcessState.KILLED):
+        elif (
+            process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
+            or self.process.is_failed
+        ):
             self.state = self.State.FAIL
-        elif process_state is ProcessState.FINISHED:
+        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
             self.state = self.State.SUCCESS
 
     @traitlets.observe("process")

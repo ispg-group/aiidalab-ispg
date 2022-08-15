@@ -16,7 +16,4 @@ __all__ = [
     "ViewSpectrumStep",
 ]
 
-# WARNING: This needs to be kept in sync with version
-# in setup.cfg
-# TODO: Take a look and how aiidalab-qe and other packages do it.
 __version__ = "0.1-alpha"
