@@ -20,6 +20,7 @@ from aiida.orm import ProcessNode, load_code
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import (
+    AiidaNodeViewWidget,
     CodeDropdown,
     ProcessMonitor,
     ProcessNodesTreeWidget,
@@ -27,7 +28,7 @@ from aiidalab_widgets_base import (
 )
 
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
-from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
+from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
 try:
@@ -503,7 +504,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         self.process_tree = ProcessNodesTreeWidget()
         ipw.dlink((self, "process"), (self.process_tree, "process"))
 
-        self.node_view = NodeViewWidget(layout={"width": "auto", "height": "auto"})
+        self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
             (self.process_tree, "selected_nodes"),
             (self.node_view, "node"),

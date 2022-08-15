@@ -13,12 +13,11 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 import nglview
-from IPython.display import clear_output, display
 
 from aiida.orm import CalcJobNode, Node
 from aiida.plugins import DataFactory
 
-from aiidalab_widgets_base import register_viewer_widget, viewer
+from aiidalab_widgets_base import register_viewer_widget
 from aiidalab_widgets_base.viewers import StructureDataViewer
 
 
@@ -27,7 +26,6 @@ TrajectoryData = DataFactory("array.trajectory")
 __all__ = [
     "CalcJobOutputFollower",
     "LogOutputWidget",
-    "NodeViewWidget",
     "TrajectoryDataViewer",
 ]
 
@@ -318,6 +316,7 @@ class TrajectoryDataViewer(StructureDataViewer):
                 #    self._viewer.add_unitcell() # pylint: disable=no-member
 
     # Monkey patched download button to download all conformers in a single file
+    # TODO: Maybe we want to have a separate button for this?
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
         from tempfile import NamedTemporaryFile
@@ -330,23 +329,6 @@ class TrajectoryDataViewer(StructureDataViewer):
 
         with open(tmp.name, "rb") as raw:
             return base64.b64encode(raw.read()).decode()
-
-
-class NodeViewWidget(ipw.VBox):
-
-    node = traitlets.Instance(Node, allow_none=True)
-
-    def __init__(self, **kwargs):
-        self._output = ipw.Output()
-        super().__init__(children=[self._output], **kwargs)
-
-    @traitlets.observe("node")
-    def _observe_node(self, change):
-        if change["new"] != change["old"]:
-            with self._output:
-                clear_output()
-                if change["new"]:
-                    display(viewer(change["new"]))
 
 
 class ResourceSelectionWidget(ipw.VBox):
