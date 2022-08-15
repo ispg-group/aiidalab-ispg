@@ -602,8 +602,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _show_spectrum(self):
 
-        # TODO: Return if process is not finished_ok
-        if self.process is None or self.process.process_state != ProcessState.FINISHED:
+        if self.process is None or not self.process.is_finished_ok:
             return
 
         # TODO: Handle different kind of computed spectra simultaneously.
