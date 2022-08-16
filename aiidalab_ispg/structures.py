@@ -1,25 +1,31 @@
 """Widgets for the upload and selection of structure data.
 
-Authors:
+Copied from the Quantum Espresse AiiDAlab app and slightly modified.
 
+Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
+    * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
-import aiida
 import ipywidgets as ipw
 import traitlets
 from traitlets import Union, Instance
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from aiida.plugins import DataFactory
-StructureData = DataFactory('structure')
-TrajectoryData = DataFactory('array.trajectory')
+
+StructureData = DataFactory("structure")
+TrajectoryData = DataFactory("array.trajectory")
 
 
 class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
-    confirmed_structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
+    structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
+    confirmed_structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
 
     def __init__(self, manager, description=None, **kwargs):
         self.manager = manager
@@ -85,7 +91,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
             if structure is None:
                 self.structure_name_text.value = ""
             # TODO: Special case this for TrajectoryData
-            #else:
+            # else:
             #    self.structure_name_text.value = str(self.structure.get_formula())
             self._update_state()
 
