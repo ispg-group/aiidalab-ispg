@@ -21,7 +21,7 @@ from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
-    CodeDropdown,
+    ComputationalResourcesWidget,
     ProcessMonitor,
     ProcessNodesTreeWidget,
     WizardAppWidgetStep,
@@ -34,7 +34,6 @@ from aiidalab_ispg.widgets import QMSelectionWidget
 try:
     from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
-    # TODO: Can we do something better than print here?
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
 from aiidalab_ispg.spectrum import SpectrumWidget
@@ -130,18 +129,9 @@ class CodeSettings(ipw.VBox):
 
     def __init__(self, **kwargs):
 
-        # TODO: CodeDropdown is deprecated, migrate to ComputationalResourcesWidget
-        self.orca = CodeDropdown(
+        self.orca = ComputationalResourcesWidget(
             input_plugin="orca_main",
-            description="main orca program",
-            setup_code_params={
-                "computer": "localhost",
-                "description": "ORCA in AiiDAlab container.",
-                "label": "orca",
-                "input_plugin": "orca_main",
-                "remote_abs_path": "/opt/orca/orca",
-                "prepend_text": "export PATH=/opt/orca:$PATH",
-            },
+            description="Main ORCA program",
         )
         super().__init__(
             children=[
@@ -174,10 +164,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.set_trait("builder_parameters", self._default_builder_parameters())
         self._setup_builder_parameters_update()
 
-        self.codes_selector.orca.observe(self._update_state, "selected_code")
-        self.codes_selector.orca.observe(
-            self._set_num_mpi_tasks_to_default, "selected_code"
-        )
+        self.codes_selector.orca.observe(self._update_state, "value")
+        self.codes_selector.orca.observe(self._set_num_mpi_tasks_to_default, "value")
 
         self.tab = ipw.Tab(
             children=[
@@ -253,7 +241,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             return self.State.INIT
 
         # ORCA code not selected.
-        if self.codes_selector.orca.selected_code is None:
+        if self.codes_selector.orca.value is None:
             return self.State.READY
 
         return self.State.CONFIGURED
@@ -323,7 +311,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.workchain_settings.charge.observe(update, ["value"])
         self.workchain_settings.nstates.observe(update, ["value"])
         # Codes
-        self.codes_selector.orca.observe(update, ["selected_code"])
+        self.codes_selector.orca.observe(update, ["value"])
         # QM settings
         self.qm_config.method.observe(update, ["value"])
         self.qm_config.basis.observe(update, ["value"])
@@ -360,7 +348,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             "builder_parameters",
             self._serialize_builder_parameters(
                 dict(
-                    orca_code=self.codes_selector.orca.selected_code,
+                    orca_code=self.codes_selector.orca.value,
                     method=self.qm_config.method.value,
                     basis=self.qm_config.basis.value,
                     charge=self.workchain_settings.charge.value,
@@ -380,7 +368,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             self.workchain_settings.charge.value = bp["charge"]
             self.workchain_settings.nstates.value = bp["nstates"]
             # Codes
-            self.codes_selector.orca.selected_code = bp.get("orca_code")
+            self.codes_selector.orca.value = bp.get("orca_code")
             # QM settings
             self.qm_config.method.value = bp["method"]
             self.qm_config.basis.value = bp["basis"]
@@ -432,7 +420,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder = AtmospecWorkChain.get_builder()
 
-        orca_code = self.codes_selector.orca.selected_code
+        orca_code = self.codes_selector.orca.value
         builder.code = orca_code
         builder.structure = self.input_structure
 
