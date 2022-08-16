@@ -1,5 +1,4 @@
-"""Widgets related to process management.
-   Copied over from AiidaLab QE app"""
+"""Widgets related to process management."""
 from dataclasses import dataclass
 from threading import Event, Lock, Thread
 
@@ -7,11 +6,6 @@ import ipywidgets as ipw
 import traitlets
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node
-from aiida.plugins import DataFactory
-
-StructureData = DataFactory("structure")
-
-WORKCHAIN_LABEL = "AtmospecWorkChain"
 
 
 class WorkChainSelector(ipw.HBox):
@@ -31,7 +25,7 @@ class WorkChainSelector(ipw.HBox):
     # use `None` as setting the widget's value to None will lead to "no selection".
     _NO_PROCESS = object()
 
-    FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
+    FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula} \t {wc.relax_info} \t {wc.properties_info}"
 
     def __init__(self, **kwargs):
         self.work_chains_prompt = ipw.HTML("<b>Select workflow or start new:</b>&nbsp;")
@@ -68,12 +62,14 @@ class WorkChainSelector(ipw.HBox):
         ctime: str
         state: str
         formula: str
+        relax_info: str
+        properties_info: str
 
     @classmethod
     def find_work_chains(cls):
         builder = CalculationQueryBuilder()
         filters = builder.get_filters(
-            process_label=WORKCHAIN_LABEL,
+            process_label="QeAppWorkChain",
         )
         query_set = builder.get_query_set(
             filters=filters,
@@ -85,13 +81,28 @@ class WorkChainSelector(ipw.HBox):
 
         for process in projected[1:]:
             pk = process[0]
-            structure = load_node(pk).inputs.structure
-            if isinstance(structure, StructureData):
-                formula = structure.get_formula()
+            formula = load_node(pk).inputs.structure.get_formula()
+            if "relax" in load_node(pk).inputs:
+                relax_info = "structure is relaxed"
             else:
-                # TODO: Extract formula from the trajectory
-                formula = ""
-            yield cls.WorkChainData(formula=formula, *process)
+                relax_info = "structure is not relaxed"
+
+            properties = []
+            if "pdos" in load_node(pk).inputs:
+                properties.append("pdos")
+            if "bands" in load_node(pk).inputs:
+                properties.append("bands")
+
+            if not properties:
+                properties_info = ""
+            else:
+                properties_info = f"properties on {', '.join(properties)}"
+            yield cls.WorkChainData(
+                formula=formula,
+                relax_info=relax_info,
+                properties_info=properties_info,
+                *process,
+            )
 
     @traitlets.default("busy")
     def _default_busy(self):

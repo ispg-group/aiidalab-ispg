@@ -58,8 +58,6 @@ class ConcatStructuresToTrajectory(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        # TODO: Maybe allow other types other than StructureData?
-        # Not sure what are the requirements for TrajectoryData
         spec.input_namespace("structures", dynamic=True, valid_type=StructureData)
         spec.output("trajectory", valid_type=TrajectoryData)
         spec.outline(cls.combine)
