@@ -7,7 +7,6 @@ Authors:
 """
 from pprint import pformat
 
-# DH: Hopefully we will be able to remove this
 from copy import deepcopy
 
 import ipywidgets as ipw
@@ -27,6 +26,7 @@ from aiidalab_widgets_base import (
     WizardAppWidgetStep,
 )
 
+import aiidalab_ispg.qeapp.structures
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
@@ -42,6 +42,28 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
+
+
+class StructureSelectionStep(aiidalab_ispg.qeapp.structures.StructureSelectionStep):
+    """Integrated widget for the selection of structures from different sources."""
+
+    structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
+    confirmed_structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
+
+    @traitlets.observe("structure")
+    def _observe_structure(self, change):
+        structure = change["new"]
+        with self.hold_trait_notifications():
+            if structure is None:
+                self.structure_name_text.value = ""
+            # TODO: Special case this for TrajectoryData
+            # else:
+            #    self.structure_name_text.value = str(self.structure.get_formula())
+            self._update_state()
 
 
 class WorkChainSettings(ipw.VBox):
