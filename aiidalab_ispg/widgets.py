@@ -22,6 +22,7 @@ from aiidalab_widgets_base.viewers import StructureDataViewer
 # trigger registration of the viewer widgets
 from aiidalab_ispg.qeapp import widgets  # noqa: F401
 import aiidalab_ispg.qeapp.process
+from .utils import get_formula
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
@@ -63,11 +64,7 @@ class WorkChainSelector(aiidalab_ispg.qeapp.process.WorkChainSelector):
         for process in projected[1:]:
             pk = process[0]
             structure = load_node(pk).inputs.structure
-            if isinstance(structure, StructureData):
-                formula = structure.get_formula()
-            else:
-                # TODO: Extract formula from the trajectory
-                formula = ""
+            formula = get_formula(structure)
             yield cls.WorkChainData(formula=formula, *process)
 
     def refresh_work_chains(self, _=None):

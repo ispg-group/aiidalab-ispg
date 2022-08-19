@@ -31,6 +31,8 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
 
+from .utils import get_formula
+
 try:
     from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
@@ -60,9 +62,8 @@ class StructureSelectionStep(aiidalab_ispg.qeapp.structures.StructureSelectionSt
         with self.hold_trait_notifications():
             if structure is None:
                 self.structure_name_text.value = ""
-            # TODO: Special case this for TrajectoryData
-            # else:
-            #    self.structure_name_text.value = str(self.structure.get_formula())
+            else:
+                self.structure_name_text.value = get_formula(self.structure)
             self._update_state()
 
 
