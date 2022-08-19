@@ -360,14 +360,22 @@ class AtmospecWorkChain(WorkChain):
             return
 
         # Check for errors
-        # TODO: Raise if subworkflows raised?
+        # TODO: Specialize errors. Can we expose errors from child workflows?
         for wc in self.ctx.confs:
-            # TODO: Specialize errors. Can we expose errors from child workflows?
             if not wc.is_finished_ok:
                 return self.exit_codes.CONFORMER_ERROR
 
         # Combine all spectra data
-        data = {str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)}
+        if self.inputs.optimize:
+            data = {
+                str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)
+            }
+        else:
+            # TODO: We should have a separate output for single-point spectra
+            data = {
+                str(i): [wc.outputs.single_point_tddft.get_dict()]
+                for i, wc in enumerate(self.ctx.confs)
+            }
         all_results = run(ConcatInputsToList, ns=data)
         self.out("spectrum_data", all_results["output"])
 

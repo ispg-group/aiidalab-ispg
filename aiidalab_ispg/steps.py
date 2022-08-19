@@ -605,9 +605,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         ]
 
     def _wigner_output_to_transitions(self, wigner_outputs):
-        nsample = len(wigner_outputs)
         transitions = []
-        for i, params in zip(range(nsample), wigner_outputs):
+        for i, params in enumerate(wigner_outputs):
             transitions += self._orca_output_to_transitions(params, i)
         return transitions
 
@@ -619,7 +618,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # TODO: Handle different kind of computed spectra simultaneously.
         # This is a single-point spectrum
         # output_params = self.process.outputs.single_point_tddft.get_dict()
-        # transitions = self._orca_output_to_transitions(output_params, 0)
+        # single_point_transitions = []
+        # self._orca_output_to_transitions(output_params, 0)
 
         # TODO: This is a hack for now until we do a proper Boltzmann weighting.
         conformer_transitions = []
