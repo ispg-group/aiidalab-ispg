@@ -7,7 +7,6 @@ Authors:
 """
 from pprint import pformat
 
-# DH: Hopefully we will be able to remove this
 from copy import deepcopy
 
 import ipywidgets as ipw
@@ -20,20 +19,23 @@ from aiida.orm import ProcessNode, load_code
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import (
-    CodeDropdown,
+    AiidaNodeViewWidget,
+    ComputationalResourcesWidget,
     ProcessMonitor,
     ProcessNodesTreeWidget,
     WizardAppWidgetStep,
 )
 
+import aiidalab_ispg.qeapp.structures
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
-from aiidalab_ispg.widgets import NodeViewWidget, ResourceSelectionWidget
+from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
+
+from .utils import get_formula
 
 try:
     from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
-    # TODO: Can we do something better than print here?
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
 from aiidalab_ispg.spectrum import SpectrumWidget
@@ -42,6 +44,27 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
+
+
+class StructureSelectionStep(aiidalab_ispg.qeapp.structures.StructureSelectionStep):
+    """Integrated widget for the selection of structures from different sources."""
+
+    structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
+    confirmed_structure = Union(
+        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    )
+
+    @traitlets.observe("structure")
+    def _observe_structure(self, change):
+        structure = change["new"]
+        with self.hold_trait_notifications():
+            if structure is None:
+                self.structure_name_text.value = ""
+            else:
+                self.structure_name_text.value = get_formula(self.structure)
+            self._update_state()
 
 
 class WorkChainSettings(ipw.VBox):
@@ -129,18 +152,9 @@ class CodeSettings(ipw.VBox):
 
     def __init__(self, **kwargs):
 
-        # TODO: CodeDropdown is deprecated, migrate to ComputationalResourcesWidget
-        self.orca = CodeDropdown(
+        self.orca = ComputationalResourcesWidget(
             input_plugin="orca_main",
-            description="main orca program",
-            setup_code_params={
-                "computer": "localhost",
-                "description": "ORCA in AiiDAlab container.",
-                "label": "orca",
-                "input_plugin": "orca_main",
-                "remote_abs_path": "/opt/orca/orca",
-                "prepend_text": "export PATH=/opt/orca:$PATH",
-            },
+            description="Main ORCA program",
         )
         super().__init__(
             children=[
@@ -173,10 +187,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.set_trait("builder_parameters", self._default_builder_parameters())
         self._setup_builder_parameters_update()
 
-        self.codes_selector.orca.observe(self._update_state, "selected_code")
-        self.codes_selector.orca.observe(
-            self._set_num_mpi_tasks_to_default, "selected_code"
-        )
+        self.codes_selector.orca.observe(self._update_state, "value")
+        self.codes_selector.orca.observe(self._set_num_mpi_tasks_to_default, "value")
 
         self.tab = ipw.Tab(
             children=[
@@ -252,7 +264,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             return self.State.INIT
 
         # ORCA code not selected.
-        if self.codes_selector.orca.selected_code is None:
+        if self.codes_selector.orca.value is None:
             return self.State.READY
 
         return self.State.CONFIGURED
@@ -322,7 +334,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.workchain_settings.charge.observe(update, ["value"])
         self.workchain_settings.nstates.observe(update, ["value"])
         # Codes
-        self.codes_selector.orca.observe(update, ["selected_code"])
+        self.codes_selector.orca.observe(update, ["value"])
         # QM settings
         self.qm_config.method.observe(update, ["value"])
         self.qm_config.basis.observe(update, ["value"])
@@ -359,7 +371,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             "builder_parameters",
             self._serialize_builder_parameters(
                 dict(
-                    orca_code=self.codes_selector.orca.selected_code,
+                    orca_code=self.codes_selector.orca.value,
                     method=self.qm_config.method.value,
                     basis=self.qm_config.basis.value,
                     charge=self.workchain_settings.charge.value,
@@ -379,7 +391,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             self.workchain_settings.charge.value = bp["charge"]
             self.workchain_settings.nstates.value = bp["nstates"]
             # Codes
-            self.codes_selector.orca.selected_code = bp.get("orca_code")
+            self.codes_selector.orca.value = bp.get("orca_code")
             # QM settings
             self.qm_config.method.value = bp["method"]
             self.qm_config.basis.value = bp["basis"]
@@ -431,7 +443,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder = AtmospecWorkChain.get_builder()
 
-        orca_code = self.codes_selector.orca.selected_code
+        orca_code = self.codes_selector.orca.value
         builder.code = orca_code
         builder.structure = self.input_structure
 
@@ -503,7 +515,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         self.process_tree = ProcessNodesTreeWidget()
         ipw.dlink((self, "process"), (self.process_tree, "process"))
 
-        self.node_view = NodeViewWidget(layout={"width": "auto", "height": "auto"})
+        self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
             (self.process_tree, "selected_nodes"),
             (self.node_view, "node"),
@@ -601,8 +613,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _show_spectrum(self):
 
-        # TODO: Return if process is not finished_ok
-        if self.process is None or self.process.process_state != ProcessState.FINISHED:
+        if self.process is None or not self.process.is_finished_ok:
             return
 
         # TODO: Handle different kind of computed spectra simultaneously.

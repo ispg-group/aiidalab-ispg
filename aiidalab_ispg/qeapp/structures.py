@@ -7,27 +7,26 @@ Authors:
 import aiida
 import ipywidgets as ipw
 import traitlets
-from traitlets import Union, Instance
 from aiidalab_widgets_base import WizardAppWidgetStep
-
-from aiida.plugins import DataFactory
-StructureData = DataFactory('structure')
-TrajectoryData = DataFactory('array.trajectory')
 
 
 class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
-    confirmed_structure = Union([Instance(StructureData), Instance(TrajectoryData)], allow_none=True)
+    structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
+    confirmed_structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
 
     def __init__(self, manager, description=None, **kwargs):
         self.manager = manager
 
         if description is None:
-            description = ipw.Label(
-                "Select a structure from one of the following sources and then "
-                'click "Confirm" to go to the next step.'
+            description = ipw.HTML(
+                """
+                <p>Select a structure from one of the following sources and then click
+                "Confirm" to go to the next step. </p><i class="fa fa-exclamation-circle"
+                aria-hidden="true"></i> Currently only three-dimensional structures are
+                supported.
+                """
             )
         self.description = description
 
@@ -47,6 +46,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
             layout=ipw.Layout(width="auto"),
         )
         self.confirm_button.on_click(self.confirm)
+        self.message_area = ipw.HTML()
 
         # Create directional link from the (read-only) 'structure_node' traitlet of the
         # structure manager to our 'structure' traitlet:
@@ -57,6 +57,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
                 self.description,
                 self.manager,
                 self.structure_name_text,
+                self.message_area,
                 self.confirm_button,
             ],
             **kwargs
@@ -84,9 +85,9 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
         with self.hold_trait_notifications():
             if structure is None:
                 self.structure_name_text.value = ""
-            # TODO: Special case this for TrajectoryData
-            #else:
-            #    self.structure_name_text.value = str(self.structure.get_formula())
+            else:
+                self.structure_name_text.value = str(self.structure.get_formula())
+            self.message_area.value = ""
             self._update_state()
 
     @traitlets.observe("confirmed_structure")
@@ -102,7 +103,9 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
             self.manager.disabled = state is self.State.SUCCESS
 
     def confirm(self, _=None):
+        self.manager.store_structure()
         self.confirmed_structure = self.structure
+        self.message_area.value = ""
 
     def can_reset(self):
         return self.confirmed_structure is not None
