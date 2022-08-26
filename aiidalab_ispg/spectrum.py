@@ -14,7 +14,6 @@ from aiida.plugins import DataFactory
 
 # https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
 # https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
-# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
 from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
@@ -243,10 +242,6 @@ class SpectrumWidget(ipw.VBox):
             ]
         )
 
-        # TODO: Add Download button for downloading raw data
-        # as an CSV file
-        # https://github.com/bokeh/bokeh/tree/branch-3.0/examples/app/export_csv
-
         # We use this for Debug output for now
         self.debug_output = ipw.Output()
 
@@ -254,9 +249,18 @@ class SpectrumWidget(ipw.VBox):
         tools = "pan,wheel_zoom,box_zoom,reset,save"
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
         tooltips = [("(energy, cross_section)", "($x,$y)")]
-        self._init_figure(tools=tools, tooltips=tooltips)
-        self.spectrum_container = ipw.Box()
-        self.spectrum_container.children = [self.figure]
+        self.figure = self._init_figure(tools=tools, tooltips=tooltips)
+
+        self.download_btn = ipw.Button(
+            description="Download spectrum",
+            button_style="primary",
+            tooltip="Download spectrum as CSV file",
+            disabled=True,
+            icon="download",
+            layout=ipw.Layout(width="max-content"),
+        )
+        self.download_btn.on_click(self._download_spectrum)
+
         self.kernel_selector.observe(self._handle_kernel_update, names="value")
         self.energy_unit_selector.observe(
             self._handle_energy_unit_update, names="value"
@@ -268,10 +272,60 @@ class SpectrumWidget(ipw.VBox):
                 title,
                 self.debug_output,
                 controls,
-                self.spectrum_container,
+                self.figure,
+                self.download_btn,
             ],
             **kwargs,
         )
+
+    def _download_spectrum(self, btn):
+        """Download spectrum lines as CSV file"""
+        from IPython.display import Javascript, display
+
+        filename = "spectrum.tsv"
+        if self.smiles:
+            filename = f"spectrum_{self.smiles}.tsv"
+
+        payload = self._prepare_payload()
+        if not payload:
+            return
+
+        js = Javascript(
+            f"""
+            var link = document.createElement('a')
+            link.href = "data:text/csv;base64,{payload}"
+            link.download = "{filename}"
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            """
+        )
+        display(js)
+
+    def _prepare_payload(self):
+        import base64
+        import csv
+        from tempfile import SpooledTemporaryFile
+
+        # TODO: Download multiple spectra if available
+        line = self.figure.get_figure().select_one({"name": self.THEORY_SPEC_LABEL})
+        x = line.data_source.data.get("x")
+        y = line.data_source.data.get("y")
+
+        # We're using a tab as a delimiter (TSV file) since the resulting file
+        # should be readabale both by Excel and Xmgrace
+        delimiter = "\t"
+
+        fieldnames = [
+            f"Energy / {self.energy_unit_selector.value}",
+            f"Intensity / {self.intensity_unit}",
+        ]
+        with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
+            csvfile.write(f"# {fieldnames[0]}{delimiter}{fieldnames[1]}\n")
+            writer = csv.writer(csvfile, delimiter=delimiter)
+            writer.writerows(zip(x, y))
+            csvfile.seek(0)
+            return base64.b64encode(csvfile.read().encode()).decode()
 
     def _validate_transitions(self):
         # TODO: Maybe use named tuple instead of dictionary?
@@ -325,6 +379,7 @@ class SpectrumWidget(ipw.VBox):
             )
 
     def _plot_spectrum(self, kernel, width, energy_unit):
+        self.download_btn.disabled = True
         if not self._validate_transitions():
             self.hide_line(self.THEORY_SPEC_LABEL)
             return
@@ -346,6 +401,7 @@ class SpectrumWidget(ipw.VBox):
             return
 
         self.plot_line(x, y, self.THEORY_SPEC_LABEL)
+        self.download_btn.disabled = False
 
     def debug_print(self, *args):
         with self.debug_output:
@@ -353,7 +409,7 @@ class SpectrumWidget(ipw.VBox):
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label, **args):
+    def plot_line(self, x, y, label: str, **args):
         """Update existing plot line or create a new one.
         Updating existing plot lines unfortunately only work for label=theory
         and label=experiment, that are predefined in _init_figure()
@@ -369,7 +425,7 @@ class SpectrumWidget(ipw.VBox):
         line.data_source.data = {"x": x, "y": y}
         self.figure.update()
 
-    def hide_line(self, label):
+    def hide_line(self, label: str):
         """Hide given line from the plot"""
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
@@ -378,7 +434,7 @@ class SpectrumWidget(ipw.VBox):
         line.visible = False
         self.figure.update()
 
-    def remove_line(self, label):
+    def remove_line(self, label: str):
         # This approach is potentially britle, see:
         # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
         # Observation: Removing and adding lines via
@@ -391,10 +447,10 @@ class SpectrumWidget(ipw.VBox):
         f.renderers.remove(line)
         self.figure.update()
 
-    def _init_figure(self, *args, **kwargs):
+    def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
-        self.figure = BokehFigureContext(plt.figure(*args, **kwargs))
-        f = self.figure.get_figure()
+        figure = BokehFigureContext(plt.figure(*args, **kwargs))
+        f = figure.get_figure()
         f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value}"
         f.yaxis.axis_label = f"Cross section / {self.intensity_unit}"
 
@@ -409,12 +465,15 @@ class SpectrumWidget(ipw.VBox):
         # https://doi.org/10.1038/s41467-020-19160-7
         theory_line = f.line(x, y, line_width=2, name=self.THEORY_SPEC_LABEL)
         theory_line.visible = False
+        return figure
 
     def reset(self):
         with self.hold_trait_notifications():
             self.transitions = None
             self.smiles = None
+            self.experimental_spectrum = None
 
+        self.download_btn.disabled = True
         self.hide_line(self.THEORY_SPEC_LABEL)
         self.remove_line(self.EXP_SPEC_LABEL)
         self.debug_output.clear_output()
@@ -431,7 +490,6 @@ class SpectrumWidget(ipw.VBox):
     def _observe_smiles(self, change):
         self._find_experimental_spectrum(change["new"])
 
-    # TODO: Make sure that this does not slow us down too much
     def _find_experimental_spectrum(self, smiles):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
@@ -449,9 +507,9 @@ class SpectrumWidget(ipw.VBox):
             self.remove_line(self.EXP_SPEC_LABEL)
             return
 
-        # for spectrum in qb.iterall():
         # TODO: For now let's just assume we have one
         # canonical experimental spectrum per compound.
+        # for spectrum in qb.iterall():
         self.experimental_spectrum = qb.first()[0]
         self._plot_experimental_spectrum(
             spectrum_node=self.experimental_spectrum,
