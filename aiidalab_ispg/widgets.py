@@ -285,6 +285,16 @@ class QMSelectionWidget(ipw.VBox):
             description="Number of Wigner samples",
         )
 
+        self.wigner_low_freq_thr = ipw.BoundedFloatText(
+            value=100,
+            step=10,
+            min=0,
+            max=10000,
+            style=style,
+            description="Low-frequency threshold",
+            title="Normal modes below this frequency will be ignored",
+        )
+
         super().__init__(
             children=[
                 self.qm_title,
@@ -292,10 +302,13 @@ class QMSelectionWidget(ipw.VBox):
                 self.spectra_title,
                 self.spectra_desc,
                 self.nwigner,
+                self.wigner_low_freq_thr,
             ]
         )
 
+    # NOTE: It seems this method is currently not called
     def reset(self):
-        self.method = "pbe"
-        self.basis = "def2-svp"
-        self.nwigner = 1
+        self.method.value = "pbe"
+        self.basis.value = "def2-svp"
+        self.nwigner.value = 1
+        self.wigner_low_freq_thr.value = 100

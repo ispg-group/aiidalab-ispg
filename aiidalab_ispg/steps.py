@@ -491,6 +491,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         # Wigner will be sampled only when optimize == True
         builder.nwigner = self.qm_config.nwigner.value
+        builder.wigner_low_freq_thr = self.qm_config.wigner_low_freq_thr.value
 
         self.process = submit(builder)
 

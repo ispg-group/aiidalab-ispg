@@ -14,6 +14,7 @@ from .wigner import Wigner
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Int = DataFactory("int")
+Float = DataFactory("float")
 Bool = DataFactory("bool")
 Code = DataFactory("code")
 List = DataFactory("list")
@@ -73,7 +74,7 @@ def pick_wigner_structure(wigner_structures, index):
 
 
 @calcfunction
-def generate_wigner_structures(orca_output_dict, nsample):
+def generate_wigner_structures(orca_output_dict, nsample, low_freq_thr):
     seed = orca_output_dict.extras["_aiida_hash"]
 
     frequencies = orca_output_dict["vibfreqs"]
@@ -85,7 +86,6 @@ def generate_wigner_structures(orca_output_dict, nsample):
     # convert to Bohrs
     ANG2BOHRS = 1.0 / 0.529177211
     coordinates = []
-    # TODO: Do the conversion in wigner.py
     # TODO: Use ASE object in wigner.py
     for iat in range(natom):
         coordinates.append(
@@ -96,7 +96,15 @@ def generate_wigner_structures(orca_output_dict, nsample):
             ]
         )
 
-    w = Wigner(elements, masses, coordinates, frequencies, normal_modes, seed)
+    w = Wigner(
+        elements,
+        masses,
+        coordinates,
+        frequencies,
+        normal_modes,
+        seed=seed,
+        low_freq_thr=low_freq_thr.value,
+    )
 
     wigner_list = []
     for i in range(nsample.value):
@@ -150,6 +158,13 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         # Number of Wigner geometries (computed only when optimize==True)
         spec.input(
             "nwigner", valid_type=Int, default=lambda: Int(1), serializer=to_aiida_type
+        )
+
+        spec.input(
+            "wigner_low_freq_thr",
+            valid_type=Float,
+            default=lambda: Float(10),
+            serializer=to_aiida_type,
         )
 
         spec.output("relaxed_structure", valid_type=StructureData, required=False)
@@ -222,8 +237,20 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
     def wigner_sampling(self):
         self.report(f"Generating {self.inputs.nwigner.value} Wigner geometries")
+
+        n_low_freq_vibs = 0
+        for freq in self.ctx.calc_opt.outputs.output_parameters["vibfreqs"]:
+            if freq < self.inputs.wigner_low_freq_thr:
+                n_low_freq_vibs += 1
+        if n_low_freq_vibs > 0:
+            self.report(
+                f"Ignoring {n_low_freq_vibs} vibrations below {self.inputs.wigner_low_freq_thr.value} cm^-1"
+            )
+
         self.ctx.wigner_structures = generate_wigner_structures(
-            self.ctx.calc_opt.outputs.output_parameters, self.inputs.nwigner
+            self.ctx.calc_opt.outputs.output_parameters,
+            self.inputs.nwigner,
+            self.inputs.wigner_low_freq_thr,
         )
 
     def wigner_excite(self):

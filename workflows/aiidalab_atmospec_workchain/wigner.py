@@ -4,7 +4,6 @@
 import copy
 import math
 import random
-import sys
 
 # some constants
 CM_TO_HARTREE = (
@@ -13,12 +12,6 @@ CM_TO_HARTREE = (
 HARTREE_TO_EV = 27.211396132  # conversion factor from Hartree to eV
 U_TO_AMU = 1.0 / 5.4857990943e-4  # conversion from g/mol to amu
 ANG_TO_BOHR = 1.0 / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
-
-# thresholds
-LOW_FREQ = (
-    10.0  # threshold in cm^-1 for ignoring rotational and translational low frequencies
-)
-KTR = False
 
 
 # TODO: Use ASE object instead of this
@@ -67,7 +60,7 @@ def wigner(Q, P, mode):
     Q contains the dimensionless coordinate of the
     oscillator and P contains the corresponding momentum.
     The function returns a probability for this set of parameters."""
-    return (math.exp(-(Q ** 2)) * math.exp(-(P ** 2)), 0.0)
+    return (math.exp(-(Q**2)) * math.exp(-(P**2)), 0.0)
 
 
 # I think this one will not be needed
@@ -102,25 +95,36 @@ def restore_center_of_mass(molecule, ic):
 class Wigner:
 
     RESTORE_COM = True
-    LOW_FREQ = 0.0
 
-    def __init__(self, atom_names, masses, coordinates, frequencies, vibrations, seed):
+    def __init__(
+        self,
+        atom_names,
+        masses,
+        coordinates,
+        frequencies,
+        vibrations,
+        seed=16661,
+        low_freq_thr=10.0,
+    ):
         """atom_names - list of elements
         masses - masses in relative atomic masses
         coordinates - bohr
         frequencies - cm^-1
         modes - a.u.
         seed - random number seed, int
+        low_freq_thr - discard normal modes below this threshold (cm^-1)
         """
 
-        self.set_random_seed(seed)
+        self._set_random_seed(seed)
+        self.low_freq_thr = low_freq_thr * CM_TO_HARTREE
 
         # Molecule as a list of atoms
         molecule = []
         self.natom = len(atom_names)
+
+        # TODO: Use ASE Atoms object for self.molecule
         for iat in range(self.natom):
             symb = atom_names[iat].lower().title()
-            # TODO: Get rid of this, keep only masses
             molecule.append(ATOM(symb, coordinates[iat], masses[iat] * U_TO_AMU))
         self.molecule = molecule
 
@@ -132,8 +136,7 @@ class Wigner:
             modes.append(mode)
         self.modes = self._convert_orca_normal_modes(modes, molecule)
 
-    def set_random_seed(self, seed):
-        # TODO: Use our own instance of random number generator
+    def _set_random_seed(self, seed):
         self.rnd = random.Random(seed)
 
     def get_sample(self):  # remove_com -> Bool
@@ -146,7 +149,6 @@ class Wigner:
         # Returning coordinates in bohrs
         return coordinates
 
-    # TODO: Convert this to work on the ASE object
     def _sample_initial_condition(self, molecule, modes):
         """This function samples a single initial condition from the
         modes and atomic coordinates by the use of a Wigner distribution.
@@ -169,8 +171,10 @@ class Wigner:
                 # calculate probability for this set of P and Q with Wigner distr.
                 probability = wigner(random_Q, random_P, mode)
                 if probability[0] > 1.0 or probability[0] < 0.0:
-                    print("WARNING: wrong probability %f detected!" % (probability[0]))
-                    sys.exit(1)
+                    raise ValueError(
+                        "Wrong probability %f detected in _sample_initial_condition()!"
+                        % (probability[0])
+                    )
                 elif probability[0] > self.rnd.random():
                     break  # coordinates accepted
             # now transform the dimensionless coordinate into a real one
@@ -182,7 +186,7 @@ class Wigner:
             random_Q /= freq_factor
             random_P *= freq_factor
             # add potential energy of this mode to total potential energy
-            Epot += 0.5 * mode["freq"] ** 2 * random_Q ** 2
+            Epot += 0.5 * mode["freq"] ** 2 * random_Q**2
             for i, atom in enumerate(atomlist):  # for each atom
                 for xyz in range(3):  # and each direction
                     # distort geometry according to normal mode movement
@@ -199,25 +203,29 @@ class Wigner:
 
     def _convert_orca_normal_modes(self, modes, molecule):
         """apply transformations to normal modes"""
-        converted_modes = copy.deepcopy(modes)
+        converted_modes = []
         for imode in range(len(modes)):
+            freq = modes[imode]["freq"]
+
+            if freq < self.low_freq_thr:
+                continue
+
             norm = 0.0
             for j, atom in enumerate(molecule):
                 for xyz in range(3):
                     norm += modes[imode]["move"][j][xyz] ** 2 * atom.mass / U_TO_AMU
             norm = math.sqrt(norm)
-            if norm == 0.0 and modes[imode]["freq"] >= LOW_FREQ * CM_TO_HARTREE:
-                print(
-                    "WARNING: Displacement vector of mode %i is null vector. Ignoring this mode!"
-                    % (imode + 1)
+            if norm == 0.0 and freq >= self.low_freq_thr:
+                raise ValueError(
+                    "Displacement vector of mode %i is null vector!" % (imode + 1)
                 )
-                # This is not expected, let's stop
-                sys.exit(1)
 
+            converted_mode = copy.deepcopy(modes[imode])
             for j, atom in enumerate(molecule):
                 for xyz in range(3):
-                    converted_modes[imode]["move"][j][xyz] /= norm / math.sqrt(
+                    converted_mode["move"][j][xyz] /= norm / math.sqrt(
                         atom.mass / U_TO_AMU
                     )
+            converted_modes.append(converted_mode)
 
         return converted_modes
