@@ -13,143 +13,43 @@ HARTREE_TO_EV = 27.211396132  # conversion factor from Hartree to eV
 U_TO_AMU = 1.0 / 5.4857990943e-4  # conversion from g/mol to amu
 ANG_TO_BOHR = 1.0 / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
 
-
-# TODO: Use ASE object instead of this
-class ATOM:
-    def __init__(self, symb="??", coord=[0.0, 0.0, 0.0], m=0.0, veloc=[0.0, 0.0, 0.0]):
-        self.symb = symb
-        self.coord = coord
-        self.mass = m
-        self.veloc = veloc
-        self.Ekin = 0.5 * self.mass * sum([self.veloc[i] ** 2 for i in range(3)])
-
-    def __str__(self):
-        s = "%2s % 5.1f " % (self.symb)
-        s += "% 12.8f % 12.8f % 12.8f " % tuple(self.coord)
-        s += "% 12.8f " % (self.mass / U_TO_AMU)
-        s += "% 12.8f % 12.8f % 12.8f" % tuple(self.veloc)
-        return s
-
-
-class INITCOND:
-    def __init__(self, atomlist=[], eref=0.0, epot_harm=0.0):
-        self.atomlist = atomlist
-        self.eref = eref
-        self.Epot_harm = epot_harm
-        self.natom = len(atomlist)
-        self.Ekin = sum([atom.Ekin for atom in self.atomlist])
-        self.nstate = 0
-        self.Epot = epot_harm
-
-    def __str__(self):
-        s = "Atoms\n"
-        for atom in self.atomlist:
-            s += str(atom) + "\n"
-        s += "Ekin      % 16.12f a.u.\n" % (self.Ekin)
-        s += "Epot_harm % 16.12f a.u.\n" % (self.Epot_harm)
-        s += "Epot      % 16.12f a.u.\n" % (self.Epot)
-        s += "Etot_harm % 16.12f a.u.\n" % (self.Epot_harm + self.Ekin)
-        s += "Etot      % 16.12f a.u.\n" % (self.Epot + self.Ekin)
-        s += "\n\n"
-        return s
-
-
-def wigner(Q, P, mode):
-    """This function calculates the Wigner distribution for
-    a single one-dimensional harmonic oscillator.
-    Q contains the dimensionless coordinate of the
-    oscillator and P contains the corresponding momentum.
-    The function returns a probability for this set of parameters."""
-    return (math.exp(-(Q**2)) * math.exp(-(P**2)), 0.0)
-
-
-# I think this one will not be needed
-# as it is build into the ASE object.
-def get_center_of_mass(molecule):
-    """This function returns a list containing the center of mass
-    of a molecule."""
-    mass = 0.0
-    for atom in molecule:
-        mass += atom.mass
-    com = [0.0 for xyz in range(3)]
-    for atom in molecule:
-        for xyz in range(3):
-            com[xyz] += atom.coord[xyz] * atom.mass / mass
-    return com
-
-
-def restore_center_of_mass(molecule, ic):
-    """This function restores the center of mass for the distorted
-    geometry of an initial condition."""
-    # calculate original center of mass
-    com = get_center_of_mass(molecule)
-    # caluclate center of mass for initial condition of molecule
-    com_distorted = get_center_of_mass(ic)
-    # get difference vector and restore original center of mass
-    diff = [com[xyz] - com_distorted[xyz] for xyz in range(3)]
-    for atom in ic:
-        for xyz in range(3):
-            atom.coord[xyz] += diff[xyz]
-
-
 class Wigner:
-
-    RESTORE_COM = True
 
     def __init__(
         self,
-        atom_names,
-        masses,
-        coordinates,
+        ase_molecule,
         frequencies,
         vibrations,
         seed=16661,
         low_freq_thr=10.0,
     ):
-        """atom_names - list of elements
-        masses - masses in relative atomic masses
-        coordinates - bohr
-        frequencies - cm^-1
-        modes - a.u.
-        seed - random number seed, int
+        """
+        ase_molecule - ASE Atoms object, coordinates in Angstroms
+        frequencies - list or normal mode frequencies in reciprocal centimiter
+        units
+        modes - vibrational normal mode displacements in atomic units
+        seed - random number seed
         low_freq_thr - discard normal modes below this threshold (cm^-1)
         """
-
         self._set_random_seed(seed)
+
+        self.ase_molecule = ase_molecule
         self.low_freq_thr = low_freq_thr * CM_TO_HARTREE
 
-        # Molecule as a list of atoms
-        molecule = []
-        self.natom = len(atom_names)
-
-        # TODO: Use ASE Atoms object for self.molecule
-        for iat in range(self.natom):
-            symb = atom_names[iat].lower().title()
-            molecule.append(ATOM(symb, coordinates[iat], masses[iat] * U_TO_AMU))
-        self.molecule = molecule
-
-        nmode = len(frequencies)
-        modes = []
-        for imode in range(nmode):
-            mode = {"freq": frequencies[imode] * CM_TO_HARTREE}
-            mode["move"] = vibrations[imode]
-            modes.append(mode)
-        self.modes = self._convert_orca_normal_modes(modes, molecule)
+        modes = [
+            {"freq": freq * CM_TO_HARTREE, "move": vib}
+            for vib, freq in zip(vibrations, frequencies)
+        ]
+        self.modes = self._convert_orca_normal_modes(modes,
+                self.ase_molecule.get_masses())
 
     def _set_random_seed(self, seed):
         self.rnd = random.Random(seed)
 
-    def get_sample(self):  # remove_com -> Bool
-        # TODO: Remove COM here, based on input parameter
-        # TODO: Return an ASE object, positions in angstroms
-        ic = self._sample_initial_condition(self.molecule, self.modes)
-        coordinates = []
-        for iat in range(self.natom):
-            coordinates.append(ic.atomlist[iat].coord)
-        # Returning coordinates in bohrs
-        return coordinates
+    def get_ase_sample(self):
+        return self._sample_initial_condition()
 
-    def _sample_initial_condition(self, molecule, modes):
+    def _sample_initial_condition(self):
         """This function samples a single initial condition from the
         modes and atomic coordinates by the use of a Wigner distribution.
         The first atomic dictionary in the molecule list contains also
@@ -157,26 +57,13 @@ class Wigner:
         energy of the sampled initial condition.
         Method is based on L. Sun, W. L. Hase J. Chem. Phys. 133, 044313
         (2010) nonfixed energy, independent mode sampling."""
-        # copy the molecule in equilibrium geometry
-        atomlist = copy.deepcopy(molecule)  # initialising initial condition object
+        # copy coordinates in equilibrium geometry
+        positions = self.ase_molecule.get_positions() * ANG_TO_BOHR
+        masses = self.ase_molecule.get_masses() * U_TO_AMU
         Epot = 0.0
-        for mode in modes:  # for each uncoupled harmonatomlist oscillator
-            # TODO: Get rid of these shenanigans and use random.gauss()
-            while True:
-                # get random Q and P in the interval [-5,+5]
-                # this interval is good for vibrational ground state
-                # should be increased for higher states
-                random_Q = self.rnd.random() * 10.0 - 5.0
-                random_P = self.rnd.random() * 10.0 - 5.0
-                # calculate probability for this set of P and Q with Wigner distr.
-                probability = wigner(random_Q, random_P, mode)
-                if probability[0] > 1.0 or probability[0] < 0.0:
-                    raise ValueError(
-                        "Wrong probability %f detected in _sample_initial_condition()!"
-                        % (probability[0])
-                    )
-                elif probability[0] > self.rnd.random():
-                    break  # coordinates accepted
+
+        for mode in self.modes:  # for each uncoupled harmonatomlist oscillator
+            random_Q, random_P = self._sample_unit_mode()
             # now transform the dimensionless coordinate into a real one
             # paper says, that freq_factor is sqrt(2*PI*freq)
             # QM programs directly give angular frequency (2*PI is not needed)
@@ -187,21 +74,38 @@ class Wigner:
             random_P *= freq_factor
             # add potential energy of this mode to total potential energy
             Epot += 0.5 * mode["freq"] ** 2 * random_Q**2
-            for i, atom in enumerate(atomlist):  # for each atom
-                for xyz in range(3):  # and each direction
+
+            for i in range(len(positions)):
+                for xyz in range(3):
                     # distort geometry according to normal mode movement
                     # and unweigh mass-weighted normal modes
-                    atom.coord[xyz] += (
-                        random_Q * mode["move"][i][xyz] * math.sqrt(1.0 / atom.mass)
-                    )
+                    positions[i][xyz] += (
+                        random_Q * mode["move"][i][xyz] * math.sqrt(1.0 / masses[i])
+                   )
 
-        if self.RESTORE_COM:
-            restore_center_of_mass(molecule, atomlist)
+        sample = self.ase_molecule.copy()
+        sample.set_positions(positions / ANG_TO_BOHR)
+        return sample
 
-        ic = INITCOND(atomlist, 0.0, Epot)
-        return ic
+    # TODO: Get rid of these shenanigans and use random.gauss()
+    def _sample_unit_mode(self):
+        while True:
+            # get random Q and P in the interval [-5,+5]
+            # this interval is good for vibrational ground state
+            # should be increased for higher states
+            random_Q = self.rnd.random() * 10.0 - 5.0
+            random_P = self.rnd.random() * 10.0 - 5.0
+            # calculate probability for this set of P and Q with Wigner distr.
+            probability = self.wigner(random_Q, random_P)
+            if probability[0] > 1.0 or probability[0] < 0.0:
+                raise ValueError(
+                    "Wrong probability %f detected in _sample_initial_condition()!"
+                    % (probability[0])
+                )
+            elif probability[0] > self.rnd.random():
+                return random_Q, random_P
 
-    def _convert_orca_normal_modes(self, modes, molecule):
+    def _convert_orca_normal_modes(self, modes, masses):
         """apply transformations to normal modes"""
         converted_modes = []
         for imode in range(len(modes)):
@@ -211,9 +115,9 @@ class Wigner:
                 continue
 
             norm = 0.0
-            for j, atom in enumerate(molecule):
+            for j, mass in enumerate(masses):
                 for xyz in range(3):
-                    norm += modes[imode]["move"][j][xyz] ** 2 * atom.mass / U_TO_AMU
+                    norm += modes[imode]["move"][j][xyz] ** 2 * mass / U_TO_AMU
             norm = math.sqrt(norm)
             if norm == 0.0 and freq >= self.low_freq_thr:
                 raise ValueError(
@@ -221,11 +125,22 @@ class Wigner:
                 )
 
             converted_mode = copy.deepcopy(modes[imode])
-            for j, atom in enumerate(molecule):
+            for j, mass in enumerate(masses):
                 for xyz in range(3):
                     converted_mode["move"][j][xyz] /= norm / math.sqrt(
-                        atom.mass / U_TO_AMU
+                        mass / U_TO_AMU
                     )
             converted_modes.append(converted_mode)
 
         return converted_modes
+
+    # TODO: Remove this. This doesn't make sense,
+    # since the Q and P probabilities are independent!
+    @staticmethod
+    def wigner(Q, P):
+        """This function calculates the Wigner distribution for
+        a single one-dimensional harmonic oscillator.
+        Q contains the dimensionless coordinate of the
+        oscillator and P contains the corresponding momentum.
+        The function returns a probability for this set of parameters."""
+        return (math.exp(-(Q**2)) * math.exp(-(P**2)), 0.0)

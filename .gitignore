@@ -1,6 +1,7 @@
 *.egg*
 *.swo
 *.swp
+*pyc
 *~
 .*.ipynb
 .DS_Store
