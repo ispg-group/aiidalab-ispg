@@ -89,7 +89,7 @@ def generate_wigner_structures(minimum_structure, orca_output_dict, nsample, low
     )
 
     wigner_list = [
-        StructureData(ase=wigner.get_sample())
+        StructureData(ase=wigner.get_ase_sample())
         for i in range(nsample.value)
     ]
     return TrajectoryData(structurelist=wigner_list)
