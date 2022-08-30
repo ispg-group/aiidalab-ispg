@@ -6,7 +6,6 @@ Authors:
 from enum import Enum, unique
 import ipywidgets as ipw
 import traitlets
-import scipy
 from scipy import constants
 import numpy as np
 
@@ -67,11 +66,10 @@ class Spectrum(object):
         constants.pi
         * AUtoCm**2
         * 1e4
-        / (3 * scipy.constants.hbar * scipy.constants.epsilon_0 * scipy.constants.c)
+        / (3 * constants.hbar * constants.epsilon_0 * constants.c)
     )
     # Transition Dipole to Osc. Strength in atomic units
     COEFF_NEW = COEFF * 3 / 2
-    # COEFF =  scipy.constants.pi * AUtoCm**2 * 1e4 * scipy.constants.hbar / (2 * scipy.constants.epsilon_0 * scipy.constants.c * scipy.constants.m_e)
 
     def __init__(self, transitions: dict, nsample: int):
         # Excitation energies in eV
@@ -109,7 +107,7 @@ class Spectrum(object):
             return 8065.547937
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
-        normalization_factor = tau / 2 / scipy.constants.pi / self.nsample
+        normalization_factor = tau / 2 / constants.pi / self.nsample
         unit_factor = self.COEFF_NEW
 
         for exc_energy, osc_strength in zip(
@@ -120,7 +118,7 @@ class Spectrum(object):
 
     def calc_gauss_spectrum(self, x, y, sigma: float):
         normalization_factor = (
-            1 / np.sqrt(2 * scipy.constants.pi) / sigma / self.nsample
+            1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         )
         unit_factor = self.COEFF_NEW
         for exc_energy, osc_strength in zip(

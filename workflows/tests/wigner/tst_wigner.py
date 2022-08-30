@@ -1,32 +1,27 @@
 #!/usr/bin/env python3
 
-# import ase
-import aiidalab_atmospec_workchain.wigner as mywigner
-
-ANG_TO_BOHR = 1.0 / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
+import ase
+import aiidalab_atmospec_workchain.wigner as wigner
+from aiidalab_atmospec_workchain.wigner import ANG_TO_BOHR
 
 LOW_FREQ_THR = 200
 
-
-def print_xyz_file(elements, coordinates, filename):
-    assert len(elements) == len(coordinates[0])
-    natom = len(elements)
+def write_ase_molecules(ase_molecules, filename):
     string = ""
-    for i, ic in enumerate(coordinates):
+    for i, mol in enumerate(ase_molecules):
+        natom = mol.get_global_number_of_atoms()
         string += "%i\n%i\n" % (natom, i)
-        for symb, coord in zip(elements, ic):
+        for symb, coord in zip(mol.get_chemical_symbols(), mol.get_positions()):
             string += "%s" % (symb)
             for j in range(3):
-                string += " %f" % (coord[j] / ANG_TO_BOHR)
+                string += " %f" % (coord[j])
             string += "\n"
 
     with open(filename, "w") as fl:
         fl.write(string)
 
-
 seed = 16661  # This is the default in wigner_sharc.py
 nsample = 2
-scaling = 1.0
 outfile = "initconds_new.xyz"
 
 elements = ["C", "O", "O", "H", "H", "H", "H"]
@@ -65,20 +60,22 @@ vib2 = [
 
 vibrations = [vib1, vib2]
 vibrations.append(vib1)
-# ase_molecule = ase.Atoms(symbols=elements, masses=masses, positions=coords)
+ase_molecule = ase.Atoms(
+    symbols=elements,
+    masses=masses,
+    positions=coords,
+)
+ase_molecule.set_positions(
+    ase_molecule.get_positions() / ANG_TO_BOHR
+)
 
 if __name__ == "__main__":
-    w = mywigner.Wigner(
-        elements,
-        masses,
-        coords,
+    w = wigner.Wigner(
+        ase_molecule,
         frequencies,
         vibrations,
         seed=seed,
         low_freq_thr=LOW_FREQ_THR,
     )
-    ic_list = []
-    for i in range(nsample):
-        ic_list.append(w.get_sample())
-
-    print_xyz_file(elements, ic_list, outfile)
+    molecules = [w.get_ase_sample() for i in range(nsample)]
+    write_ase_molecules(molecules, outfile)

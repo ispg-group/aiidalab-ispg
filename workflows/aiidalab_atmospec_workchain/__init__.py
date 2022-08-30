@@ -74,61 +74,24 @@ def pick_wigner_structure(wigner_structures, index):
 
 
 @calcfunction
-def generate_wigner_structures(orca_output_dict, nsample, low_freq_thr):
+def generate_wigner_structures(minimum_structure, orca_output_dict, nsample, low_freq_thr):
     seed = orca_output_dict.extras["_aiida_hash"]
-
+    ase_molecule = minimum_structure.get_ase()
     frequencies = orca_output_dict["vibfreqs"]
-    masses = orca_output_dict["atommasses"]
     normal_modes = orca_output_dict["vibdisps"]
-    elements = orca_output_dict["elements"]
-    min_coord = orca_output_dict["atomcoords"][-1]
-    natom = orca_output_dict["natom"]
-    # convert to Bohrs
-    ANG2BOHRS = 1.0 / 0.529177211
-    coordinates = []
-    # TODO: Use ASE object in wigner.py
-    for iat in range(natom):
-        coordinates.append(
-            [
-                min_coord[iat][0] * ANG2BOHRS,
-                min_coord[iat][1] * ANG2BOHRS,
-                min_coord[iat][2] * ANG2BOHRS,
-            ]
-        )
 
-    w = Wigner(
-        elements,
-        masses,
-        coordinates,
+    wigner = Wigner(
+        ase_molecule,
         frequencies,
         normal_modes,
         seed=seed,
         low_freq_thr=low_freq_thr.value,
     )
 
-    wigner_list = []
-    for i in range(nsample.value):
-        wigner_coord = w.get_sample()
-        # Convert to angstroms
-        wigner_coord_ang = []
-        for iat in range(natom):
-            wigner_coord_ang.append(
-                [
-                    wigner_coord[iat][0] / ANG2BOHRS,
-                    wigner_coord[iat][1] / ANG2BOHRS,
-                    wigner_coord[iat][2] / ANG2BOHRS,
-                ]
-            )
-        # TODO: We shouldn't need to specify cell
-        # https://github.com/aiidateam/aiida-core/issues/5248
-        ase_struct = ase.Atoms(
-            positions=wigner_coord_ang,
-            symbols=elements,
-            cell=(1.0, 1.0, 1.0),
-            pbc=False,
-        )
-        wigner_list.append(StructureData(ase=ase_struct))
-
+    wigner_list = [
+        StructureData(ase=wigner.get_ase_sample())
+        for i in range(nsample.value)
+    ]
     return TrajectoryData(structurelist=wigner_list)
 
 
@@ -248,6 +211,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             )
 
         self.ctx.wigner_structures = generate_wigner_structures(
+            self.ctx.calc_opt.outputs.relaxed_structure,
             self.ctx.calc_opt.outputs.output_parameters,
             self.inputs.nwigner,
             self.inputs.wigner_low_freq_thr,
