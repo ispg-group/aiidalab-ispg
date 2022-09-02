@@ -62,14 +62,14 @@ class BokehFigureContext(ipw.Output):
 
 class Spectrum(object):
     AUtoCm = 8.478354e-30
+    AUtoEV = 27.2114
     COEFF = (
         constants.pi
         * AUtoCm**2
+        * AUtoEV
         * 1e4
-        / (3 * constants.hbar * constants.epsilon_0 * constants.c)
+        / (2 * constants.hbar * constants.epsilon_0 * constants.c)
     )
-    # Transition Dipole to Osc. Strength in atomic units
-    COEFF_NEW = COEFF * 3 / 2
 
     def __init__(self, transitions: dict, nsample: int):
         # Excitation energies in eV
@@ -93,38 +93,34 @@ class Spectrum(object):
 
     @staticmethod
     def get_energy_unit_factor(unit: EnergyUnit):
-        """Returns a multiplication factor to go from eV to other energy units"""
+        """Returns a multiplication factor to go from a.u. to other energy units"""
 
         # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
-        # TODO: We should probably start from atomic units
         if unit is EnergyUnit.EV:
-            return 1.0
+            return self.AUtoEV
         # TODO: Construct these factors from scipy.constants or use pint
         elif unit is EnergyUnit.NM:
-            return 1239.8
+            return 1239.8 * self.AUtoEV
         elif unit is EnergyUnit.CM:
             # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
-            return 8065.547937
+            return 8065.547937 * self.AUtoEV
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
-        unit_factor = self.COEFF_NEW
-
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
-            prefactor = normalization_factor * unit_factor * osc_strength
+            prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
     def calc_gauss_spectrum(self, x, y, sigma: float):
         normalization_factor = (
             1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         )
-        unit_factor = self.COEFF_NEW
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
-            prefactor = normalization_factor * unit_factor * osc_strength
+            prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
     def get_spectrum(self, kernel: BroadeningKernel, width: float, x_unit: EnergyUnit):
