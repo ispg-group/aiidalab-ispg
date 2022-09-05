@@ -177,7 +177,12 @@ class SpectrumWidget(ipw.VBox):
         )
 
         self.width_slider = ipw.FloatSlider(
-            min=0.05, max=1, step=0.05, value=0.1, description="Width / eV"
+            min=0.01,
+            max=0.5,
+            step=0.01,
+            value=0.05,
+            description="Width / eV",
+            continuous_update=True,
         )
 
         self.kernel_selector = ipw.ToggleButtons(
@@ -281,9 +286,11 @@ class SpectrumWidget(ipw.VBox):
         fieldnames = [
             f"Energy / {self.energy_unit_selector.value.value}",
             f"Intensity / {self.intensity_unit}",
+            f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
         ]
         with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
-            csvfile.write(f"# {fieldnames[0]}{delimiter}{fieldnames[1]}\n")
+            header = delimiter.join(fieldnames)
+            csvfile.write(f"# {header}\n")
             writer = csv.writer(csvfile, delimiter=delimiter)
             writer.writerows(zip(x, y))
             csvfile.seek(0)
