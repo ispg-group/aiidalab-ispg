@@ -22,8 +22,8 @@ output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
 
 
-# Atomic units to electronvolts
-AUtoEV = 27.211386245
+# Conversion factor from atomic units to electronvolts
+AUtoEV = 27.2114386245
 
 
 @unique
@@ -74,7 +74,7 @@ class Spectrum(object):
     )
 
     def __init__(self, transitions: dict, nsample: int):
-        # Excitation energies in a.u.
+        # Excitation energies in eV
         self.excitation_energies = np.array(
             [tr["energy"] for tr in transitions], dtype=float
         )
@@ -85,27 +85,27 @@ class Spectrum(object):
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
-    def _get_energy_range_au(self):
-        """Get spectrum energy range in a.u."""
+    def _get_energy_range_ev(self):
+        """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
         # NOTE: We don't include zero to prevent
         # division by zero when converting to wavelength
-        x_min = max(0.01, self.excitation_energies.min() - 1.0 / AUtoEV)
-        x_max = self.excitation_energies.max() + 1.0 / AUtoEV
+        x_min = max(0.01, self.excitation_energies.min() - 2.0)
+        x_max = self.excitation_energies.max() + 2.0
         return x_min, x_max
 
     @staticmethod
     def get_energy_unit_factor(unit: EnergyUnit):
-        """Returns a multiplication factor to go from a.u. to other energy units"""
+        """Returns a multiplication factor to go from eV to other energy units"""
 
         # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
         if unit is EnergyUnit.EV:
-            return AUtoEV
+            return 1.0
         # TODO: Construct these factors from scipy.constants or use pint
         elif unit is EnergyUnit.NM:
-            return 1239.8 * AUtoEV
+            return 1239.8
         elif unit is EnergyUnit.CM:
             # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
-            return 8065.547937 * AUtoEV
+            return 8065.547937
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
@@ -124,7 +124,7 @@ class Spectrum(object):
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
     def get_spectrum(self, kernel: BroadeningKernel, width: float, x_unit: EnergyUnit):
-        x_min, x_max = self._get_energy_range_au()
+        x_min, x_max = self._get_energy_range_ev()
 
         # TODO: How to determine this properly to cover a given interval?
         n_sample = 500
@@ -316,7 +316,7 @@ class SpectrumWidget(ipw.VBox):
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
         self._plot_spectrum(
-            width=change["new"] / AUtoEV,
+            width=change["new"],
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
@@ -324,7 +324,7 @@ class SpectrumWidget(ipw.VBox):
     def _handle_kernel_update(self, change):
         """Redraw spectra when user changes kernel for broadening"""
         self._plot_spectrum(
-            width=self.width_slider.value / AUtoEV,
+            width=self.width_slider.value,
             kernel=change["new"],
             energy_unit=self.energy_unit_selector.value,
         )
@@ -337,7 +337,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.get_figure().xaxis.axis_label = xlabel
 
         self._plot_spectrum(
-            width=self.width_slider.value / AUtoEV,
+            width=self.width_slider.value,
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
@@ -444,7 +444,7 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self._plot_spectrum(
-            width=self.width_slider.value / AUtoEV,
+            width=self.width_slider.value,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
