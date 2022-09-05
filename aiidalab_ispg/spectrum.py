@@ -61,11 +61,10 @@ class BokehFigureContext(ipw.Output):
 
 
 class Spectrum(object):
-    AUtoCm = 8.478354e-30
-    AUtoEV = 27.2114
+    AUtoEV = 27.211386245
     COEFF = (
         constants.pi
-        * AUtoCm**2
+        * 8.478354e-30**2  # AUtoCm
         * AUtoEV
         * 1e4
         / (2 * constants.hbar * constants.epsilon_0 * constants.c)
@@ -91,19 +90,19 @@ class Spectrum(object):
         x_max = self.excitation_energies.max() + 2.0
         return x_min, x_max
 
-    @staticmethod
-    def get_energy_unit_factor(unit: EnergyUnit):
+    @classmethod
+    def get_energy_unit_factor(cls, unit: EnergyUnit):
         """Returns a multiplication factor to go from a.u. to other energy units"""
 
         # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
         if unit is EnergyUnit.EV:
-            return self.AUtoEV
+            return cls.AUtoEV
         # TODO: Construct these factors from scipy.constants or use pint
         elif unit is EnergyUnit.NM:
-            return 1239.8 * self.AUtoEV
+            return 1239.8 * cls.AUtoEV
         elif unit is EnergyUnit.CM:
             # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
-            return 8065.547937 * self.AUtoEV
+            return 8065.547937 * cls.AUtoEV
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
@@ -114,9 +113,7 @@ class Spectrum(object):
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
     def calc_gauss_spectrum(self, x, y, sigma: float):
-        normalization_factor = (
-            1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
-        )
+        normalization_factor = 1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
@@ -282,7 +279,7 @@ class SpectrumWidget(ipw.VBox):
         delimiter = "\t"
 
         fieldnames = [
-            f"Energy / {self.energy_unit_selector.value}",
+            f"Energy / {self.energy_unit_selector.value.value}",
             f"Intensity / {self.intensity_unit}",
         ]
         with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
