@@ -321,10 +321,9 @@ class SpectrumWidget(ipw.VBox):
 
     def _handle_kernel_update(self, change):
         """Redraw spectra when user changes kernel for broadening"""
-        kernel = change["new"]
         self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=kernel,
+            width=self.width_slider.value / self.AUtoEV,
+            kernel=change["new"],
             energy_unit=self.energy_unit_selector.value,
         )
 
@@ -336,7 +335,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.get_figure().xaxis.axis_label = xlabel
 
         self._plot_spectrum(
-            width=self.width_slider.value,
+            width=self.width_slider.value / self.AUtoEV,
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
@@ -443,7 +442,7 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self._plot_spectrum(
-            width=self.width_slider.value,
+            width=self.width_slider.value / self.AUtoEV,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
