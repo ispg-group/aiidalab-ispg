@@ -74,7 +74,7 @@ class Spectrum(object):
     )
 
     def __init__(self, transitions: dict, nsample: int):
-        # Excitation energies in eV
+        # Excitation energies in a.u.
         self.excitation_energies = np.array(
             [tr["energy"] for tr in transitions], dtype=float
         )
@@ -85,12 +85,12 @@ class Spectrum(object):
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
-    def _get_energy_range_ev(self):
-        """Get spectrum energy range in eV"""
+    def _get_energy_range_au(self):
+        """Get spectrum energy range in a.u."""
         # NOTE: We don't include zero to prevent
         # division by zero when converting to wavelength
-        x_min = max(0.01, self.excitation_energies.min() - 2.0)
-        x_max = self.excitation_energies.max() + 2.0
+        x_min = max(0.01, self.excitation_energies.min() - 1.0 / AUtoEV)
+        x_max = self.excitation_energies.max() + 1.0 / AUtoEV
         return x_min, x_max
 
     @staticmethod
@@ -124,7 +124,7 @@ class Spectrum(object):
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
     def get_spectrum(self, kernel: BroadeningKernel, width: float, x_unit: EnergyUnit):
-        x_min, x_max = self._get_energy_range_ev()
+        x_min, x_max = self._get_energy_range_au()
 
         # TODO: How to determine this properly to cover a given interval?
         n_sample = 500
@@ -315,9 +315,8 @@ class SpectrumWidget(ipw.VBox):
 
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
-        width = change["new"]
         self._plot_spectrum(
-            width=width,
+            width=change["new"] / AUtoEV,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
