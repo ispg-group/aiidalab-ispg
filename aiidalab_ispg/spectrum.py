@@ -22,6 +22,10 @@ output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
 
 
+# Atomic units to electronvolts
+AUtoEV = 27.211386245
+
+
 @unique
 class EnergyUnit(Enum):
     EV = "eV"
@@ -61,7 +65,6 @@ class BokehFigureContext(ipw.Output):
 
 
 class Spectrum(object):
-    AUtoEV = 27.211386245
     COEFF = (
         constants.pi
         * 8.478354e-30**2  # AUtoCm
@@ -90,19 +93,19 @@ class Spectrum(object):
         x_max = self.excitation_energies.max() + 2.0
         return x_min, x_max
 
-    @classmethod
-    def get_energy_unit_factor(cls, unit: EnergyUnit):
+    @staticmethod
+    def get_energy_unit_factor(unit: EnergyUnit):
         """Returns a multiplication factor to go from a.u. to other energy units"""
 
         # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
         if unit is EnergyUnit.EV:
-            return cls.AUtoEV
+            return AUtoEV
         # TODO: Construct these factors from scipy.constants or use pint
         elif unit is EnergyUnit.NM:
-            return 1239.8 * cls.AUtoEV
+            return 1239.8 * AUtoEV
         elif unit is EnergyUnit.CM:
             # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
-            return 8065.547937 * cls.AUtoEV
+            return 8065.547937 * AUtoEV
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
@@ -322,7 +325,7 @@ class SpectrumWidget(ipw.VBox):
     def _handle_kernel_update(self, change):
         """Redraw spectra when user changes kernel for broadening"""
         self._plot_spectrum(
-            width=self.width_slider.value / self.AUtoEV,
+            width=self.width_slider.value / AUtoEV,
             kernel=change["new"],
             energy_unit=self.energy_unit_selector.value,
         )
@@ -335,7 +338,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.get_figure().xaxis.axis_label = xlabel
 
         self._plot_spectrum(
-            width=self.width_slider.value / self.AUtoEV,
+            width=self.width_slider.value / AUtoEV,
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
@@ -442,7 +445,7 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self._plot_spectrum(
-            width=self.width_slider.value / self.AUtoEV,
+            width=self.width_slider.value / AUtoEV,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
