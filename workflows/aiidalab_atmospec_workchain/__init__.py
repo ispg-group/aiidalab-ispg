@@ -1,6 +1,5 @@
 """Base work chain to run an ORCA calculation"""
 
-import ase
 from aiida.engine import WorkChain, calcfunction
 from aiida.engine import append_, ToContext, if_
 
@@ -74,7 +73,9 @@ def pick_wigner_structure(wigner_structures, index):
 
 
 @calcfunction
-def generate_wigner_structures(minimum_structure, orca_output_dict, nsample, low_freq_thr):
+def generate_wigner_structures(
+    minimum_structure, orca_output_dict, nsample, low_freq_thr
+):
     seed = orca_output_dict.extras["_aiida_hash"]
     ase_molecule = minimum_structure.get_ase()
     frequencies = orca_output_dict["vibfreqs"]
@@ -89,8 +90,7 @@ def generate_wigner_structures(minimum_structure, orca_output_dict, nsample, low
     )
 
     wigner_list = [
-        StructureData(ase=wigner.get_ase_sample())
-        for i in range(nsample.value)
+        StructureData(ase=wigner.get_ase_sample()) for i in range(nsample.value)
     ]
     return TrajectoryData(structurelist=wigner_list)
 
@@ -147,7 +147,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         )
 
         spec.outline(
-            cls.setup,
             if_(cls.should_optimize)(
                 cls.optimize,
                 cls.inspect_optimization,
@@ -171,11 +170,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             402, "ERROR_EXCITATION_FAILED", "excited state calculation failed"
         )
 
-    def setup(self):
-        """Setup workchain"""
-        # TODO: This should be base on some input parameter
-        self.ctx.nstates = 3
-
     def excite(self):
         """Calculate excited states for a single geometry"""
         inputs = self.exposed_inputs(
@@ -184,14 +178,10 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs.orca.code = self.inputs.code
 
         if self.inputs.optimize:
-            self.report(
-                f"Calculating {self.ctx.nstates} excited states for optimized geometry"
-            )
+            self.report("Calculating spectrum for optimized geometry")
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
         else:
-            self.report(
-                f"Calculating {self.ctx.nstates} excited states for input geometry"
-            )
+            self.report("Calculating spectrum for input geometry")
             inputs.orca.structure = self.inputs.structure
 
         calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
