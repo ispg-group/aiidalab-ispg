@@ -38,7 +38,7 @@ try:
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
-from aiidalab_ispg.spectrum import SpectrumWidget
+from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
@@ -591,17 +591,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.process = None
         self.spectrum.reset()
 
-    # TODO: Move this to the workflow
     def _orca_output_to_transitions(self, output_dict, geom_index):
-        # TODO: Use atomic units both for energies and osc. strengths
-        CM2EV = 1 / 8065.547937
-        # TODO: Add error handling
+        EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
         en = output_dict["etenergies"]
         osc = output_dict["etoscs"]
-        assert len(en) == len(osc)
-        # TODO: Use atomic units both for energies and osc. strengths
         return [
-            {"energy": tr[0] * CM2EV, "osc_strength": tr[1], "geom_index": geom_index}
+            {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
             for tr in zip(en, osc)
         ]
 

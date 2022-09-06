@@ -22,6 +22,10 @@ output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
 
 
+# Conversion factor from atomic units to electronvolts
+AUtoEV = 27.2114386245
+
+
 @unique
 class EnergyUnit(Enum):
     EV = "eV"
@@ -61,15 +65,13 @@ class BokehFigureContext(ipw.Output):
 
 
 class Spectrum(object):
-    AUtoCm = 8.478354e-30
     COEFF = (
         constants.pi
-        * AUtoCm**2
+        * 8.478354e-30**2  # AUtoCm
+        * AUtoEV
         * 1e4
-        / (3 * constants.hbar * constants.epsilon_0 * constants.c)
+        / (2 * constants.hbar * constants.epsilon_0 * constants.c)
     )
-    # Transition Dipole to Osc. Strength in atomic units
-    COEFF_NEW = COEFF * 3 / 2
 
     def __init__(self, transitions: dict, nsample: int):
         # Excitation energies in eV
@@ -84,7 +86,7 @@ class Spectrum(object):
         self.nsample = nsample
 
     def _get_energy_range_ev(self):
-        """Get spectrum energy range in eV"""
+        """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
         # NOTE: We don't include zero to prevent
         # division by zero when converting to wavelength
         x_min = max(0.01, self.excitation_energies.min() - 2.0)
@@ -96,7 +98,6 @@ class Spectrum(object):
         """Returns a multiplication factor to go from eV to other energy units"""
 
         # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
-        # TODO: We should probably start from atomic units
         if unit is EnergyUnit.EV:
             return 1.0
         # TODO: Construct these factors from scipy.constants or use pint
@@ -108,23 +109,18 @@ class Spectrum(object):
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
-        unit_factor = self.COEFF_NEW
-
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
-            prefactor = normalization_factor * unit_factor * osc_strength
+            prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
     def calc_gauss_spectrum(self, x, y, sigma: float):
-        normalization_factor = (
-            1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
-        )
-        unit_factor = self.COEFF_NEW
+        normalization_factor = 1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
         ):
-            prefactor = normalization_factor * unit_factor * osc_strength
+            prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
     def get_spectrum(self, kernel: BroadeningKernel, width: float, x_unit: EnergyUnit):
@@ -184,7 +180,12 @@ class SpectrumWidget(ipw.VBox):
         )
 
         self.width_slider = ipw.FloatSlider(
-            min=0.05, max=1, step=0.05, value=0.1, description="Width / eV"
+            min=0.01,
+            max=0.5,
+            step=0.01,
+            value=0.05,
+            description="Width / eV",
+            continuous_update=True,
         )
 
         self.kernel_selector = ipw.ToggleButtons(
@@ -286,11 +287,13 @@ class SpectrumWidget(ipw.VBox):
         delimiter = "\t"
 
         fieldnames = [
-            f"Energy / {self.energy_unit_selector.value}",
+            f"Energy / {self.energy_unit_selector.value.value}",
             f"Intensity / {self.intensity_unit}",
+            f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
         ]
         with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
-            csvfile.write(f"# {fieldnames[0]}{delimiter}{fieldnames[1]}\n")
+            header = delimiter.join(fieldnames)
+            csvfile.write(f"# {header}\n")
             writer = csv.writer(csvfile, delimiter=delimiter)
             writer.writerows(zip(x, y))
             csvfile.seek(0)
@@ -312,19 +315,17 @@ class SpectrumWidget(ipw.VBox):
 
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
-        width = change["new"]
         self._plot_spectrum(
-            width=width,
+            width=change["new"],
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
 
     def _handle_kernel_update(self, change):
         """Redraw spectra when user changes kernel for broadening"""
-        kernel = change["new"]
         self._plot_spectrum(
             width=self.width_slider.value,
-            kernel=kernel,
+            kernel=change["new"],
             energy_unit=self.energy_unit_selector.value,
         )
 
