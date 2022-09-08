@@ -659,4 +659,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     @traitlets.observe("process")
     def _observe_process(self, change):
+        if change["new"] == change["old"]:
+            return
         self._update_state()
