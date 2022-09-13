@@ -22,6 +22,7 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     selenium.get(url("apps/apps/aiidalab-ispg/atmospec.ipynb"))
     # selenium.set_window_size(1920, 1000)
     selenium.set_window_size(1920, 1450)
+    time.sleep(10)
     selenium.get_screenshot_as_file("screenshots/debug.png")
     return
 
@@ -33,7 +34,7 @@ def test_atmospec_generate_mol_from_smiles(selenium, url):
     generate_mol_button.click()
 
     # Once the structure is generated, proceed to the next workflow step
-    time.sleep(1)
+    time.sleep(2)
     selenium.get_screenshot_as_file("screenshots/atmospec-mol-generated.png")
 
     confirm_btn = selenium.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
