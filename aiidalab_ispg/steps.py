@@ -526,7 +526,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
         # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.1,
+            timeout=0.5,
             callbacks=[
                 self.process_tree.update,
                 self._update_state,
@@ -575,7 +575,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def __init__(self, **kwargs):
         # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.1,
+            timeout=0.5,
             callbacks=[
                 self._show_spectrum,
                 self._update_state,
