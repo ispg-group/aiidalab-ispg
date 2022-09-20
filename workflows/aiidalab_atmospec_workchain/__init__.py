@@ -252,9 +252,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 return self.exit_codes.ERROR_EXCITATION_FAILED
 
     def should_optimize(self):
-        if self.inputs.optimize:
-            return True
-        return False
+        return self.inputs.optimize.value
 
     def should_run_wigner(self):
         return self.should_optimize() and self.inputs.nwigner > 0
@@ -347,7 +345,8 @@ class AtmospecWorkChain(WorkChain):
                 return self.exit_codes.CONFORMER_ERROR
 
         # Combine all spectra data
-        if self.inputs.optimize:
+        # NOTE: This if duplicates the logic of OrcaWignerSpectrumWorkChain.should_run_wigner()
+        if self.inputs.optimize and self.inputs.nwigner > 0:
             data = {
                 str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)
             }
