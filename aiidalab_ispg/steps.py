@@ -338,6 +338,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         # QM settings
         self.qm_config.method.observe(update, ["value"])
         self.qm_config.basis.observe(update, ["value"])
+        self.qm_config.solvent.observe(update, ["value"])
 
     @staticmethod
     def _serialize_builder_parameters(parameters):
@@ -374,6 +375,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                     orca_code=self.codes_selector.orca.value,
                     method=self.qm_config.method.value,
                     basis=self.qm_config.basis.value,
+                    solvent=self.qm_config.solvent.value,
                     charge=self.workchain_settings.charge.value,
                     nstates=self.workchain_settings.nstates.value,
                     spin_mult=self.workchain_settings.spin_mult.value,
@@ -395,12 +397,21 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             # QM settings
             self.qm_config.method.value = bp["method"]
             self.qm_config.basis.value = bp["basis"]
+            self.qm_config.solvent.value = bp["solvent"]
 
     def build_base_orca_params(self, builder_parameters):
         """A bit of indirection to decouple aiida-orca plugin
         from this code"""
 
         input_keywords = [builder_parameters[key] for key in ("basis", "method")]
+        solvent = builder_parameters["solvent"]
+
+        # TODO: Here we implicitly assume, that ORCA will automatically select
+        # eq solvation for ground state optimization,
+        # and non-eq for TDDFT excited. This should be the default,
+        # but it would be better to be explicit.
+        if solvent != "None":
+            input_keywords.append(f"CPCM({solvent})")
 
         params = {
             "charge": builder_parameters["charge"],

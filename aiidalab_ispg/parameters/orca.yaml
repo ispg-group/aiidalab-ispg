@@ -9,5 +9,6 @@ charge: 0
 nstates: 3
 
 ## QM Method
-basis: sto-3g
-method: pbe
+basis: STO-3G
+method: PBE
+solvent: "None"
