@@ -31,6 +31,29 @@ __all__ = [
     "TrajectoryDataViewer",
 ]
 
+# Taken from ORCA-5.0 manual, section 9.41
+PCM_SOLVENT_LIST = (
+    "None",
+    "Water",
+    "Acetone",
+    "Acetonitrile",
+    "Ammonia",
+    "Benzene",
+    "CCl4",
+    "CH2Cl2",
+    "Chloroform",
+    "Cyclohexane",
+    "DMF",
+    "DMSO",
+    "Ethanol",
+    "Hexane",
+    "Methanol",
+    "Octanol",
+    "Pyridine",
+    "THF",
+    "Toluene",
+)
+
 
 class WorkChainSelector(aiidalab_ispg.qeapp.process.WorkChainSelector):
 
@@ -276,6 +299,14 @@ class QMSelectionWidget(ipw.VBox):
             value="def2-svp", description="Basis set", placeholder="Type Basis Set"
         )
 
+        self.solvent = ipw.Dropdown(
+            options=PCM_SOLVENT_LIST,
+            value="None",
+            description="LR-PCM solvent",
+            disabled=False,
+            style=style,
+        )
+
         self.nwigner = ipw.BoundedIntText(
             value=1,
             step=1,
@@ -298,7 +329,7 @@ class QMSelectionWidget(ipw.VBox):
         super().__init__(
             children=[
                 self.qm_title,
-                ipw.HBox(children=[self.method, self.basis]),
+                ipw.HBox(children=[self.method, self.basis, self.solvent]),
                 self.spectra_title,
                 self.spectra_desc,
                 self.nwigner,
