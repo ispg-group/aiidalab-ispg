@@ -6,25 +6,29 @@ Authors:
 """
 
 import base64
+import io
 
 import ipywidgets as ipw
 import traitlets
 import nglview
 from dataclasses import dataclass
 
+import ase
+from ase import Atoms
+
 from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
-from aiida.orm import load_node, Node
+from aiida.orm import load_node, Node, Data
 from aiida.plugins import DataFactory
 
 from aiidalab_widgets_base import register_viewer_widget
+from aiidalab_widgets_base import StructureManagerWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
 
-# trigger registration of the viewer widgets
-from aiidalab_ispg.qeapp import widgets  # noqa: F401
-import aiidalab_ispg.qeapp.process
+import aiidalab_ispg.qeapp as qeapp
 from .utils import get_formula
 
 StructureData = DataFactory("structure")
+CifData = DataFactory("cif")
 TrajectoryData = DataFactory("array.trajectory")
 
 __all__ = [
@@ -55,7 +59,7 @@ PCM_SOLVENT_LIST = (
 )
 
 
-class WorkChainSelector(aiidalab_ispg.qeapp.process.WorkChainSelector):
+class WorkChainSelector(qeapp.WorkChainSelector):
 
     FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
 
@@ -343,3 +347,183 @@ class QMSelectionWidget(ipw.VBox):
         self.basis.value = "def2-svp"
         self.nwigner.value = 1
         self.wigner_low_freq_thr.value = 100
+
+
+# NOTE: TrajectoryManagerWidget will hopefully note be necessary once
+# the trajectory viewer is merged to AWB
+class TrajectoryManagerWidget(StructureManagerWidget):
+    SUPPORTED_DATA_FORMATS = {
+        "CifData": "cif",
+        "StructureData": "structure",
+        "TrajectoryData": "array.trajectory",
+    }
+
+    def __init__(
+        self,
+        importers,
+        viewer=None,
+        editors=None,
+        storable=True,
+        node_class=None,
+        **kwargs,
+    ):
+
+        # History of modifications
+        self.history = []
+
+        # Undo functionality.
+        btn_undo = ipw.Button(description="Undo", button_style="success")
+        btn_undo.on_click(self.undo)
+        self.structure_set_by_undo = False
+
+        # To keep track of last inserted structure object
+        self._inserted_structure = None
+
+        # Structure viewer.
+        if viewer:
+            self.viewer = viewer
+        else:
+            self.viewer = StructureDataViewer(**kwargs)
+
+        if node_class == "TrajectoryData":
+            traitlets.dlink((self, "structure_node"), (self.viewer, "trajectory"))
+        else:
+            traitlets.dlink((self, "structure_node"), (self.viewer, "structure"))
+
+        # Store button.
+        self.btn_store = ipw.Button(description="Store in AiiDA", disabled=True)
+        self.btn_store.on_click(self.store_structure)
+
+        # Label and description that are stored along with the new structure.
+        self.structure_label = ipw.Text(description="Label")
+        self.structure_description = ipw.Text(description="Description")
+
+        # Store format selector.
+        data_format = ipw.RadioButtons(
+            options=self.SUPPORTED_DATA_FORMATS, description="Data type:"
+        )
+        traitlets.link((data_format, "label"), (self, "node_class"))
+
+        # Store button, store class selector, description.
+        store_and_description = [self.btn_store] if storable else []
+
+        if node_class is None:
+            store_and_description.append(data_format)
+        elif node_class in self.SUPPORTED_DATA_FORMATS:
+            self.node_class = node_class
+        else:
+            raise ValueError(
+                "Unknown data format '{}'. Options: {}".format(
+                    node_class, list(self.SUPPORTED_DATA_FORMATS.keys())
+                )
+            )
+
+        self.output = ipw.HTML("")
+
+        children = [
+            self._structure_importers(importers),
+            self.viewer,
+            ipw.HBox(
+                store_and_description
+                + [self.structure_label, self.structure_description]
+            ),
+        ]
+
+        super(ipw.VBox, self).__init__(children=children + [self.output], **kwargs)
+
+    def _convert_to_structure_node(self, structure):
+        """Convert structure of any type to the StructureNode object."""
+        if structure is None:
+            return None
+        structure_node_type = DataFactory(
+            self.SUPPORTED_DATA_FORMATS[self.node_class]
+        )  # pylint: disable=invalid-name
+
+        # If the input_structure trait is set to Atoms object, structure node must be created from it.
+        if isinstance(structure, Atoms):
+            if structure_node_type == TrajectoryData:
+                structure_node = structure_node_type(
+                    structurelist=(StructureData(ase=structure),)
+                )
+            else:
+                structure_node = structure_node_type(ase=structure)
+
+            # If the Atoms object was created by SmilesWidget,
+            # attach its SMILES code as an extra.
+            if "smiles" in structure.info:
+                structure_node.set_extra("smiles", structure.info["smiles"])
+            return structure_node
+
+        # If the input_structure trait is set to AiiDA node, check what type
+        elif isinstance(structure, Data):
+            # Transform the structure to the structure_node_type if needed.
+            if isinstance(structure, structure_node_type):
+                return structure
+            # TrajectoryData cannot be created from Atoms object
+            if structure_node_type == TrajectoryData:
+                if isinstance(structure, StructureData):
+                    return structure_node_type(structurelist=(structure,))
+                elif isinstance(structure, CifData):
+                    return structure_node_type(
+                        structurelist=(StructureData(ase=structure.get_ase()),)
+                    )
+                else:
+                    raise ValueError(f"Unexpected node type {type(structure)}")
+
+        # Using self.structure, as it was already converted to the ASE Atoms object.
+        return structure_node_type(ase=self.structure)
+
+    @traitlets.observe("structure_node")
+    def _observe_structure_node(self, change):
+        """Modify structure label and description when a new structure is provided."""
+        struct = change["new"]
+        if struct is None:
+            self.btn_store.disabled = True
+            self.structure_label.value = ""
+            self.structure_label.disabled = True
+            self.structure_description.value = ""
+            self.structure_description.disabled = True
+            return
+        if struct.is_stored:
+            self.btn_store.disabled = True
+            self.structure_label.value = struct.label
+            self.structure_label.disabled = True
+            self.structure_description.value = struct.description
+            self.structure_description.disabled = True
+        else:
+            self.btn_store.disabled = False
+            self.structure_label.value = get_formula(struct)
+            self.structure_label.disabled = False
+            self.structure_description.value = ""
+            self.structure_description.disabled = False
+
+    @traitlets.observe("input_structure")
+    def _observe_input_structure(self, change):
+        """Returns ASE atoms object and sets structure_node trait."""
+        # If the `input_structure` trait is set to Atoms object, then the `structure` trait should be set to it as well.
+        self.history = []
+
+        if isinstance(change["new"], Atoms):
+            self.structure = change["new"]
+
+        # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
+        # be converted to an ASE Atoms object.
+        elif isinstance(
+            change["new"], CifData
+        ):  # Special treatement of the CifData object
+            str_io = io.StringIO(change["new"].get_content())
+            self.structure = ase.io.read(
+                str_io, format="cif", reader="ase", store_tags=True
+            )
+        elif isinstance(change["new"], StructureData):
+            self.structure = change["new"].get_ase()
+
+        elif isinstance(change["new"], TrajectoryData):
+            # self.structure is essentially used for editing purposes.
+            # We're currently not allowing editing TrajectoryData,
+            # so we don't even attempt to set self.structure,
+            # instead we update the structure_node directly here
+            self.set_trait("structure_node", change["new"])
+
+        else:
+            self.structure = None

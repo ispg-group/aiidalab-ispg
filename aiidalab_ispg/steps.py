@@ -26,7 +26,7 @@ from aiidalab_widgets_base import (
     WizardAppWidgetStep,
 )
 
-import aiidalab_ispg.qeapp.structures
+import aiidalab_ispg.qeapp as qeapp
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget
@@ -46,7 +46,7 @@ Dict = DataFactory("dict")
 Bool = DataFactory("bool")
 
 
-class StructureSelectionStep(aiidalab_ispg.qeapp.structures.StructureSelectionStep):
+class StructureSelectionStep(qeapp.StructureSelectionStep):
     """Integrated widget for the selection of structures from different sources."""
 
     structure = Union(

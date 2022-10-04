@@ -1,5 +1,5 @@
-from aiidalab_ispg.widgets import TrajectoryDataViewer, WorkChainSelector
-from aiidalab_ispg.steps import (
+from .widgets import TrajectoryDataViewer, WorkChainSelector
+from .steps import (
     StructureSelectionStep,
     SubmitAtmospecAppWorkChainStep,
     ViewAtmospecAppWorkChainStatusAndResultsStep,
