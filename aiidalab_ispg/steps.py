@@ -472,9 +472,10 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
-            print(f"Running on {num_proc} CPUs")
-            # Not sure if this works
-            orca_parameters["input_blocks"]["pal"] = {"nproc": num_proc}
+            # NOTE: We only paralellize the optimizations job,
+            # because we suppose there will be lot's of TDDFT jobs in NEA,
+            # which can be trivially launched in parallel.
+            builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
 
         metadata = {
             "options": {
@@ -482,12 +483,15 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                 "resources": {
                     "tot_num_mpiprocs": num_proc,
                     "num_mpiprocs_per_machine": num_proc,
+                    "num_cores_per_mpiproc": 1,
                     "num_machines": 1,
                 },
             }
         }
-        builder.exc.orca.metadata = metadata
         builder.opt.orca.metadata = metadata
+        builder.exc.orca.metadata = deepcopy(metadata)
+        builder.exc.metadata.options.resources["tot_num_mpiprocs"] = 1
+        builder.exc.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
