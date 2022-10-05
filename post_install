@@ -18,8 +18,8 @@ function create_orca_code() {
     echo "Creating code node ${code_name}@${computer_name}" && \
     verdi code setup --non-interactive \
     --label ${code_name} \
-    --description "${code_name} code mounted via docker volume." \
-    --input-plugin ${code_name}_main \
+    --description "${code_name} code mounted via Docker volume." \
+    --input-plugin ${code_name}.${code_name} \
     --computer ${computer_name} \
     --remote-abs-path ${ORCA_PATH}/orca \
     --prepend-text "export PATH=${ORCA_PATH}:\$PATH"
