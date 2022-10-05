@@ -19,7 +19,7 @@ Code = DataFactory("code")
 List = DataFactory("list")
 Dict = DataFactory("dict")
 
-OrcaCalculation = CalculationFactory("orca_main")
+OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
