@@ -12,6 +12,7 @@
 ORCA_PATH=/opt/orca
 
 function create_orca_code() {
+  # NOTE: We append LD_LIBRARY path since we install OpenMPI via conda in ATMOSPEC Docker image
   computer_name=$1
   code_name=orca
   verdi code show ${code_name}@${computer_name} 2>/dev/null || \
@@ -22,7 +23,7 @@ function create_orca_code() {
     --input-plugin ${code_name}.${code_name} \
     --computer ${computer_name} \
     --remote-abs-path ${ORCA_PATH}/orca \
-    --prepend-text "export PATH=${ORCA_PATH}:\$PATH"
+    --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=/opt/conda/lib:\$LD_LIBRARY_PATH"
 }
 
 # Create orca code node on computer localhost,

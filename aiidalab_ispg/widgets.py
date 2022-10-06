@@ -241,7 +241,7 @@ class ResourceSelectionWidget(ipw.VBox):
         """<div style="line-height:120%; padding-top:0px">
         <p style="padding-bottom:10px">
         Specify the number of MPI tasks for this calculation.
-        (Currently ignored).
+        (used only for optimization jobs with ORCA).
         </p></div>"""
     )
 
