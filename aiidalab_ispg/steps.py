@@ -490,8 +490,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         }
         builder.opt.orca.metadata = metadata
         builder.exc.orca.metadata = deepcopy(metadata)
-        builder.exc.metadata.options.resources["tot_num_mpiprocs"] = 1
-        builder.exc.metadata.options.resources["num_mpiprocs_per_machine"] = 1
+        builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
+        builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
