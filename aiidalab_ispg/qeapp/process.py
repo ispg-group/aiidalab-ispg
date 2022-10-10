@@ -155,7 +155,7 @@ class WorkChainSelector(ipw.HBox):
 
     @traitlets.default("auto_refresh_interval")
     def _default_auto_refresh_interval(self):
-        return 10  # seconds
+        return 60  # seconds
 
     @traitlets.observe("auto_refresh_interval")
     def _observe_auto_refresh_interval(self, change):

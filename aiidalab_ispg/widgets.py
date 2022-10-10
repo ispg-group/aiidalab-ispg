@@ -95,6 +95,7 @@ class WorkChainSelector(qeapp.WorkChainSelector):
             yield cls.WorkChainData(formula=formula, *process)
 
     def refresh_work_chains(self, _=None):
+        # TODO: Don't lock if dropdown open
         with self._refresh_lock:
             try:
                 self.set_trait("busy", True)  # disables the widget
