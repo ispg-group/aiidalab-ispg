@@ -6,6 +6,7 @@ Authors:
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 from pprint import pformat
+import re
 
 from copy import deepcopy
 
@@ -508,9 +509,10 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         builder.nwigner = self.qm_config.nwigner.value
         builder.wigner_low_freq_thr = self.qm_config.wigner_low_freq_thr.value
 
-        self.process = submit(builder)
-
-        self.process.set_extra("builder_parameters", self.builder_parameters.copy())
+        process = submit(builder)
+        process.set_extra("builder_parameters", self.builder_parameters.copy())
+        # NOTE: It is important to set_extra builder_parameters before we update the traitlet
+        self.process = process
 
     def reset(self):
         with self.hold_trait_notifications():
@@ -589,6 +591,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def __init__(self, **kwargs):
         # Setup process monitor
+        # TODO: Instead of setting another process monitor here,
+        # we should just observe the process traitlet, and only set it
+        # when the process is_finished_ok.
         self.process_monitor = ProcessMonitor(
             timeout=0.5,
             callbacks=[
@@ -596,11 +601,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 self._update_state,
             ],
         )
+        self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
         ipw.dlink((self, "process"), (self.process_monitor, "process"))
 
-        super().__init__([self.spectrum], **kwargs)
+        super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
         self.process = None
@@ -652,6 +658,26 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             # spectrum before.
             self.spectrum.smiles = None
 
+    def _update_header(self):
+        if self.process is None:
+            self.header.value = ""
+            return
+        if bp := self.process.get_extra("builder_parameters", None):
+            formula = re.sub(
+                r"([0-9]+)",
+                r"<sub>\1</sub>",
+                get_formula(self.process.inputs.structure),
+            )
+            self.header.value = (
+                f"<h4>UV/vis spectrum of {formula} "
+                f"at {bp['method']}/{bp['basis']} level</h4>"
+                f"{bp['nstates']} singlet states"
+            )
+            if self.process.inputs.optimize and self.process.inputs.nwigner > 0:
+                self.header.value += (
+                    f", {self.process.inputs.nwigner.value} Wigner samples"
+                )
+
     def _update_state(self):
         if self.process is None:
             self.state = self.State.INIT
@@ -677,3 +703,4 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if change["new"] == change["old"]:
             return
         self._update_state()
+        self._update_header()

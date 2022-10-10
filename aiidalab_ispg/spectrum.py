@@ -174,11 +174,6 @@ class SpectrumWidget(ipw.VBox):
     EXP_SPEC_LABEL = "experiment"
 
     def __init__(self, **kwargs):
-        title = ipw.HTML(
-            """<div style="padding-top: 0px; padding-bottom: 0px">
-            <h4>UV/Vis Spectrum</h4></div>"""
-        )
-
         self.width_slider = ipw.FloatSlider(
             min=0.01,
             max=0.5,
@@ -239,7 +234,6 @@ class SpectrumWidget(ipw.VBox):
 
         super().__init__(
             [
-                title,
                 self.debug_output,
                 controls,
                 self.figure,
