@@ -181,12 +181,13 @@ class SpectrumWidget(ipw.VBox):
             value=0.05,
             description="Width / eV",
             continuous_update=True,
+            disabled=True,
         )
 
         self.kernel_selector = ipw.ToggleButtons(
             options=[(kernel.value, kernel) for kernel in BroadeningKernel],
             description="Broadening",
-            disabled=False,
+            disabled=True,
             button_style="info",
             tooltips=[
                 "Gaussian broadening",
@@ -196,7 +197,7 @@ class SpectrumWidget(ipw.VBox):
 
         self.energy_unit_selector = ipw.RadioButtons(
             options=[(unit.value, unit) for unit in EnergyUnit],
-            disabled=False,
+            disabled=True,
             description="Energy unit",
         )
 
@@ -424,24 +425,40 @@ class SpectrumWidget(ipw.VBox):
         theory_line.visible = False
         return figure
 
+    def disable_controls(self):
+        self.download_btn.disabled = True
+        self.energy_unit_selector.disabled = True
+        self.width_slider.disabled = True
+        self.kernel_selector.disabled = True
+
+    def enable_controls(self):
+        self.download_btn.disabled = False
+        self.energy_unit_selector.disabled = False
+        self.width_slider.disabled = False
+        self.kernel_selector.disabled = False
+
     def reset(self):
         with self.hold_trait_notifications():
             self.transitions = None
             self.smiles = None
             self.experimental_spectrum = None
 
-        self.download_btn.disabled = True
+        self.disable_controls()
         self.hide_line(self.THEORY_SPEC_LABEL)
         self.remove_line(self.EXP_SPEC_LABEL)
         self.debug_output.clear_output()
 
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
+        self.disable_controls()
+        if change["new"] is None:
+            return
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
+        self.enable_controls()
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
