@@ -9,6 +9,7 @@ from pprint import pformat
 import re
 
 from copy import deepcopy
+from enum import Enum, unique
 
 import ipywidgets as ipw
 import traitlets
@@ -45,6 +46,14 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
+
+
+@unique
+class ExcitedStateMethod(Enum):
+    CCSD = "EOM-CCSD"
+    ADC2 = "ADC2"
+    TDA = "TDA/TDDFT"
+    TDDFT = "TDDFT"
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
@@ -654,8 +663,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                     "smiles", self.spectrum.smiles
                 )
         else:
-            # Resetting smiles in case we already plotted experimental
-            # spectrum before.
             self.spectrum.smiles = None
 
     def _update_header(self):
