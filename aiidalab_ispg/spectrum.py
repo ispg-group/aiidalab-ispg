@@ -1,7 +1,7 @@
 """Widget for displaying UV/VIS spectra in an interactive graph.
 
 Authors:
-    * Daniel Hollas <daniel.hollas@durham.ac.uk>
+    * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 from enum import Enum, unique
 import ipywidgets as ipw
@@ -141,19 +141,25 @@ class Spectrum(object):
         # Conversion factor from eV to given energy unit
         if x_unit == EnergyUnit.NM:
             x, y = self._convert_to_nanometers(x, y)
+            x_stick = self.get_energy_unit_factor(x_unit) / self.excitation_energies
         else:
-            x *= self.get_energy_unit_factor(x_unit)
-        return x, y
+            x_factor = self.get_energy_unit_factor(x_unit)
+            x *= x_factor
+            x_stick = self.excitation_energies * x_factor
+
+        # We also return "stick" spectrum, e.g. just the transitions themselves,
+        # where osc. strengths are normalized to the maximum of the spectrum.
+        y_stick = self.osc_strengths * np.max(y) / np.max(self.osc_strengths)
+
+        return x, y, x_stick, y_stick
 
     def _convert_to_nanometers(self, x, y):
         x = self.get_energy_unit_factor(EnergyUnit.NM) / x
         # Filtering out ultralong wavelengths
-        # TODO: Generalize this based on self.transitions
+        # TODO: Set this threshold adaptively based on lowest energy transition
+        # TODO: Because the arrays are ordered, there's much easier way than np.delete()
         nm_thr = 1000
-        to_delete = []
-        for i in range(len(x)):
-            if x[i] > nm_thr:
-                to_delete.append(i)
+        to_delete = [i for i, nm in enumerate(x) if nm > nm_thr]
         x = np.delete(x, to_delete)
         y = np.delete(y, to_delete)
         return x, y
@@ -172,6 +178,7 @@ class SpectrumWidget(ipw.VBox):
 
     THEORY_SPEC_LABEL = "theory"
     EXP_SPEC_LABEL = "experiment"
+    STICK_SPEC_LABEL = "sticks"
 
     def __init__(self, **kwargs):
         self.width_slider = ipw.FloatSlider(
@@ -201,9 +208,24 @@ class SpectrumWidget(ipw.VBox):
             description="Energy unit",
         )
 
+        # TODO: Make the default value dependent on the number of samples in the spectrum
+        self.stick_toggle = ipw.ToggleButton(
+            description="Show stick spectrum",
+            tooltip="Show individual transitions as sticks in the spectrum.",
+            disabled=True,
+            value=True,
+        )
+        self.stick_toggle.observe(self._handle_stick_toggle, names="value")
+
         controls = ipw.HBox(
             children=[
-                ipw.VBox(children=[self.kernel_selector, self.width_slider]),
+                ipw.VBox(
+                    children=[
+                        self.kernel_selector,
+                        self.width_slider,
+                        self.stick_toggle,
+                    ]
+                ),
                 self.energy_unit_selector,
             ]
         )
@@ -308,6 +330,16 @@ class SpectrumWidget(ipw.VBox):
                 return False
         return True
 
+    def _handle_stick_toggle(self, change):
+        """Redraw spectra when user changes broadening width via slider"""
+        # Note: We replot the whole spectrum as sticks are currently tied
+        # to the whole spectrum.
+        self._plot_spectrum(
+            width=self.width_slider.value,
+            kernel=self.kernel_selector.value,
+            energy_unit=self.energy_unit_selector.value,
+        )
+
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
         self._plot_spectrum(
@@ -341,6 +373,12 @@ class SpectrumWidget(ipw.VBox):
                 spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
             )
 
+    def _plot_conformer(self):
+        pass
+
+    def highlight_conformer(self):
+        pass
+
     def _plot_spectrum(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
     ):
@@ -357,13 +395,38 @@ class SpectrumWidget(ipw.VBox):
             nsample = 1
 
         spec = Spectrum(self.transitions, nsample)
-        x, y = spec.get_spectrum(kernel, width, energy_unit)
+        # TODO: Have a separate function for sticks and only call it when needed
+        x, y, x_stick, y_stick = spec.get_spectrum(kernel, width, energy_unit)
         self.plot_line(x, y, self.THEORY_SPEC_LABEL)
+
+        if self.stick_toggle.value:
+            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
+        else:
+            self.remove_line(self.STICK_SPEC_LABEL)
+
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
         with self.debug_output:
             print(*args)
+
+    def plot_sticks(self, x, y, label: str, **args):
+        """Plot stick spectrum"""
+        f = self.figure.get_figure()
+        # First remove existing sticks (for now we only support one sets of sticks)
+        if sticks := f.select_one({"name": label}):
+            f.renderers.remove(sticks)
+        sticks = f.segment(
+            x0=x,
+            x1=x,
+            y0=np.zeros(x.size),
+            y1=y,
+            line_color="black",
+            line_width=1,
+            name=label,
+            **args,
+        )
+        self.figure.update()
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
@@ -380,6 +443,7 @@ class SpectrumWidget(ipw.VBox):
         if line is None:
             line = f.line(x, y, line_width=2, name=label, **args)
         line.visible = True
+        # TODO: This is redundant if line was None?
         line.data_source.data = {"x": x, "y": y}
         self.figure.update()
 
@@ -427,12 +491,14 @@ class SpectrumWidget(ipw.VBox):
 
     def disable_controls(self):
         self.download_btn.disabled = True
+        self.stick_toggle.disabled = True
         self.energy_unit_selector.disabled = True
         self.width_slider.disabled = True
         self.kernel_selector.disabled = True
 
     def enable_controls(self):
         self.download_btn.disabled = False
+        self.stick_toggle.disabled = False
         self.energy_unit_selector.disabled = False
         self.width_slider.disabled = False
         self.kernel_selector.disabled = False
@@ -446,6 +512,7 @@ class SpectrumWidget(ipw.VBox):
         self.disable_controls()
         self.hide_line(self.THEORY_SPEC_LABEL)
         self.remove_line(self.EXP_SPEC_LABEL)
+        self.remove_line(self.STICK_SPEC_LABEL)
         self.debug_output.clear_output()
 
     @traitlets.observe("transitions")
