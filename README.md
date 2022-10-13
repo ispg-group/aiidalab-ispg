@@ -64,7 +64,7 @@ In principle, you could use the official [AiiDAlab docker image](https://hub.doc
 which would be downloaded automatically when launching the Docker container.
 It is however preferable to build our custom image that contains additional
 dependencies pre-installed and includes the SLURM queuing manager.
-See (installation instructions here)[https://github.com/danielhollas/aiidalab-ispg-docker-stack#readme].
+See [installation instructions here](https://github.com/danielhollas/aiidalab-ispg-docker-stack#readme).
 
 ### Setup AiiDAlab launch
 
