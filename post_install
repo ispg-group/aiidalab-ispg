@@ -34,5 +34,6 @@ create_orca_code $computer_name
 # If we have SLURM, install extra code on localhost configured with slurm
 # This computer node is created in our custom Docker image.
 computer_name=slurm
-verdi computer show $computer_name > /dev/null && \
+verdi computer show $computer_name &> /dev/null && \
   create_orca_code $computer_name
+exit 0
