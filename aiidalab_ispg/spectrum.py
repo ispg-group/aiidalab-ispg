@@ -193,6 +193,7 @@ class SpectrumWidget(ipw.VBox):
 
         self.kernel_selector = ipw.ToggleButtons(
             options=[(kernel.value, kernel) for kernel in BroadeningKernel],
+            value=BroadeningKernel.GAUSS,
             description="Broadening",
             disabled=True,
             button_style="info",

@@ -6,6 +6,7 @@ Authors:
 """
 
 import base64
+from enum import Enum, unique
 import io
 
 import ipywidgets as ipw
@@ -34,6 +35,15 @@ TrajectoryData = DataFactory("array.trajectory")
 __all__ = [
     "TrajectoryDataViewer",
 ]
+
+
+@unique
+class ExcitedStateMethod(Enum):
+    TDA = "TDA/TDDFT"
+    TDDFT = "TDDFT"
+    CCSD = "EOM-CCSD"
+    ADC2 = "ADC2"
+
 
 # Taken from ORCA-5.0 manual, section 9.41
 PCM_SOLVENT_LIST = (
@@ -268,8 +278,11 @@ class ResourceSelectionWidget(ipw.VBox):
         self.num_mpi_tasks.value = 1
 
 
-class QMSelectionWidget(ipw.VBox):
+class QMSelectionWidget(ipw.HBox):
     """Widget for selecting ab initio level (basis set, method, etc.)"""
+
+    # TODO: This should probably live elsewhere as a config
+    _DEFAULT_FUNCTIONAL = "PBE"
 
     qm_title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
@@ -293,25 +306,32 @@ class QMSelectionWidget(ipw.VBox):
     def __init__(self, **kwargs):
         style = {"description_width": "initial"}
 
+        self.excited_method = ipw.Dropdown(
+            options=[(method.value, method) for method in ExcitedStateMethod],
+            value=ExcitedStateMethod.TDA,
+            description="Excited state",
+            style=style,
+        )
+        self.excited_method.observe(self._update_methods, names="value")
+
+        # TODO: Have separate DFT functional selection for excited state?
         self.method = ipw.Text(
-            value="pbe",
-            description="DFT functional",
-            placeholder="Type DFT functional",
+            value=self._DEFAULT_FUNCTIONAL,
+            description="Ground state",
             style=style,
         )
 
-        self.basis = ipw.Text(
-            value="def2-svp", description="Basis set", placeholder="Type Basis Set"
-        )
+        self.basis = ipw.Text(value="def2-SVP", description="Basis set")
 
         self.solvent = ipw.Dropdown(
             options=PCM_SOLVENT_LIST,
             value="None",
-            description="LR-PCM solvent",
+            description="PCM solvent",
             disabled=False,
             style=style,
         )
 
+        # TODO: Move Wigner settings to a separate widget
         self.nwigner = ipw.BoundedIntText(
             value=1,
             step=1,
@@ -333,19 +353,48 @@ class QMSelectionWidget(ipw.VBox):
 
         super().__init__(
             children=[
-                self.qm_title,
-                ipw.HBox(children=[self.method, self.basis, self.solvent]),
-                self.spectra_title,
-                self.spectra_desc,
-                self.nwigner,
-                self.wigner_low_freq_thr,
+                ipw.VBox(
+                    children=[
+                        self.qm_title,
+                        self.excited_method,
+                        self.method,
+                        self.basis,
+                        self.solvent,
+                    ]
+                ),
+                ipw.VBox(
+                    children=[
+                        self.spectra_title,
+                        self.spectra_desc,
+                        self.nwigner,
+                        self.wigner_low_freq_thr,
+                    ]
+                ),
             ]
         )
 
+    def _update_methods(self, change):
+        """Update ground state method defaults when
+        excited state method is changed"""
+        es_method = change["new"]
+        if es_method == change["old"]:
+            return
+        if es_method in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
+            self.method.value = "MP2"
+            self.solvent.value = "None"
+            self.solvent.disabled = True
+        elif change["old"] in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
+            # Switching to (TDA)TDDFT from ADC2/EOM-CCSD
+            # We do not want to reset the functional if switching between TDA and full TDDFT
+            self.method.value = self._DEFAULT_FUNCTIONAL
+            self.solvent.disabled = False
+
     # NOTE: It seems this method is currently not called
     def reset(self):
-        self.method.value = "pbe"
-        self.basis.value = "def2-svp"
+        self.excited_method.value = ExcitedStateMethod.TDA
+        self.method.value = self._DEFAULT_FUNCTIONAL
+        self.solvent.value = "None"
+        self.basis.value = "def2-SVP"
         self.nwigner.value = 1
         self.wigner_low_freq_thr.value = 100
 
