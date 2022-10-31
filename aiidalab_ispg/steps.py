@@ -668,11 +668,33 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # self._orca_output_to_transitions(output_params, 0)
 
         # TODO: This is a hack for now until we do a proper Boltzmann weighting.
-        conformer_transitions = []
+        all_transitions = []
         for conformer in self.process.outputs.spectrum_data.get_list():
-            conformer_transitions += self._wigner_output_to_transitions(conformer)
+            all_transitions += self._wigner_output_to_transitions(conformer)
 
-        self.spectrum.transitions = conformer_transitions
+        # Number of Wigner geometries per conformer
+        nsample = (
+            self.process.inputs.nwigner.value if self.process.inputs.nwigner > 0 else 1
+        )
+
+        # Temporary hack
+        nconf = len(self.process.outputs.spectrum_data)
+        if nconf > 1:
+            all_transitions[-1]["geom_index"] = (nsample * nconf) - 1
+
+        # TODO:
+        boltzmann_weight = 1.0 / len(self.process.inputs.structure.get_stepids())
+        conformer_transitions = [
+            {
+                "transitions": self._wigner_output_to_transitions(conformer),
+                "nsample": nsample,
+                "weight": boltzmann_weight,
+            }
+            for conformer in self.process.outputs.spectrum_data.get_list()
+        ]
+
+        self.spectrum.transitions = all_transitions
+        self.spectrum.conformer_transitions = conformer_transitions
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structures as well

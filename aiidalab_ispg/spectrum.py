@@ -123,8 +123,16 @@ class Spectrum(object):
             prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor * np.exp(-((x - exc_energy) ** 2) / 2 / sigma**2)
 
-    def get_spectrum(self, kernel: BroadeningKernel, width: float, x_unit: EnergyUnit):
-        x_min, x_max = self._get_energy_range_ev()
+    def get_spectrum(
+        self,
+        kernel: BroadeningKernel,
+        width: float,
+        x_unit: EnergyUnit,
+        x_min=None,
+        x_max=None,
+    ):
+        if x_min is None or x_max is None:
+            x_min, x_max = self._get_energy_range_ev()
 
         # TODO: How to determine this properly to cover a given interval?
         n_sample = 500
@@ -167,7 +175,9 @@ class Spectrum(object):
 
 class SpectrumWidget(ipw.VBox):
 
-    transitions = traitlets.List(allow_none=True)
+    transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
+    conformer_transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
+
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
     smiles = traitlets.Unicode(allow_none=True)
@@ -179,6 +189,11 @@ class SpectrumWidget(ipw.VBox):
     THEORY_SPEC_LABEL = "theory"
     EXP_SPEC_LABEL = "experiment"
     STICK_SPEC_LABEL = "sticks"
+
+    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
+    _TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
+    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
+    _TOOLTIPS = [("(energy, cross_section)", "($x,$y)")]
 
     def __init__(self, **kwargs):
         self.width_slider = ipw.FloatSlider(
@@ -234,11 +249,7 @@ class SpectrumWidget(ipw.VBox):
         # We use this for Debug output for now
         self.debug_output = ipw.Output()
 
-        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
-        tools = "pan,wheel_zoom,box_zoom,reset,save"
-        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
-        tooltips = [("(energy, cross_section)", "($x,$y)")]
-        self.figure = self._init_figure(tools=tools, tooltips=tooltips)
+        self.figure = self._init_figure(tools=self._TOOLS, tooltips=self._TOOLTIPS)
 
         self.download_btn = ipw.Button(
             description="Download spectrum",
@@ -374,37 +385,87 @@ class SpectrumWidget(ipw.VBox):
                 spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
             )
 
-    def _plot_conformer(self):
-        pass
+    def _highlight_conformer(self, conf_id: int):
+        f = self.figure.get_figure()
+        label = f"conformer_{conf_id}"
+        # TODO: Reset previously highlighted conformer
+        if line := f.select_one({"name": label}):
+            # This does not seem to work
+            # line.glyph.update(line_dash="solid")
+            x = line.data_source.data["x"]
+            y = line.data_source.data["y"]
+            self._plot_conformer(x, y, conf_id, line_dash="solid")
 
-    def highlight_conformer(self):
-        pass
+    def _validate_conformers(self):
+        return True
+
+    def _plot_conformer(self, x, y, conf_id, line_dash="dashed"):
+        line_options = {
+            "line_color": "black",
+            "line_dash": line_dash,
+            "line_width": 1,
+        }
+        label = f"conformer_{conf_id}"
+        self.plot_line(x, y, label, **line_options)
 
     def _plot_spectrum(
+        self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
+    ):
+        self.download_btn.disabled = True
+        if not self._validate_conformers():
+            self.hide_line(self.THEORY_SPEC_LABEL)
+            self.clean_figure()
+            raise ValueError("Invalid conformer transitions")
+
+        spec = Spectrum(
+            self.conformer_transitions[0]["transitions"],
+            self.conformer_transitions[0]["nsample"],
+        )
+        x_total, y_total, x_stick, y_stick = spec.get_spectrum(
+            kernel, width, energy_unit
+        )
+        y_total *= self.conformer_transitions[0]["weight"]
+
+        # Plot individual conformers, if there is more than one
+        nconf = len(self.conformer_transitions)
+        if nconf > 1:
+            self._plot_conformer(x_total, y_total, conf_id=0)
+            self._highlight_conformer(0)
+            # TODO: Do this differently
+            x_min = x_total[0]
+            x_max = x_total[-1]
+            for conf_id in range(1, nconf):
+                conf = self.conformer_transitions[conf_id]
+                spec = Spectrum(conf["transitions"], conf["nsample"])
+                x, y, xs, ys = spec.get_spectrum(
+                    kernel, width, energy_unit, x_min=x_min, x_max=x_max
+                )
+                x_stick = np.concatenate((x_stick, xs))
+                y_stick = np.concatenate((y_stick, ys))
+                y *= conf["weight"]
+                y_total += y
+                self._plot_conformer(x, y, conf_id)
+
+        # Plot total spectrum
+        self.plot_line(x_total, y_total, self.THEORY_SPEC_LABEL, line_width=2)
+        if self.stick_toggle.value:
+            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
+        else:
+            self.remove_line(self.STICK_SPEC_LABEL)
+
+        self.download_btn.disabled = False
+
+    def _plot_spectrum_old(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
     ):
         self.download_btn.disabled = True
         if not self._validate_transitions():
             self.hide_line(self.THEORY_SPEC_LABEL)
             return
-        # TODO: Need to fix this normalization now that we have multiple conformers!
-        # We should have explicit metadata about number of conformers, number of states, number of geometries
-        try:
-            nsample = self.transitions[-1]["geom_index"] + 1
-        except KeyError:
-            self.debug_print("Could not determine number of samples")
-            nsample = 1
-
+        nsample = self.transitions[-1]["geom_index"] + 1
         spec = Spectrum(self.transitions, nsample)
-        # TODO: Have a separate function for sticks and only call it when needed
         x, y, x_stick, y_stick = spec.get_spectrum(kernel, width, energy_unit)
-        self.plot_line(x, y, self.THEORY_SPEC_LABEL)
-
-        if self.stick_toggle.value:
-            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
-        else:
-            self.remove_line(self.STICK_SPEC_LABEL)
-
+        self.plot_line(x, y, self.THEORY_SPEC_LABEL, line_width=2)
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
@@ -442,10 +503,10 @@ class SpectrumWidget(ipw.VBox):
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
         if line is None:
-            line = f.line(x, y, line_width=2, name=label, **args)
-        line.visible = True
-        # TODO: This is redundant if line was None?
-        line.data_source.data = {"x": x, "y": y}
+            f.line(x, y, name=label, **args)
+        else:
+            line.visible = True
+            line.data_source.data = {"x": x, "y": y}
         self.figure.update()
 
     def hide_line(self, label: str):
@@ -468,6 +529,14 @@ class SpectrumWidget(ipw.VBox):
         if line is None:
             return
         f.renderers.remove(line)
+        self.figure.update()
+
+    def clean_figure(self):
+        f = self.figure.get_figure()
+        for line in f.renderers:
+            self.hide_line(line.name)
+        f.renderers.clear()
+        # TODO: Create theory line
         self.figure.update()
 
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
@@ -507,21 +576,32 @@ class SpectrumWidget(ipw.VBox):
     def reset(self):
         with self.hold_trait_notifications():
             self.transitions = None
+            self.conformer_transitions = None
             self.smiles = None
             self.experimental_spectrum = None
 
         self.disable_controls()
-        self.hide_line(self.THEORY_SPEC_LABEL)
-        self.remove_line(self.EXP_SPEC_LABEL)
-        self.remove_line(self.STICK_SPEC_LABEL)
+        self.clean_figure()
         self.debug_output.clear_output()
+
+    @traitlets.observe("conformer_transitions")
+    def _observe_conformer_transitions(self, change):
+        self.disable_controls()
+        if change["new"] is None:
+            return
+        self._plot_spectrum(
+            width=self.width_slider.value,
+            kernel=self.kernel_selector.value,
+            energy_unit=self.energy_unit_selector.value,
+        )
+        self.enable_controls()
 
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
         self.disable_controls()
         if change["new"] is None:
             return
-        self._plot_spectrum(
+        self._plot_spectrum_old(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
@@ -591,5 +671,6 @@ class SpectrumWidget(ipw.VBox):
         line_options = {
             "line_color": "orange",
             "line_dash": "dashed",
+            "line_width": "2",
         }
         self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
