@@ -286,8 +286,12 @@ class SpectrumWidget(ipw.VBox):
             [
                 self.debug_output,
                 ipw.HBox([self.download_btn, self.conformer_toggle, self.stick_toggle]),
-                ipw.HBox([self.figure, self.spectrum_controls]),
-                self.conformer_viewer,
+                ipw.HBox(
+                    [
+                        self.figure,
+                        ipw.VBox([self.spectrum_controls, self.conformer_viewer]),
+                    ]
+                ),
             ],
             **kwargs,
         )
@@ -380,6 +384,7 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
+        self._highlight_conformer(self.conformer_viewer.selected_structure_id)
 
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
@@ -414,7 +419,7 @@ class SpectrumWidget(ipw.VBox):
                 spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
             )
 
-    def _unhighlight_conformer(self, conf_id: int):
+    def _unhighlight_conformer(self):
         self.remove_line("conformer_selected")
 
     def _highlight_conformer(self, conf_id: int):
@@ -426,9 +431,10 @@ class SpectrumWidget(ipw.VBox):
             # line.glyph.update(line_dash="solid")
             x = line.data_source.data["x"]
             y = line.data_source.data["y"]
-            self._plot_line(x, y, label="conformer_selected", line_color="red")
+            self.plot_line(x, y, label="conformer_selected", line_color="red")
 
     def _hide_all_conformers(self):
+        self._unhighlight_conformer()
         for i in range(len(self.conformer_transitions)):
             label = f"conformer_{i}"
             # NOTE: Hiding does not seem to work
@@ -468,7 +474,7 @@ class SpectrumWidget(ipw.VBox):
         nconf = len(self.conformer_transitions)
         if nconf > 1:
             if self.conformer_toggle.value:
-                self._plot_conformer(x_total, y_total, conf_id=0, update=False)
+                self._plot_conformer(x_total, np.copy(y_total), conf_id=0, update=False)
             # TODO: Do this differently. Switching units currently does not work!
             x_min = x_total[0]
             x_max = x_total[-1]
@@ -484,6 +490,9 @@ class SpectrumWidget(ipw.VBox):
                 y_total += y
                 if self.conformer_toggle.value:
                     self._plot_conformer(x, y, conf_id, update=False)
+
+            if self.conformer_toggle.value:
+                self._highlight_conformer(self.selected_conformer_id)
 
         # Plot total spectrum
         self.plot_line(x_total, y_total, self.THEORY_SPEC_LABEL, line_width=2)
@@ -505,7 +514,7 @@ class SpectrumWidget(ipw.VBox):
         nsample = self.transitions[-1]["geom_index"] + 1
         spec = Spectrum(self.transitions, nsample)
         x, y, x_stick, y_stick = spec.get_spectrum(kernel, width, energy_unit)
-        self.plot_line(x, y, self.THEORY_SPEC_LABEL, line_width=2)
+        self.plot_line(x, y, f"{self.THEORY_SPEC_LABEL}_old", line_width=2)
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
@@ -630,7 +639,7 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
-        self._unhighlight_conformer(change["old"])
+        self._unhighlight_conformer()
         self._highlight_conformer(change["new"])
 
     @traitlets.observe("conformers")
@@ -652,7 +661,6 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("transitions")
     def _observe_transitions(self, change):
-        self.disable_controls()
         if change["new"] is None:
             return
         self._plot_spectrum_old(
@@ -660,7 +668,6 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.enable_controls()
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):

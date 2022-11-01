@@ -99,12 +99,13 @@ class WorkChainSettings(ipw.VBox):
             value="OPT",
         )
 
+        # TODO: Use Dropdown with Enum (Singlet, Doublet...)
         self.spin_mult = ipw.BoundedIntText(
             min=1,
-            max=7,
+            max=1,
             step=1,
-            description="SpinMult",
-            disabled=False,
+            description="Multiplicity",
+            disabled=True,
             value=1,
         )
 
@@ -661,28 +662,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if self.process is None or not self.process.is_finished_ok:
             return
 
-        # TODO: Handle different kind of computed spectra simultaneously.
-        # This is a single-point spectrum
-        # output_params = self.process.outputs.single_point_tddft.get_dict()
-        # single_point_transitions = []
-        # self._orca_output_to_transitions(output_params, 0)
-
-        # TODO: This is a hack for now until we do a proper Boltzmann weighting.
-        all_transitions = []
-        for conformer in self.process.outputs.spectrum_data.get_list():
-            all_transitions += self._wigner_output_to_transitions(conformer)
-
         # Number of Wigner geometries per conformer
         nsample = (
             self.process.inputs.nwigner.value if self.process.inputs.nwigner > 0 else 1
         )
-
-        # Temporary hack
-        nconf = len(self.process.outputs.spectrum_data)
-        if nconf > 1:
-            all_transitions[-1]["geom_index"] = (nsample * nconf) - 1
-
-        # TODO:
+        # TODO: Compute Boltzmann weight from Gibbs energy of conformers
         boltzmann_weight = 1.0 / len(self.process.inputs.structure.get_stepids())
         conformer_transitions = [
             {
@@ -692,9 +676,17 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             }
             for conformer in self.process.outputs.spectrum_data.get_list()
         ]
-
-        self.spectrum.transitions = all_transitions
         self.spectrum.conformer_transitions = conformer_transitions
+
+        # Temporary hack to see old code
+        all_transitions = []
+        for conformer in self.process.outputs.spectrum_data.get_list():
+            all_transitions += self._wigner_output_to_transitions(conformer)
+        nconf = len(self.process.outputs.spectrum_data)
+        if nconf > 1:
+            all_transitions[-1]["geom_index"] = (nsample * nconf) - 1
+        # self.spectrum.transitions = all_transitions
+
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structures as well
