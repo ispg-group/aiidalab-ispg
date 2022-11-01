@@ -634,6 +634,7 @@ class SpectrumWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.transitions = None
             self.conformer_transitions = None
+            self.conformers = None
             self.smiles = None
             self.experimental_spectrum = None
 
