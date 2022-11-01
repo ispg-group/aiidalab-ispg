@@ -265,6 +265,7 @@ class SpectrumWidget(ipw.VBox):
         self.debug_output = ipw.Output()
 
         self.figure = self._init_figure(tools=self._TOOLS, tooltips=self._TOOLTIPS)
+        self.figure.layout = ipw.Layout(overflow="initial")
 
         self.download_btn = ipw.Button(
             description="Download spectrum",
@@ -290,7 +291,7 @@ class SpectrumWidget(ipw.VBox):
                     [
                         self.figure,
                         ipw.VBox([self.spectrum_controls, self.conformer_viewer]),
-                    ]
+                    ],
                 ),
             ],
             **kwargs,
@@ -435,8 +436,9 @@ class SpectrumWidget(ipw.VBox):
 
     def _hide_all_conformers(self):
         self._unhighlight_conformer()
-        for i in range(len(self.conformer_transitions)):
-            label = f"conformer_{i}"
+        f = self.figure.get_figure()
+        labels = [r.name for r in f.renderers]
+        for label in filter(lambda l: l.startswith("conformer_"), labels):
             # NOTE: Hiding does not seem to work
             # Removing without immediate figure update also does not work
             self.remove_line(label, update=True)
@@ -655,6 +657,7 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
         self.disable_controls()
+        self._hide_all_conformers()
         if change["new"] is None:
             return
         self._plot_spectrum(

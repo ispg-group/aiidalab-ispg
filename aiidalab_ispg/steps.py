@@ -750,5 +750,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
+        self.spectrum.reset()
         self._update_state()
         self._update_header()
