@@ -180,6 +180,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         trajectory = change["new"]
         if trajectory is None:
             self.structure = None
+            self.set_trait("displayed_structure", None)
             self._step_selector.min = 1
             self._step_selector.max = 1
             self._step_selector.disabled = True
