@@ -13,7 +13,7 @@ from threading import Event, Lock, Thread
 
 import ipywidgets as ipw
 import traitlets
-from aiida.orm import CalcJobNode
+from aiida.orm import load_node, CalcJobNode
 from aiidalab_widgets_base import register_viewer_widget
 from IPython.display import HTML, Javascript, display
 
@@ -237,7 +237,7 @@ class LogOutputWidget(ipw.VBox):
 
 class CalcJobOutputFollower(traitlets.HasTraits):
 
-    calcjob = traitlets.Instance(CalcJobNode, allow_none=True)
+    calcjob_uuid = traitlets.Unicode(allow_none=True)
     filename = traitlets.Unicode(allow_none=True)
     output = traitlets.List(trait=traitlets.Unicode)
     lineno = traitlets.Int()
@@ -253,14 +253,12 @@ class CalcJobOutputFollower(traitlets.HasTraits):
 
         super().__init__(**kwargs)
 
-    @traitlets.observe("calcjob")
+    @traitlets.observe("calcjob_uuid")
     def _observe_calcjob(self, change):
-        try:
-            if change["old"].pk == change["new"].pk:
-                # Old and new process are identical.
-                return
-        except AttributeError:
-            pass
+        if change["old"] == change["new"]:
+            return
+
+        calcjob = load_node(change["new"])
 
         with self._lock:
             # Stop following
@@ -278,7 +276,7 @@ class CalcJobOutputFollower(traitlets.HasTraits):
             # (Re/)start following
             if change["new"]:
                 self._follow_output_thread = Thread(
-                    target=self._follow_output, args=(change["new"],)
+                    target=self._follow_output, args=(calcjob,)
                 )
                 self._follow_output_thread.start()
 
@@ -352,7 +350,7 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         self.log_output = LogOutputWidget()
 
         self.output_follower.observe(self._observe_output_follower_lineno, ["lineno"])
-        self.output_follower.calcjob = self.calcjob
+        self.output_follower.calcjob_uuid = self.calcjob.uuid
 
         super().__init__(
             [ipw.HTML(f"CalcJob: {self.calcjob}"), self.log_output], **kwargs
