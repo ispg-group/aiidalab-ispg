@@ -17,10 +17,13 @@ from aiida.plugins import DataFactory
 from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
+from .widgets import TrajectoryDataViewer
+
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
-
+StructureData = DataFactory("structure")
+TrajectoryData = DataFactory("array.trajectory")
 
 # Conversion factor from atomic units to electronvolts
 AUtoEV = 27.2114386245
@@ -177,6 +180,11 @@ class SpectrumWidget(ipw.VBox):
 
     transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
     conformer_transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
+    conformers = traitlets.Union(
+        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+        allow_none=True,
+    )
+    selected_conformer_id = traitlets.Int(allow_none=True)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
@@ -205,6 +213,7 @@ class SpectrumWidget(ipw.VBox):
             continuous_update=True,
             disabled=True,
         )
+        self.width_slider.observe(self._handle_width_update, names="value")
 
         self.kernel_selector = ipw.ToggleButtons(
             options=[(kernel.value, kernel) for kernel in BroadeningKernel],
@@ -217,14 +226,25 @@ class SpectrumWidget(ipw.VBox):
                 "Lorentzian broadening",
             ],
         )
+        self.kernel_selector.observe(self._handle_kernel_update, names="value")
 
         self.energy_unit_selector = ipw.RadioButtons(
             options=[(unit.value, unit) for unit in EnergyUnit],
             disabled=True,
             description="Energy unit",
         )
+        self.energy_unit_selector.observe(
+            self._handle_energy_unit_update, names="value"
+        )
 
-        # TODO: Make the default value dependent on the number of samples in the spectrum
+        self.spectrum_controls = ipw.VBox(
+            children=[
+                self.kernel_selector,
+                self.width_slider,
+                self.energy_unit_selector,
+            ]
+        )
+
         self.stick_toggle = ipw.ToggleButton(
             description="Show stick spectrum",
             tooltip="Show individual transitions as sticks in the spectrum.",
@@ -233,18 +253,13 @@ class SpectrumWidget(ipw.VBox):
         )
         self.stick_toggle.observe(self._handle_stick_toggle, names="value")
 
-        controls = ipw.HBox(
-            children=[
-                ipw.VBox(
-                    children=[
-                        self.kernel_selector,
-                        self.width_slider,
-                        self.stick_toggle,
-                    ]
-                ),
-                self.energy_unit_selector,
-            ]
+        self.conformer_toggle = ipw.ToggleButton(
+            description="Show conformers",
+            tooltip="Show spectra of individual conformers",
+            disabled=True,
+            value=False,
         )
+        self.conformer_toggle.observe(self._handle_conformer_toggle, names="value")
 
         # We use this for Debug output for now
         self.debug_output = ipw.Output()
@@ -261,18 +276,18 @@ class SpectrumWidget(ipw.VBox):
         )
         self.download_btn.on_click(self._download_spectrum)
 
-        self.kernel_selector.observe(self._handle_kernel_update, names="value")
-        self.energy_unit_selector.observe(
-            self._handle_energy_unit_update, names="value"
+        self.conformer_viewer = TrajectoryDataViewer(configuration_tabs=[])
+        ipw.dlink(
+            (self.conformer_viewer, "selected_structure_id"),
+            (self, "selected_conformer_id"),
         )
-        self.width_slider.observe(self._handle_width_update, names="value")
 
         super().__init__(
             [
                 self.debug_output,
-                controls,
-                self.figure,
-                self.download_btn,
+                ipw.HBox([self.download_btn, self.conformer_toggle, self.stick_toggle]),
+                ipw.HBox([self.figure, self.spectrum_controls]),
+                self.conformer_viewer,
             ],
             **kwargs,
         )
@@ -343,9 +358,23 @@ class SpectrumWidget(ipw.VBox):
         return True
 
     def _handle_stick_toggle(self, change):
-        """Redraw spectra when user changes broadening width via slider"""
+        """Redraw show/hide stick transitions"""
         # Note: We replot the whole spectrum as sticks are currently tied
         # to the whole spectrum.
+        self._plot_spectrum(
+            width=self.width_slider.value,
+            kernel=self.kernel_selector.value,
+            energy_unit=self.energy_unit_selector.value,
+        )
+
+    def _handle_conformer_toggle(self, change):
+        """Show/hide conformers and their individual spectra"""
+        if not change["new"]:
+            self._hide_all_conformers()
+            self.conformer_viewer.trajectory = None
+            return
+
+        self.conformer_viewer.trajectory = self.conformers
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
@@ -385,35 +414,44 @@ class SpectrumWidget(ipw.VBox):
                 spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
             )
 
+    def _unhighlight_conformer(self, conf_id: int):
+        self.remove_line("conformer_selected")
+
     def _highlight_conformer(self, conf_id: int):
         f = self.figure.get_figure()
         label = f"conformer_{conf_id}"
-        # TODO: Reset previously highlighted conformer
         if line := f.select_one({"name": label}):
-            # This does not seem to work
+            # This does not seem to work, possibly because conformers
+            # are not there from the beginning
             # line.glyph.update(line_dash="solid")
             x = line.data_source.data["x"]
             y = line.data_source.data["y"]
-            self._plot_conformer(x, y, conf_id, line_dash="solid")
+            self._plot_line(x, y, label="conformer_selected", line_color="red")
+
+    def _hide_all_conformers(self):
+        for i in range(len(self.conformer_transitions)):
+            label = f"conformer_{i}"
+            # NOTE: Hiding does not seem to work
+            # Removing without immediate figure update also does not work
+            self.remove_line(label, update=True)
 
     def _validate_conformers(self):
         return True
 
-    def _plot_conformer(self, x, y, conf_id, line_dash="dashed"):
+    def _plot_conformer(self, x, y, conf_id, update=True, line_dash="dashed"):
         line_options = {
             "line_color": "black",
             "line_dash": line_dash,
             "line_width": 1,
         }
         label = f"conformer_{conf_id}"
-        self.plot_line(x, y, label, **line_options)
+        self.plot_line(x, y, label, update=update, **line_options)
 
     def _plot_spectrum(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
     ):
         self.download_btn.disabled = True
         if not self._validate_conformers():
-            self.hide_line(self.THEORY_SPEC_LABEL)
             self.clean_figure()
             raise ValueError("Invalid conformer transitions")
 
@@ -429,9 +467,9 @@ class SpectrumWidget(ipw.VBox):
         # Plot individual conformers, if there is more than one
         nconf = len(self.conformer_transitions)
         if nconf > 1:
-            self._plot_conformer(x_total, y_total, conf_id=0)
-            self._highlight_conformer(0)
-            # TODO: Do this differently
+            if self.conformer_toggle.value:
+                self._plot_conformer(x_total, y_total, conf_id=0, update=False)
+            # TODO: Do this differently. Switching units currently does not work!
             x_min = x_total[0]
             x_max = x_total[-1]
             for conf_id in range(1, nconf):
@@ -444,10 +482,12 @@ class SpectrumWidget(ipw.VBox):
                 y_stick = np.concatenate((y_stick, ys))
                 y *= conf["weight"]
                 y_total += y
-                self._plot_conformer(x, y, conf_id)
+                if self.conformer_toggle.value:
+                    self._plot_conformer(x, y, conf_id, update=False)
 
         # Plot total spectrum
         self.plot_line(x_total, y_total, self.THEORY_SPEC_LABEL, line_width=2)
+        # TODO: Separate sticks to a separate function
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
         else:
@@ -492,7 +532,7 @@ class SpectrumWidget(ipw.VBox):
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label: str, **args):
+    def plot_line(self, x, y, label, update=True, **args):
         """Update existing plot line or create a new one.
         Updating existing plot lines unfortunately only work for label=theory
         and label=experiment, that are predefined in _init_figure()
@@ -502,23 +542,24 @@ class SpectrumWidget(ipw.VBox):
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
-        if line is None:
-            f.line(x, y, name=label, **args)
-        else:
-            line.visible = True
-            line.data_source.data = {"x": x, "y": y}
-        self.figure.update()
+        if line is not None:
+            # line.data_source.data = {"x": x, "y": y}
+            self.remove_line(label)
+        f.line(x, y, name=label, **args)
+        if update:
+            self.figure.update()
 
-    def hide_line(self, label: str):
+    def hide_line(self, label: str, update=True):
         """Hide given line from the plot"""
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
         if line is None or not line.visible:
             return
         line.visible = False
-        self.figure.update()
+        if update:
+            self.figure.update()
 
-    def remove_line(self, label: str):
+    def remove_line(self, label: str, update=True):
         # This approach is potentially britle, see:
         # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
         # Observation: Removing and adding lines via
@@ -529,14 +570,15 @@ class SpectrumWidget(ipw.VBox):
         if line is None:
             return
         f.renderers.remove(line)
-        self.figure.update()
+        if update:
+            self.figure.update()
 
     def clean_figure(self):
         f = self.figure.get_figure()
-        for line in f.renderers:
-            self.hide_line(line.name)
-        f.renderers.clear()
-        # TODO: Create theory line
+        labels = [r.name for r in f.renderers]
+        for label in labels:
+            # self.hide_line(label)
+            self.remove_line(label, update=False)
         self.figure.update()
 
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
@@ -562,6 +604,7 @@ class SpectrumWidget(ipw.VBox):
     def disable_controls(self):
         self.download_btn.disabled = True
         self.stick_toggle.disabled = True
+        self.conformer_toggle.disabled = True
         self.energy_unit_selector.disabled = True
         self.width_slider.disabled = True
         self.kernel_selector.disabled = True
@@ -569,6 +612,7 @@ class SpectrumWidget(ipw.VBox):
     def enable_controls(self):
         self.download_btn.disabled = False
         self.stick_toggle.disabled = False
+        self.conformer_toggle.disabled = False
         self.energy_unit_selector.disabled = False
         self.width_slider.disabled = False
         self.kernel_selector.disabled = False
@@ -583,6 +627,16 @@ class SpectrumWidget(ipw.VBox):
         self.disable_controls()
         self.clean_figure()
         self.debug_output.clear_output()
+
+    @traitlets.observe("selected_conformer_id")
+    def _observe_selected_conformer(self, change):
+        self._unhighlight_conformer(change["old"])
+        self._highlight_conformer(change["new"])
+
+    @traitlets.observe("conformers")
+    def _observe_conformers(self, change):
+        if self.conformer_toggle.value:
+            self.conformer_viewer.trajectory = change["new"]
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
