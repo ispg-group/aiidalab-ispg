@@ -469,6 +469,7 @@ class SpectrumWidget(ipw.VBox):
             kernel, width, energy_unit
         )
         y_total *= self.conformer_transitions[0]["weight"]
+        y_stick *= self.conformer_transitions[0]["weight"]
 
         # Plot individual conformers, if there is more than one
         nconf = len(self.conformer_transitions)
@@ -484,10 +485,13 @@ class SpectrumWidget(ipw.VBox):
                 x, y, xs, ys = spec.get_spectrum(
                     kernel, width, energy_unit, x_min=x_min, x_max=x_max
                 )
-                x_stick = np.concatenate((x_stick, xs))
-                y_stick = np.concatenate((y_stick, ys))
                 y *= conf["weight"]
                 y_total += y
+
+                ys *= conf["weight"]
+                x_stick = np.concatenate((x_stick, xs))
+                y_stick = np.concatenate((y_stick, ys))
+
                 if self.conformer_toggle.value:
                     self._plot_conformer(x, y, conf_id, update=False)
 
