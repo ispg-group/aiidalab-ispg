@@ -699,7 +699,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         else:
             self.spectrum.smiles = None
 
-        self.spectrum.conformers = self.process.outputs.relaxed_structures
+        if "relaxed_structures" in self.process.outputs:
+            self.spectrum.conformers = self.process.outputs.relaxed_structures
 
     def _update_header(self):
         if self.process is None:
