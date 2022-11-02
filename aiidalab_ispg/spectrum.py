@@ -88,12 +88,13 @@ class Spectrum(object):
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
-    def _get_energy_range_ev(self):
+    @staticmethod
+    def get_energy_range_ev(excitation_energies):
         """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
         # NOTE: We don't include zero to prevent
         # division by zero when converting to wavelength
-        x_min = max(0.01, self.excitation_energies.min() - 2.0)
-        x_max = self.excitation_energies.max() + 2.0
+        x_min = max(0.01, excitation_energies.min() - 1.5)
+        x_max = excitation_energies.max() + 1.5
         return x_min, x_max
 
     @staticmethod
@@ -135,7 +136,7 @@ class Spectrum(object):
         x_max=None,
     ):
         if x_min is None or x_max is None:
-            x_min, x_max = self._get_energy_range_ev()
+            x_min, x_max = self.get_energy_range_ev(self.excitation_energies)
 
         # TODO: How to determine this properly to cover a given interval?
         n_sample = 500
@@ -178,9 +179,8 @@ class Spectrum(object):
 
 class SpectrumWidget(ipw.VBox):
 
-    transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
     conformer_transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
-    conformers = traitlets.Union(
+    conformer_structures = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
@@ -348,13 +348,14 @@ class SpectrumWidget(ipw.VBox):
             csvfile.seek(0)
             return base64.b64encode(csvfile.read().encode()).decode()
 
-    def _validate_transitions(self):
+    def _validate_transitions(self, transitions):
         # TODO: Maybe use named tuple instead of dictionary?
         # https://realpython.com/python-namedtuple/
-        if self.transitions is None or len(self.transitions) == 0:
+        if transitions is None or len(transitions) == 0:
+            self.debug_print("ERROR: Got empty transitions")
             return False
 
-        for tr in self.transitions:
+        for tr in transitions:
             if not isinstance(tr, dict) or (
                 "energy" not in tr or "osc_strength" not in tr
             ):
@@ -379,7 +380,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_viewer.trajectory = None
             return
 
-        self.conformer_viewer.trajectory = self.conformers
+        self.conformer_viewer.trajectory = self.conformer_structures
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
@@ -443,9 +444,6 @@ class SpectrumWidget(ipw.VBox):
             # Removing without immediate figure update also does not work
             self.remove_line(label, update=True)
 
-    def _validate_conformers(self):
-        return True
-
     def _plot_conformer(self, x, y, conf_id, update=True, line_dash="dashed"):
         line_options = {
             "line_color": "black",
@@ -458,17 +456,22 @@ class SpectrumWidget(ipw.VBox):
     def _plot_spectrum(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
     ):
-        self.download_btn.disabled = True
-        if not self._validate_conformers():
-            self.clean_figure()
-            raise ValueError("Invalid conformer transitions")
+        # Determine spectrum energy range based on all excitation energies
+        all_exc_energies = np.array(
+            [
+                transitions["energy"]
+                for conformer in self.conformer_transitions
+                for transitions in conformer["transitions"]
+            ]
+        )
+        x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
 
         spec = Spectrum(
             self.conformer_transitions[0]["transitions"],
             self.conformer_transitions[0]["nsample"],
         )
         x_total, y_total, x_stick, y_stick = spec.get_spectrum(
-            kernel, width, energy_unit
+            kernel, width, energy_unit, x_min=x_min, x_max=x_max
         )
         y_total *= self.conformer_transitions[0]["weight"]
         y_stick *= self.conformer_transitions[0]["weight"]
@@ -478,9 +481,7 @@ class SpectrumWidget(ipw.VBox):
         if nconf > 1:
             if self.conformer_toggle.value:
                 self._plot_conformer(x_total, np.copy(y_total), conf_id=0, update=False)
-            # TODO: Do this differently. Switching units currently does not work!
-            x_min = x_total[0]
-            x_max = x_total[-1]
+
             for conf_id in range(1, nconf):
                 conf = self.conformer_transitions[conf_id]
                 spec = Spectrum(conf["transitions"], conf["nsample"])
@@ -502,25 +503,10 @@ class SpectrumWidget(ipw.VBox):
 
         # Plot total spectrum
         self.plot_line(x_total, y_total, self.THEORY_SPEC_LABEL, line_width=2)
-        # TODO: Separate sticks to a separate function
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
         else:
             self.remove_line(self.STICK_SPEC_LABEL)
-
-        self.download_btn.disabled = False
-
-    def _plot_spectrum_old(
-        self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
-    ):
-        self.download_btn.disabled = True
-        if not self._validate_transitions():
-            self.hide_line(self.THEORY_SPEC_LABEL)
-            return
-        nsample = self.transitions[-1]["geom_index"] + 1
-        spec = Spectrum(self.transitions, nsample)
-        x, y, x_stick, y_stick = spec.get_spectrum(kernel, width, energy_unit)
-        self.plot_line(x, y, f"{self.THEORY_SPEC_LABEL}_old", line_width=2)
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
@@ -634,9 +620,8 @@ class SpectrumWidget(ipw.VBox):
 
     def reset(self):
         with self.hold_trait_notifications():
-            self.transitions = None
             self.conformer_transitions = None
-            self.conformers = None
+            self.conformer_structures = None
             self.smiles = None
             self.experimental_spectrum = None
 
@@ -644,12 +629,26 @@ class SpectrumWidget(ipw.VBox):
         self.clean_figure()
         self.debug_output.clear_output()
 
+    @traitlets.validate("conformer_transitions")
+    def _validate_conformers(self, change):
+        conformer_transitions = change["value"]
+        if conformer_transitions is None:
+            return None
+        if not all(
+            (
+                self._validate_transitions(c["transitions"])
+                for c in conformer_transitions
+            )
+        ):
+            raise ValueError("Invalid conformer transitions")
+        return conformer_transitions
+
     @traitlets.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
         self._unhighlight_conformer()
         self._highlight_conformer(change["new"])
 
-    @traitlets.observe("conformers")
+    @traitlets.observe("conformer_structures")
     def _observe_conformers(self, change):
         if self.conformer_toggle.value:
             self.conformer_viewer.trajectory = change["new"]
@@ -666,16 +665,6 @@ class SpectrumWidget(ipw.VBox):
             energy_unit=self.energy_unit_selector.value,
         )
         self.enable_controls()
-
-    @traitlets.observe("transitions")
-    def _observe_transitions(self, change):
-        if change["new"] is None:
-            return
-        self._plot_spectrum_old(
-            width=self.width_slider.value,
-            kernel=self.kernel_selector.value,
-            energy_unit=self.energy_unit_selector.value,
-        )
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):

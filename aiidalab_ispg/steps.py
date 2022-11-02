@@ -658,7 +658,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         return transitions
 
     def _show_spectrum(self):
-
         if self.process is None or not self.process.is_finished_ok:
             return
 
@@ -676,16 +675,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             }
             for conformer in self.process.outputs.spectrum_data.get_list()
         ]
-        self.spectrum.conformer_transitions = conformer_transitions
 
-        # Temporary hack to see old code
-        all_transitions = []
-        for conformer in self.process.outputs.spectrum_data.get_list():
-            all_transitions += self._wigner_output_to_transitions(conformer)
-        nconf = len(self.process.outputs.spectrum_data)
-        if nconf > 1:
-            all_transitions[-1]["geom_index"] = (nsample * nconf) - 1
-        # self.spectrum.transitions = all_transitions
+        self.spectrum.conformer_transitions = conformer_transitions
 
         if "smiles" in self.process.inputs.structure.extras:
             self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
@@ -700,7 +691,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.spectrum.smiles = None
 
         if "relaxed_structures" in self.process.outputs:
-            self.spectrum.conformers = self.process.outputs.relaxed_structures
+            self.spectrum.conformer_structures = self.process.outputs.relaxed_structures
 
     def _update_header(self):
         if self.process is None:
