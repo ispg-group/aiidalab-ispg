@@ -9,7 +9,6 @@ from pprint import pformat
 import re
 
 from copy import deepcopy
-from enum import Enum, unique
 
 import ipywidgets as ipw
 import traitlets
@@ -31,7 +30,7 @@ from aiidalab_widgets_base import (
 import aiidalab_ispg.qeapp as qeapp
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
-from aiidalab_ispg.widgets import QMSelectionWidget
+from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
 
 from .utils import get_formula
 
@@ -46,14 +45,6 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
-
-
-@unique
-class ExcitedStateMethod(Enum):
-    CCSD = "EOM-CCSD"
-    ADC2 = "ADC2"
-    TDA = "TDA/TDDFT"
-    TDDFT = "TDDFT"
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
@@ -81,12 +72,12 @@ class WorkChainSettings(ipw.VBox):
 
     structure_title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Structure</h4></div>"""
+        <h4>Molecular geometry</h4></div>"""
     )
     structure_help = ipw.HTML(
         """<div style="line-height: 140%; padding-top: 0px; padding-bottom: 5px">
-        By default, the workflow will optimize the provided geometry. Select "Structure
-        as is" if this is not desired.</div>"""
+        By default, the workflow will optimize the provided geometry.<br>
+        Select "Geometry as is" if this is not desired.</div>"""
     )
 
     electronic_structure_title = ipw.HTML(
@@ -102,8 +93,8 @@ class WorkChainSettings(ipw.VBox):
         # Whether to optimize the molecule or not.
         self.geo_opt_type = ipw.ToggleButtons(
             options=[
-                ("Structure as is", "NONE"),
-                ("Full geometry optimization", "OPT"),
+                ("Geometry as is", "NONE"),
+                ("Optimize geometry", "OPT"),
             ],
             value="OPT",
         )
@@ -185,7 +176,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     process = Instance(WorkChainNode, allow_none=True)
     disabled = traitlets.Bool()
     builder_parameters = traitlets.Dict()
-    expert_mode = traitlets.Bool()
 
     def __init__(self, **kwargs):
         self.message_area = ipw.Output()
@@ -208,6 +198,13 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         )
 
         self.tab.set_title(0, "Workflow")
+        self.tab.set_title(1, "Advanced settings")
+        self.tab.set_title(2, "Codes & Resources")
+        self.tab.children = [
+            self.workchain_settings,
+            self.qm_config,
+            ipw.VBox(children=[self.codes_selector, self.resources_config]),
+        ]
 
         self.submit_button = ipw.Button(
             description="Submit",
@@ -219,13 +216,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         )
 
         self.submit_button.on_click(self._on_submit_button_clicked)
-
-        self.expert_mode_control = ipw.ToggleButton(
-            description="Expert mode",
-            tooltip="Activate Expert mode for access to advanced settings.",
-            value=True,
-        )
-        ipw.link((self, "expert_mode"), (self.expert_mode_control, "value"))
 
         self._update_builder_parameters()
 
@@ -242,26 +232,9 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             children=[
                 self.message_area,
                 self.tab,
-                ipw.HBox([self.submit_button, self.expert_mode_control]),
+                self.submit_button,
             ]
         )
-
-    @traitlets.observe("expert_mode")
-    def _observe_expert_mode(self, change):
-        if change["new"]:
-            self.tab.set_title(0, "Workflow")
-            self.tab.set_title(1, "Advanced settings")
-            self.tab.set_title(2, "Codes & Resources")
-            self.tab.children = [
-                self.workchain_settings,
-                self.qm_config,
-                ipw.VBox(children=[self.codes_selector, self.resources_config]),
-            ]
-        else:
-            self.tab.set_title(0, "Workflow")
-            self.tab.children = [
-                self.workchain_settings,
-            ]
 
     def _get_state(self):
 
@@ -347,6 +320,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.codes_selector.orca.observe(update, ["value"])
         # QM settings
         self.qm_config.method.observe(update, ["value"])
+        self.qm_config.excited_method.observe(update, ["value"])
         self.qm_config.basis.observe(update, ["value"])
         self.qm_config.solvent.observe(update, ["value"])
 
@@ -359,6 +333,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             return None if code is None else str(code.uuid)
 
         parameters["orca_code"] = _get_uuid(parameters["orca_code"])
+        # Serialize Enum
+        parameters["excited_method"] = parameters["excited_method"].value
         return parameters
 
     @staticmethod
@@ -375,6 +351,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                     return None
 
         parameters["orca_code"] = _load_code(parameters["orca_code"])
+        parameters["excited_method"] = ExcitedStateMethod(parameters["excited_method"])
         return parameters
 
     def _update_builder_parameters(self, _=None):
@@ -384,6 +361,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                 dict(
                     orca_code=self.codes_selector.orca.value,
                     method=self.qm_config.method.value,
+                    excited_method=self.qm_config.excited_method.value,
                     basis=self.qm_config.basis.value,
                     solvent=self.qm_config.solvent.value,
                     charge=self.workchain_settings.charge.value,
@@ -405,6 +383,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             # Codes
             self.codes_selector.orca.value = bp.get("orca_code")
             # QM settings
+            self.qm_config.excited_method.value = bp["excited_method"]
             self.qm_config.method.value = bp["method"]
             self.qm_config.basis.value = bp["basis"]
             self.qm_config.solvent.value = bp["solvent"]
@@ -412,20 +391,19 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     def build_base_orca_params(self, builder_parameters):
         """A bit of indirection to decouple aiida-orca plugin
         from this code"""
+        bp = builder_parameters
+        input_keywords = [bp["basis"]]
 
-        input_keywords = [builder_parameters[key] for key in ("basis", "method")]
-        solvent = builder_parameters["solvent"]
+        # WARNING: Here we implicitly assume, that ORCA will automatically select
+        # equilibrium solvation for ground state optimization,
+        # and non-equilibrium solvation for single point excited state calculations.
+        # This should be the default, but it would be better to be explicit.
+        if bp["solvent"] != "None":
+            input_keywords.append(f"CPCM({bp['solvent']})")
 
-        # TODO: Here we implicitly assume, that ORCA will automatically select
-        # eq solvation for ground state optimization,
-        # and non-eq for TDDFT excited. This should be the default,
-        # but it would be better to be explicit.
-        if solvent != "None":
-            input_keywords.append(f"CPCM({solvent})")
-
-        params = {
-            "charge": builder_parameters["charge"],
-            "multiplicity": builder_parameters["spin_mult"],
+        return {
+            "charge": bp["charge"],
+            "multiplicity": bp["spin_mult"],
             "input_blocks": {
                 "scf": {"convergence": "tight", "ConvForced": "true"},
             },
@@ -433,34 +411,57 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             "extra_input_keywords": [],
         }
 
-        return params
+    def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
+        # TODO: Make this configurable
+        # Safe default for 8 core, 32Gb machine
+        # TODO: Figure out how to make this work as a global keyword
+        # https://github.com/pzarabadip/aiida-orca/issues/45
+        MEMORY_PER_CPU = 3000  # Mb
 
-    def add_tddft_orca_params(self, orca_parameters, nroots):
-        parameters = deepcopy(orca_parameters)
-        tddft = {
+        mdci_params = deepcopy(orca_parameters)
+        mdci_params["input_keywords"].append(mdci_method)
+        if mdci_method == ExcitedStateMethod.ADC2.value:
+            # Basis for RI approximation, this will not work for all basis sets
+            mdci_params["input_keywords"].append(f"{basis}/C")
+
+        mdci_params["input_blocks"]["mdci"] = {
+            "nroots": nroots,
+            "maxcore": MEMORY_PER_CPU,
+        }
+        # TODO: For efficiency reasons, in might not be necessary to calculated left-vectors
+        # to obtain TDM, but we need to benchmark that first.
+        if mdci_method == ExcitedStateMethod.CCSD.value:
+            mdci_params["input_blocks"]["mdci"]["doTDM"] = "true"
+            mdci_params["input_blocks"]["mdci"]["doLeft"] = "true"
+        return mdci_params
+
+    def _add_tddft_orca_params(
+        self, base_orca_parameters, es_method, functional, nroots
+    ):
+        tddft_params = deepcopy(base_orca_parameters)
+        tddft_params["input_keywords"].append(functional)
+        tddft_params["input_blocks"]["tddft"] = {
             "nroots": nroots,
         }
-        parameters["input_blocks"]["tddft"] = tddft
-        return parameters
+        if es_method == ExcitedStateMethod.TDDFT.value:
+            tddft_params["input_blocks"]["tddft"]["tda"] = "false"
+        return tddft_params
 
-    # TODO: Make this work in aiida-orca plugin
-    # def add_compound_optimization(self, orca_parameters, basis, method):
-    # parameters = deepcopy(orca_parameters)
-    # parameters["input_blocks"]["compound"] = "iterativeOptimization.cmp"
-    # TODO:
-    # with open("parameters/iterativeOptimization.cmp") as f:
-    #    s = f.read().format(basis=basis, method=method)
-    # TODO: Store s as "SingleFileData"
-    # https://stackoverflow.com/questions/7585435/best-way-to-convert-string-to-bytes-in-python-3
-    # file_node = SingleFileData(s)
-    # parameters.file['compound'] = file_node
-    # return parameters
+    def _add_optimization_orca_params(self, base_orca_parameters, gs_method):
+        opt_params = deepcopy(base_orca_parameters)
+        opt_params["input_keywords"].append(gs_method)
+        opt_params["input_keywords"].append("TightOpt")
+        opt_params["input_keywords"].append("AnFreq")
+        # For MP2, analytical frequencies are only available without Frozen Core
+        if gs_method.lower() == "mp2":
+            opt_params["input_keywords"].append("NoFrozenCore")
+        return opt_params
 
     def submit(self, _=None):
 
         assert self.input_structure is not None
 
-        builder_parameters = self.builder_parameters.copy()
+        bp = self.builder_parameters.copy()
 
         builder = AtmospecWorkChain.get_builder()
 
@@ -468,17 +469,35 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         builder.code = orca_code
         builder.structure = self.input_structure
 
-        orca_parameters = self.build_base_orca_params(builder_parameters)
-        # TODO: Make this an option in the UI
-        # or rather, autodetermine based on requested energy range.
-        nroots = builder_parameters["nstates"]
-        tddft_parameters = self.add_tddft_orca_params(orca_parameters, nroots)
-        optimization_parameters = deepcopy(orca_parameters)
-        optimization_parameters["input_keywords"].append("TightOpt")
-        optimization_parameters["input_keywords"].append("AnFreq")
+        base_orca_parameters = self.build_base_orca_params(bp)
+        gs_opt_parameters = self._add_optimization_orca_params(
+            base_orca_parameters, bp["method"]
+        )
+        if bp["excited_method"] in (
+            ExcitedStateMethod.TDA.value,
+            ExcitedStateMethod.TDDFT.value,
+        ):
+            es_parameters = self._add_tddft_orca_params(
+                base_orca_parameters,
+                es_method=bp["excited_method"],
+                functional=bp["method"],
+                nroots=bp["nstates"],
+            )
+        elif bp["excited_method"] in (
+            ExcitedStateMethod.ADC2.value,
+            ExcitedStateMethod.CCSD.value,
+        ):
+            es_parameters = self._add_mdci_orca_params(
+                base_orca_parameters,
+                basis=bp["basis"],
+                mdci_method=bp["excited_method"],
+                nroots=bp["nstates"],
+            )
+        else:
+            raise ValueError(f"Excited method {bp['excited_method']} not implemented")
 
-        builder.exc.orca.parameters = Dict(dict=tddft_parameters)
-        builder.opt.orca.parameters = Dict(dict=optimization_parameters)
+        builder.opt.orca.parameters = Dict(dict=gs_opt_parameters)
+        builder.exc.orca.parameters = Dict(dict=es_parameters)
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
@@ -531,7 +550,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
-        return DEFAULT_PARAMETERS
+        params = DEFAULT_PARAMETERS
+        return params
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
@@ -675,9 +695,13 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 r"<sub>\1</sub>",
                 get_formula(self.process.inputs.structure),
             )
+            solvent = bp["solvent"] if bp["solvent"] != "None" else "the gas phase"
+            # TODO: Compatibility hack
+            es_method = bp.get("excited_method", "TDA-TDDFT")
             self.header.value = (
                 f"<h4>UV/vis spectrum of {formula} "
-                f"at {bp['method']}/{bp['basis']} level</h4>"
+                f"at {es_method}/{bp['method']}/{bp['basis']} level "
+                f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )
             if self.process.inputs.optimize and self.process.inputs.nwigner > 0:

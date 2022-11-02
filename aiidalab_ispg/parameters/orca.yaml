@@ -11,4 +11,5 @@ nstates: 3
 ## QM Method
 basis: STO-3G
 method: PBE
+excited_method: TDA/TDDFT
 solvent: "None"

@@ -12,6 +12,7 @@ from .wigner import Wigner
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
+SinglefileData = DataFactory("singlefile")
 Int = DataFactory("int")
 Float = DataFactory("float")
 Bool = DataFactory("bool")
@@ -73,6 +74,14 @@ def pick_wigner_structure(wigner_structures, index):
 
 
 @calcfunction
+def add_orca_wf_guess(orca_params: Dict) -> Dict:
+    params = orca_params.get_dict()
+    params["input_keywords"].append("MOREAD")
+    params["input_blocks"]["scf"]["moinp"] = '"aiida_old.gbw"'
+    return Dict(dict=params)
+
+
+@calcfunction
 def generate_wigner_structures(
     minimum_structure, orca_output_dict, nsample, low_freq_thr
 ):
@@ -96,7 +105,11 @@ def generate_wigner_structures(
 
 
 class OrcaWignerSpectrumWorkChain(WorkChain):
-    """Basic workchain for single point TDDFT on optimized geometry"""
+    """Top level workchain for Nuclear Ensemble Approach UV/vis
+    spectrum for a single conformer"""
+
+    def _build_process_label(self):
+        return "NEA spectrum workflow"
 
     @classmethod
     def define(cls, spec):
@@ -180,12 +193,18 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if self.inputs.optimize:
             self.report("Calculating spectrum for optimized geometry")
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
+
+            # Pass in converged SCF wavefunction
+            with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+                gbw_file = SinglefileData(handler)
+            inputs.orca.file = {"gbw": gbw_file}
+            inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
         else:
             self.report("Calculating spectrum for input geometry")
             inputs.orca.structure = self.inputs.structure
 
         calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_exc.label = "single-point-tddft"
+        calc_exc.label = "single-point-excitation"
         return ToContext(calc_exc=calc_exc)
 
     def wigner_sampling(self):
@@ -212,6 +231,11 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             OrcaBaseWorkChain, namespace="exc", agglomerate=False
         )
         inputs.orca.code = self.inputs.code
+        # Pass in SCF wavefunction from minimum geometry
+        with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+            gbw_file = SinglefileData(handler)
+        inputs.orca.file = {"gbw": gbw_file}
+        inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
         for i in self.ctx.wigner_structures.get_stepids():
             inputs.orca.structure = pick_wigner_structure(
                 self.ctx.wigner_structures, Int(i)
