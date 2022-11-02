@@ -76,6 +76,9 @@ class Spectrum(object):
         / (2 * constants.hbar * constants.epsilon_0 * constants.c)
     )
 
+    # TODO: We should make this dependent on the energy range
+    N_SAMPLE_POINTS = 500
+
     def __init__(self, transitions: dict, nsample: int):
         # Excitation energies in eV
         self.excitation_energies = np.array(
@@ -138,9 +141,7 @@ class Spectrum(object):
         if x_min is None or x_max is None:
             x_min, x_max = self.get_energy_range_ev(self.excitation_energies)
 
-        # TODO: How to determine this properly to cover a given interval?
-        n_sample = 500
-        x = np.linspace(x_min, x_max, num=n_sample)
+        x = np.linspace(x_min, x_max, num=self.N_SAMPLE_POINTS)
         y = np.zeros(len(x))
 
         if kernel is BroadeningKernel.GAUSS:
@@ -465,44 +466,30 @@ class SpectrumWidget(ipw.VBox):
             ]
         )
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+        total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
+        x_stick = []
+        y_stick = []
+        for conf_id, conformer in enumerate(self.conformer_transitions):
+            spec = Spectrum(conformer["transitions"], conformer["nsample"])
+            x, y, xs, ys = spec.get_spectrum(
+                kernel, width, energy_unit, x_min=x_min, x_max=x_max
+            )
+            y *= conformer["weight"]
+            total_cross_section += y
 
-        spec = Spectrum(
-            self.conformer_transitions[0]["transitions"],
-            self.conformer_transitions[0]["nsample"],
-        )
-        x_total, y_total, x_stick, y_stick = spec.get_spectrum(
-            kernel, width, energy_unit, x_min=x_min, x_max=x_max
-        )
-        y_total *= self.conformer_transitions[0]["weight"]
-        y_stick *= self.conformer_transitions[0]["weight"]
-
-        # Plot individual conformers, if there is more than one
-        nconf = len(self.conformer_transitions)
-        if nconf > 1:
-            if self.conformer_toggle.value:
-                self._plot_conformer(x_total, np.copy(y_total), conf_id=0, update=False)
-
-            for conf_id in range(1, nconf):
-                conf = self.conformer_transitions[conf_id]
-                spec = Spectrum(conf["transitions"], conf["nsample"])
-                x, y, xs, ys = spec.get_spectrum(
-                    kernel, width, energy_unit, x_min=x_min, x_max=x_max
-                )
-                y *= conf["weight"]
-                y_total += y
-
-                ys *= conf["weight"]
-                x_stick = np.concatenate((x_stick, xs))
-                y_stick = np.concatenate((y_stick, ys))
-
-                if self.conformer_toggle.value:
-                    self._plot_conformer(x, y, conf_id, update=False)
+            ys *= conformer["weight"]
+            x_stick = np.concatenate((x_stick, xs))
+            y_stick = np.concatenate((y_stick, ys))
 
             if self.conformer_toggle.value:
-                self._highlight_conformer(self.selected_conformer_id)
+                self._plot_conformer(x, y, conf_id, update=False)
+
+        if self.conformer_toggle.value:
+            self._highlight_conformer(self.selected_conformer_id)
 
         # Plot total spectrum
-        self.plot_line(x_total, y_total, self.THEORY_SPEC_LABEL, line_width=2)
+        self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
+
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
         else:
