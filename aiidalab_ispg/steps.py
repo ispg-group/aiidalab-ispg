@@ -327,12 +327,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @staticmethod
     def _serialize_builder_parameters(parameters):
         parameters = parameters.copy()  # create copy to not modify original dict
-
-        # Codes
-        def _get_uuid(code):
-            return None if code is None else str(code.uuid)
-
-        parameters["orca_code"] = _get_uuid(parameters["orca_code"])
         # Serialize Enum
         parameters["excited_method"] = parameters["excited_method"].value
         return parameters
@@ -340,17 +334,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @staticmethod
     def _deserialize_builder_parameters(parameters):
         parameters = parameters.copy()  # create copy to not modify original dict
-
-        # Codes
-        def _load_code(code):
-            if code is not None:
-                try:
-                    return load_code(code)
-                except NotExistent as error:
-                    print("error", error)
-                    return None
-
-        # parameters["orca_code"] = _load_code(parameters["orca_code"])
         parameters["excited_method"] = ExcitedStateMethod(parameters["excited_method"])
         return parameters
 
@@ -551,6 +534,11 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
+        try:
+            orca_code = load_code(params["orca_code"])
+            params["orca_code"] = orca_code.uuid
+        except NotExistent:
+            params["orca_code"] = None
         return params
 
 
