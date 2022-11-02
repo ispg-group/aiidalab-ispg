@@ -43,7 +43,6 @@ from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
-ProcessNode = DataFactory("core.process")
 Dict = DataFactory("core.dict")
 Bool = DataFactory("core.bool")
 
