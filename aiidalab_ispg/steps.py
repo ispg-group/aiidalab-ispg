@@ -15,7 +15,7 @@ import traitlets
 from traitlets import Union, Instance
 from aiida.common import NotExistent
 from aiida.engine import ProcessState, submit
-from aiida.orm import ProcessNode, load_code
+from aiida.orm import load_node, load_code
 
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory
@@ -41,10 +41,11 @@ except ImportError:
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
-Dict = DataFactory("dict")
-Bool = DataFactory("bool")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
+ProcessNode = DataFactory("core.process")
+Dict = DataFactory("core.dict")
+Bool = DataFactory("core.bool")
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
@@ -350,7 +351,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                     print("error", error)
                     return None
 
-        parameters["orca_code"] = _load_code(parameters["orca_code"])
+        # parameters["orca_code"] = _load_code(parameters["orca_code"])
         parameters["excited_method"] = ExcitedStateMethod(parameters["excited_method"])
         return parameters
 
@@ -556,11 +557,11 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
         self.process_tree = ProcessNodesTreeWidget()
-        ipw.dlink((self, "process"), (self.process_tree, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_tree, "process_uuid"))
 
         self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
@@ -578,7 +579,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
                 self._update_state,
             ],
         )
-        ipw.dlink((self, "process"), (self.process_monitor, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "process_uuid"))
 
         super().__init__([self.process_status], **kwargs)
 
@@ -587,14 +588,15 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         return self.state is not self.State.ACTIVE
 
     def reset(self):
-        self.process = None
+        self.process_uuid = None
 
     def _update_state(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process_state = self.process.process_state
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
             ProcessState.RUNNING,
@@ -603,20 +605,20 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
             self.state = self.State.ACTIVE
         elif (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
-            or self.process.is_failed
+            or process.is_failed
         ):
             self.state = self.State.FAIL
-        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
-    @traitlets.observe("process")
+    @traitlets.observe("process_uuid")
     def _observe_process(self, change):
         self._update_state()
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
         # Setup process monitor
@@ -633,12 +635,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
-        ipw.dlink((self, "process"), (self.process_monitor, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "process_uuid"))
 
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
-        self.process = None
+        self.process_uuid = None
         self.spectrum.reset()
 
     def _orca_output_to_transitions(self, output_dict, geom_index):
@@ -657,8 +659,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         return transitions
 
     def _show_spectrum(self):
+        if self.process_uuid is None:
+            return
 
-        if self.process is None or not self.process.is_finished_ok:
+        process = load_node(self.process_uuid)
+        if not process.is_finished_ok:
             return
 
         # TODO: Handle different kind of computed spectra simultaneously.
@@ -669,31 +674,32 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         # TODO: This is a hack for now until we do a proper Boltzmann weighting.
         conformer_transitions = []
-        for conformer in self.process.outputs.spectrum_data.get_list():
+        for conformer in process.outputs.spectrum_data.get_list():
             conformer_transitions += self._wigner_output_to_transitions(conformer)
 
         self.spectrum.transitions = conformer_transitions
-        if "smiles" in self.process.inputs.structure.extras:
-            self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
+        if "smiles" in process.inputs.structure.extras:
+            self.spectrum.smiles = process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structures as well
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
-            if "relaxed_structures" in self.process.outputs:
-                self.process.outputs.relaxed_structures.set_extra(
+            if "relaxed_structures" in process.outputs:
+                process.outputs.relaxed_structures.set_extra(
                     "smiles", self.spectrum.smiles
                 )
         else:
             self.spectrum.smiles = None
 
     def _update_header(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.header.value = ""
             return
-        if bp := self.process.get_extra("builder_parameters", None):
+        process = load_node(self.process_uuid)
+        if bp := process.get_extra("builder_parameters", None):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",
-                get_formula(self.process.inputs.structure),
+                get_formula(process.inputs.structure),
             )
             solvent = bp["solvent"] if bp["solvent"] != "None" else "the gas phase"
             # TODO: Compatibility hack
@@ -704,17 +710,16 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )
-            if self.process.inputs.optimize and self.process.inputs.nwigner > 0:
-                self.header.value += (
-                    f", {self.process.inputs.nwigner.value} Wigner samples"
-                )
+            if process.inputs.optimize and process.inputs.nwigner > 0:
+                self.header.value += f", {process.inputs.nwigner.value} Wigner samples"
 
     def _update_state(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process_state = self.process.process_state
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
             ProcessState.RUNNING,
@@ -723,13 +728,13 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.state = self.State.ACTIVE
         elif (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
-            or self.process.is_failed
+            or process.is_failed
         ):
             self.state = self.State.FAIL
-        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
-    @traitlets.observe("process")
+    @traitlets.observe("process_uuid")
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
