@@ -250,7 +250,7 @@ class SpectrumWidget(ipw.VBox):
             description="Show stick spectrum",
             tooltip="Show individual transitions as sticks in the spectrum.",
             disabled=True,
-            value=True,
+            value=False,
         )
         self.stick_toggle.observe(self._handle_stick_toggle, names="value")
 
@@ -278,6 +278,7 @@ class SpectrumWidget(ipw.VBox):
         )
         self.download_btn.on_click(self._download_spectrum)
 
+        layout = ipw.Layout(justify_content="space-between")
         self.conformer_viewer = TrajectoryDataViewer(configuration_tabs=[])
         ipw.dlink(
             (self.conformer_viewer, "selected_structure_id"),
@@ -291,7 +292,10 @@ class SpectrumWidget(ipw.VBox):
                 ipw.HBox(
                     [
                         self.figure,
-                        ipw.VBox([self.spectrum_controls, self.conformer_viewer]),
+                        ipw.VBox(
+                            [self.spectrum_controls, self.conformer_viewer],
+                            layout=layout,
+                        ),
                     ],
                 ),
             ],
@@ -382,12 +386,13 @@ class SpectrumWidget(ipw.VBox):
             return
 
         self.conformer_viewer.trajectory = self.conformer_structures
+        if len(self.conformer_transitions) == 1:
+            return
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self._highlight_conformer(self.conformer_viewer.selected_structure_id)
 
     def _handle_width_update(self, change):
         """Redraw spectra when user changes broadening width via slider"""
@@ -484,7 +489,7 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
-        if self.conformer_toggle.value:
+        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
             self._highlight_conformer(self.selected_conformer_id)
 
         # Plot total spectrum
@@ -630,6 +635,19 @@ class SpectrumWidget(ipw.VBox):
             raise ValueError("Invalid conformer transitions")
         return conformer_transitions
 
+    @traitlets.validate("conformer_structures")
+    def _validate_conformer_structures(self, change):
+        structures = change["value"]
+        if structures is None:
+            return None
+
+        if isinstance(structures, TrajectoryData):
+            return structures
+        elif isinstance(structures, StructureData):
+            return TrajectoryData(structurelist=(structures,))
+        else:
+            raise ValueError(f"Unsupported type {type(structures)}")
+
     @traitlets.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
         self._unhighlight_conformer()
@@ -639,6 +657,8 @@ class SpectrumWidget(ipw.VBox):
     def _observe_conformers(self, change):
         if self.conformer_toggle.value:
             self.conformer_viewer.trajectory = change["new"]
+            # self.conformer_viewer._viewer.handle_resize()
+            # self.conformer_viewer._viewer.center()
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
