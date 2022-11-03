@@ -50,6 +50,7 @@ class BokehFigureContext(ipw.Output):
     def __init__(self, fig):
         super().__init__()
         self._figure = fig
+        self._handle = None
         self.on_displayed(lambda x: x.set_handle())
 
     def set_handle(self):
@@ -64,7 +65,8 @@ class BokehFigureContext(ipw.Output):
         return self._figure
 
     def update(self):
-        push_notebook(handle=self._handle)
+        if self._handle is not None:
+            push_notebook(handle=self._handle)
 
 
 class Spectrum(object):
