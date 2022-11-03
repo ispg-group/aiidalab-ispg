@@ -132,10 +132,16 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     # TODO: Do not subclass StructureDataViewer, but have it as a component
     trajectory = traitlets.Instance(Node, allow_none=True)
+    selected_structure_id = traitlets.Int(allow_none=True)
+
     _structures = []
     _energies = None
 
-    def __init__(self, trajectory=None, **kwargs):
+    def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
+
+        if configuration_tabs is None:
+            configuration_tabs = ["Selection", "Download"]
+
         # Trajectory navigator.
         self._step_selector = ipw.IntSlider(
             min=1,
@@ -146,6 +152,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.observe(self.update_selection, names="value")
 
         # Display energy if available
+        # TODO: Generalize this
         self._energy = ipw.HTML(
             value="Energy ",
             placeholder="Energy",
@@ -154,7 +161,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         children = [ipw.HBox(children=[self._step_selector, self._energy])]
 
         super().__init__(
-            children=children, configuration_tabs=["Selection", "Download"], **kwargs
+            children=children, configuration_tabs=configuration_tabs, **kwargs
         )
 
         self.trajectory = trajectory
@@ -163,6 +170,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         """Display selected structure"""
         index = change["new"] - 1
         self.structure = self._structures[index]
+        self.selected_structure_id = index
         # TODO: We should pass energy units as well somehow
         if self._energies is not None:
             self._energy.value = f"Energy = {self._energies[index]:.2f} eV"
@@ -171,6 +179,8 @@ class TrajectoryDataViewer(StructureDataViewer):
     def _update_trajectory(self, change):
         trajectory = change["new"]
         if trajectory is None:
+            self.structure = None
+            self.set_trait("displayed_structure", None)
             self._step_selector.min = 1
             self._step_selector.max = 1
             self._step_selector.disabled = True

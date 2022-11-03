@@ -99,12 +99,13 @@ class WorkChainSettings(ipw.VBox):
             value="OPT",
         )
 
+        # TODO: Use Dropdown with Enum (Singlet, Doublet...)
         self.spin_mult = ipw.BoundedIntText(
             min=1,
-            max=7,
+            max=1,
             step=1,
-            description="SpinMult",
-            disabled=False,
+            description="Multiplicity",
+            disabled=True,
             value=1,
         )
 
@@ -648,23 +649,25 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _show_spectrum(self):
         if self.process_uuid is None:
             return
-
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
             return
 
-        # TODO: Handle different kind of computed spectra simultaneously.
-        # This is a single-point spectrum
-        # output_params = self.process.outputs.single_point_tddft.get_dict()
-        # single_point_transitions = []
-        # self._orca_output_to_transitions(output_params, 0)
+        # Number of Wigner geometries per conformer
+        nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
+        # TODO: Compute Boltzmann weight from Gibbs energy of conformers
+        boltzmann_weight = 1.0 / len(process.inputs.structure.get_stepids())
+        conformer_transitions = [
+            {
+                "transitions": self._wigner_output_to_transitions(conformer),
+                "nsample": nsample,
+                "weight": boltzmann_weight,
+            }
+            for conformer in process.outputs.spectrum_data.get_list()
+        ]
 
-        # TODO: This is a hack for now until we do a proper Boltzmann weighting.
-        conformer_transitions = []
-        for conformer in process.outputs.spectrum_data.get_list():
-            conformer_transitions += self._wigner_output_to_transitions(conformer)
+        self.spectrum.conformer_transitions = conformer_transitions
 
-        self.spectrum.transitions = conformer_transitions
         if "smiles" in process.inputs.structure.extras:
             self.spectrum.smiles = process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structures as well
@@ -676,6 +679,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 )
         else:
             self.spectrum.smiles = None
+
+        if "relaxed_structures" in process.outputs:
+            self.spectrum.conformer_structures = process.outputs.relaxed_structures
 
     def _update_header(self):
         if self.process_uuid is None:
@@ -725,5 +731,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
+        self.spectrum.reset()
         self._update_state()
         self._update_header()
