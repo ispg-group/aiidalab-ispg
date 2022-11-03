@@ -278,7 +278,7 @@ class SpectrumWidget(ipw.VBox):
         )
         self.download_btn.on_click(self._download_spectrum)
 
-        layout = ipw.Layout(justify_content="space-between")
+        layout = ipw.Layout(justify_content="flex-start")
         self.conformer_viewer = TrajectoryDataViewer(configuration_tabs=[])
         ipw.dlink(
             (self.conformer_viewer, "selected_structure_id"),
@@ -605,10 +605,11 @@ class SpectrumWidget(ipw.VBox):
     def enable_controls(self):
         self.download_btn.disabled = False
         self.stick_toggle.disabled = False
-        self.conformer_toggle.disabled = False
         self.energy_unit_selector.disabled = False
         self.width_slider.disabled = False
         self.kernel_selector.disabled = False
+        if len(self.conformer_transitions) > 1:
+            self.conformer_toggle.disabled = False
 
     def reset(self):
         with self.hold_trait_notifications():
