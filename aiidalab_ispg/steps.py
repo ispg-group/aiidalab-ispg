@@ -449,8 +449,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder = AtmospecWorkChain.get_builder()
 
-        orca_code = self.codes_selector.orca.value
-        builder.code = orca_code
+        builder.code = load_code(self.codes_selector.orca.value)
         builder.structure = self.input_structure
 
         base_orca_parameters = self.build_base_orca_params(bp)
