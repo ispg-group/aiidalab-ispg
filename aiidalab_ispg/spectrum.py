@@ -278,7 +278,7 @@ class SpectrumWidget(ipw.VBox):
         )
         self.download_btn.on_click(self._download_spectrum)
 
-        layout = ipw.Layout(justify_content="space-between")
+        # layout = ipw.Layout(justify_content="space-between")
         self.conformer_viewer = TrajectoryDataViewer(configuration_tabs=[])
         ipw.dlink(
             (self.conformer_viewer, "selected_structure_id"),
@@ -292,12 +292,14 @@ class SpectrumWidget(ipw.VBox):
                 ipw.HBox(
                     [
                         self.figure,
-                        ipw.VBox(
-                            [self.spectrum_controls, self.conformer_viewer],
-                            layout=layout,
-                        ),
+                        self.spectrum_controls,
+                        # ipw.VBox(
+                        #    [self.spectrum_controls, self.conformer_viewer],
+                        #    layout=layout,
+                        # ),
                     ],
                 ),
+                self.conformer_viewer,
             ],
             **kwargs,
         )
