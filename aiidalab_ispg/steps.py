@@ -680,7 +680,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.spectrum.smiles = None
 
         if "relaxed_structures" in process.outputs:
+            self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
+        else:
+            # If we did not optimize the structure, just show the input structure(s)
+            self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
+            self.spectrum.conformer_structures = process.inputs.structure
 
     def _update_header(self):
         if self.process_uuid is None:
