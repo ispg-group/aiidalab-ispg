@@ -284,6 +284,10 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "selected_structure_id"),
             (self, "selected_conformer_id"),
         )
+        ipw.dlink(
+            (self, "conformer_structures"),
+            (self.conformer_viewer, "trajectory"),
+        )
 
         super().__init__(
             [
@@ -382,12 +386,11 @@ class SpectrumWidget(ipw.VBox):
         """Show/hide conformers and their individual spectra"""
         if not change["new"]:
             self._hide_all_conformers()
-            self.conformer_viewer.trajectory = None
             return
 
-        self.conformer_viewer.trajectory = self.conformer_structures
         if len(self.conformer_transitions) == 1:
             return
+
         self._plot_spectrum(
             width=self.width_slider.value,
             kernel=self.kernel_selector.value,
@@ -656,10 +659,7 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("conformer_structures")
     def _observe_conformers(self, change):
-        if self.conformer_toggle.value:
-            self.conformer_viewer.trajectory = change["new"]
-            # self.conformer_viewer._viewer.handle_resize()
-            # self.conformer_viewer._viewer.center()
+        self.conformer_viewer._viewer.handle_resize()
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
