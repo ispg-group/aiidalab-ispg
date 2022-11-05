@@ -497,11 +497,11 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
-        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
-            self._highlight_conformer(self.selected_conformer_id)
-
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
+
+        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
+            self._highlight_conformer(self.selected_conformer_id)
 
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
