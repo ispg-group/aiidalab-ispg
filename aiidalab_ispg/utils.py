@@ -18,3 +18,10 @@ def get_formula(data_node):
         return data_node.get_ase().get_chemical_formula()
     else:
         raise ValueError(f"Cannot get formula from node {type(data_node)}")
+
+
+# https://stackoverflow.com/a/3382369
+def argsort(seq):
+    """Returns a list of indeces that sort the array"""
+    # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
+    return sorted(range(len(seq)), key=seq.__getitem__)

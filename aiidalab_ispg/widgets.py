@@ -173,7 +173,8 @@ class TrajectoryDataViewer(StructureDataViewer):
         self.selected_structure_id = index
         # TODO: We should pass energy units as well somehow
         if self._energies is not None:
-            self._energy.value = f"Energy = {self._energies[index]:.2f} eV"
+            energy_unit = "eV"
+            self._energy.value = f"Energy ({energy_unit}) = {self._energies[index]:.3f}"
 
     @traitlets.observe("trajectory")
     def _update_trajectory(self, change):
@@ -195,7 +196,8 @@ class TrajectoryDataViewer(StructureDataViewer):
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
                 self._energy.layout.visibility = "visible"
-                self._energy.value = f"Energy = {self._energies[0]:.2f} eV"
+                energy_unit = "eV"
+                self._energy.value = f"Energy ({energy_unit})= {self._energies[0]:.3f}"
             else:
                 self._energies = None
                 self._energy.layout.visibility = "hidden"

@@ -22,6 +22,8 @@ from rdkit.Chem import AllChem
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import SmilesWidget
 
+from .utils import argsort
+
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 
@@ -146,17 +148,9 @@ class ConformerSmilesWidget(SmilesWidget):
     # To test Boltzmann population values:
     # https://www.colby.edu/chemistry/PChem/Hartree.html
     def _filter_and_sort_conformers(self, conformers):
-        energies = np.fromiter(
-            (conf.get_potential_energy() for conf in conformers),
-            count=len(conformers),
-            dtype=float,
-        )
-        # TODO: There must be a better way to do this sorting...
-        sorted_indeces = np.argsort(energies)
-        sorted_conformers = []
-        for i in sorted_indeces:
-            sorted_conformers.append(conformers[i])
-        return sorted_conformers
+        energies = [conf.get_potential_energy() for conf in conformers]
+        sorted_indices = argsort(energies)
+        return [conformers[i] for i in sorted_indices]
 
     def _rdkit_opt(self, smiles, steps, algo="ETKDG", opt_algo="MMFF94", num_confs=10):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
@@ -230,16 +224,19 @@ class ConformerSmilesWidget(SmilesWidget):
         else:
             raise ValueError(f"Invalid algorithm '{algo}'")
 
+        ffenergies = None
         if opt_algo == "UFF" and AllChem.UFFHasAllMoleculeParams(mol):
             conf_opt = AllChem.UFFOptimizeMoleculeConfs(
                 mol, maxIters=steps, numThreads=1
             )
+            ffenergies = [energy for _, energy in conf_opt]
 
         elif opt_algo == "MMFF94":
             if AllChem.MMFFHasAllMoleculeParams(mol):
                 conf_opt = AllChem.MMFFOptimizeMoleculeConfs(
                     mol, mmffVariant="MMFF94", maxIters=steps
                 )
+                ffenergies = [energy for conv, energy in conf_opt]
                 # https://www.rdkit.org/docs/source/rdkit.Chem.rdForceFieldHelpers.html?highlight=uff#rdkit.Chem.rdForceFieldHelpers.UFFOptimizeMoleculeConfs
                 # TODO: I guess we should check the return value somehow?
                 for converged, energy in conf_opt:
@@ -247,11 +244,6 @@ class ConformerSmilesWidget(SmilesWidget):
                         self.output.value += (
                             "<br> WARNING: MMFF94 optimization did not converge"
                         )
-                    # if converged == 0:
-                    #    print(f'Converged MMFF94 Energy: {energy}')
-                    # else:
-                    #    print(f'Non-converged MMFF94 Energy: {energy}')
-
             else:
                 self.output.value += " RDKit WARNING: Missing MMFF94 parameters"
 
@@ -261,6 +253,12 @@ class ConformerSmilesWidget(SmilesWidget):
         ase_structs = []
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
+
+        # Sort conformers based on their (optimized) energies
+        if ffenergies is not None:
+            assert len(ffenergies) == len(conf_ids)
+            conf_ids = [conf_ids[i] for i in argsort(ffenergies)]
+
         for conf_id in conf_ids:
             positions = mol.GetConformer(id=conf_id).GetPositions()
             ase_structs.append(self._make_ase(species, positions, smiles))
