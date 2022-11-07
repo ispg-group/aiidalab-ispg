@@ -55,12 +55,22 @@ class ConformerSmilesWidget(SmilesWidget):
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
         conformers = None
+
+        # Canonicalize the SMILES code
+        # https://en.wikipedia.org/wiki/Simplified_molecular-input_line-entry_system#Terminology
+        canonical_smiles = self.canonicalize_smiles(smiles)
+        if not canonical_smiles:
+            return None
+
+        if canonical_smiles != smiles:
+            self.output.value = f"Canonical SMILES: {canonical_smiles}"
+
         # TODO: Make a dropdown menu for algorithm selection
         rdkit_algorithm = "ETKDGv2"
         try:
-            conformers = self._rdkit_opt(smiles, steps, algo=rdkit_algorithm)
+            conformers = self._rdkit_opt(canonical_smiles, steps, algo=rdkit_algorithm)
             if conformers is None:
-                # conformers = self._pybel_opt(smiles, steps)
+                # conformers = self._pybel_opt(canonical_smiles, steps)
                 return None
         except ValueError as e:
             self.output.value = str(e)
@@ -76,6 +86,19 @@ class ConformerSmilesWidget(SmilesWidget):
         conformers = self.optimize_conformers(conformers)
         conformers = self._filter_and_sort_conformers(conformers)
         return self._create_trajectory_node(conformers)
+
+    def canonicalize_smiles(self, smiles):
+        mol = Chem.MolFromSmiles(smiles)
+        if mol is None:
+            # Something is seriously wrong with the SMILES code,
+            # just return None and don't attempt anything else.
+            self.output.value = "RDkit ERROR: Invalid SMILES string"
+            return None
+        canonical_smiles = Chem.MolToSmiles(mol, canonical=True)
+        if not canonical_smiles:
+            self.output.value = "RDkit ERROR: Could not canonicalize SMILES"
+            return None
+        return canonical_smiles
 
     # TODO: Adjust mux number of steps and relax convergence criteria
     # fmax - maximum force per atom for convergence (0.05 default in ASE)
