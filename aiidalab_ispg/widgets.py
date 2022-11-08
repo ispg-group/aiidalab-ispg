@@ -136,7 +136,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     _structures = []
     _energies = None
-    _energy_units = "eV"
+    _energy_units = ""
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
@@ -197,10 +197,7 @@ class TrajectoryDataViewer(StructureDataViewer):
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
                 self._energy.layout.visibility = "visible"
-                8065.547937
-                self._energy_units = trajectory.get_extra("energy_units", None)
-                if self._energy_units is None:
-                    self._energy_units = "eV"
+                self._energy_units = trajectory.get_extra("energy_units", "")
                 self._energy.value = (
                     f"Energy ({self._energy_units})= {self._energies[0]:.3f}"
                 )
