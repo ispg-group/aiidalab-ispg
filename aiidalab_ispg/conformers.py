@@ -27,7 +27,7 @@ from rdkit.Chem import AllChem
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import SmilesWidget
 
-from .utils import argsort
+from .utils import argsort, KCALtoKJ, EVtoKJ
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
@@ -47,7 +47,7 @@ except ImportError:
 # https://github.com/ispg-group/aiidalab-ispg/issues/35
 # Also, we need to make it a lot faster, see:
 # https://github.com/ispg-group/aiidalab-ispg/issues/12
-DISABLE_XTB = False
+DISABLE_XTB = True
 
 
 class XTBMethod(Enum):
@@ -76,7 +76,7 @@ class ConformerSmilesWidget(SmilesWidget):
         allow_none=True,
     )
     _ENERGY_UNITS = "kJ/mole"
-    # TODO: Select this threshold, and take care of units!
+    # Threshold for energy-based conformer filtering
     _ENERGY_THR = 1e-8
 
     def _mol_from_smiles(self, smiles, steps=1000):
@@ -116,6 +116,7 @@ class ConformerSmilesWidget(SmilesWidget):
             )
 
         conformers, energies = self._filter_and_sort_conformers(conformers, energies)
+        # self.output.value = f"Final energies: {energies}"
         return self._create_trajectory_node(conformers, energies)
 
     def canonicalize_smiles(self, smiles):
@@ -176,8 +177,7 @@ class ConformerSmilesWidget(SmilesWidget):
             if opt_struct is not None:
                 opt_structs.append(opt_struct)
 
-        xtb_energies = [conf.get_potential_energy() for conf in opt_structs]
-        self.output.value = ""
+        xtb_energies = [EVtoKJ * conf.get_potential_energy() for conf in opt_structs]
         return opt_structs, xtb_energies
 
     def _create_trajectory_node(self, conformers, energies):
@@ -261,18 +261,18 @@ class ConformerSmilesWidget(SmilesWidget):
 
         ffenergies = None
         if opt_algo == FFMethod.UFF and AllChem.UFFHasAllMoleculeParams(mol):
+            # https://www.rdkit.org/docs/source/rdkit.Chem.rdForceFieldHelpers.html?highlight=uff#rdkit.Chem.rdForceFieldHelpers.UFFOptimizeMoleculeConfs
             conf_opt = AllChem.UFFOptimizeMoleculeConfs(
                 mol, maxIters=steps, numThreads=1
             )
-            ffenergies = [energy for _, energy in conf_opt]
+            ffenergies = [KCALtoKJ * energy for _, energy in conf_opt]
 
         elif opt_algo in (FFMethod.MMFF94, FFMethod.MMFF94s):
             if AllChem.MMFFHasAllMoleculeParams(mol):
                 conf_opt = AllChem.MMFFOptimizeMoleculeConfs(
                     mol, mmffVariant=opt_algo.value, maxIters=steps
                 )
-                ffenergies = [energy for conv, energy in conf_opt]
-                # https://www.rdkit.org/docs/source/rdkit.Chem.rdForceFieldHelpers.html?highlight=uff#rdkit.Chem.rdForceFieldHelpers.UFFOptimizeMoleculeConfs
+                ffenergies = [KCALtoKJ * energy for _, energy in conf_opt]
                 for converged, energy in conf_opt:
                     if converged != 0:
                         self.output.value += (
@@ -281,21 +281,22 @@ class ConformerSmilesWidget(SmilesWidget):
             else:
                 self.output.value += " RDKit WARNING: Missing MMFF94 parameters"
 
-        # self.output.value += f"<br> No. conformers = {len(conf_ids)}"
-
-        # Sort conformers based on their (optimized) energies
-        if False and ffenergies is not None:
-            assert len(ffenergies) == len(conf_ids)
-            conf_ids = [conf_ids[i] for i in argsort(ffenergies)]
-            en0 = min(ffenergies)
-            ffenergies = [en - en0 for en in sorted(ffenergies)]
+        # self.output.value += f"<br> Initial number of conformers = {len(conf_ids)}"
 
         # Convert conformers to an array of ASE Atoms objects
-        ase_structs = []
+        conformers = []
         natoms = mol.GetNumAtoms()
         species = [mol.GetAtomWithIdx(j).GetSymbol() for j in range(natoms)]
         for conf_id in conf_ids:
             positions = mol.GetConformer(id=conf_id).GetPositions()
-            ase_structs.append(self._make_ase(species, positions, smiles))
-        # TODO: Find out the units of energies and convert to kJ per mole
-        return ase_structs, ffenergies
+            conformers.append(self._make_ase(species, positions, smiles))
+
+        # Sort and filter conformers based on their (optimized) energies
+        if ffenergies is not None:
+            assert len(ffenergies) == len(conf_ids)
+            conformers, ffenergies = self._filter_and_sort_conformers(
+                conformers, ffenergies
+            )
+        # print(f"{opt_algo.value} energies")
+        # print(ffenergies)
+        return conformers, ffenergies
