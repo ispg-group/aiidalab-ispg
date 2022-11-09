@@ -136,6 +136,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     _structures = []
     _energies = None
+    _energy_units = ""
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
@@ -154,7 +155,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         # Display energy if available
         # TODO: Generalize this
         self._energy = ipw.HTML(
-            value="Energy ",
+            value="",
             placeholder="Energy",
         )
 
@@ -171,10 +172,10 @@ class TrajectoryDataViewer(StructureDataViewer):
         index = change["new"] - 1
         self.structure = self._structures[index]
         self.selected_structure_id = index
-        # TODO: We should pass energy units as well somehow
         if self._energies is not None:
-            energy_unit = "eV"
-            self._energy.value = f"Energy ({energy_unit}) = {self._energies[index]:.3f}"
+            self._energy.value = (
+                f"Energy ({self._energy_units}) = {self._energies[index]:.3f}"
+            )
 
     @traitlets.observe("trajectory")
     def _update_trajectory(self, change):
@@ -196,8 +197,10 @@ class TrajectoryDataViewer(StructureDataViewer):
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
                 self._energy.layout.visibility = "visible"
-                energy_unit = "eV"
-                self._energy.value = f"Energy ({energy_unit})= {self._energies[0]:.3f}"
+                self._energy_units = trajectory.get_extra("energy_units", "")
+                self._energy.value = (
+                    f"Energy ({self._energy_units}) = {self._energies[0]:.3f}"
+                )
             else:
                 self._energies = None
                 self._energy.layout.visibility = "hidden"

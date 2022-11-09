@@ -4,6 +4,14 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 CifData = DataFactory("cif")
 
+# Energy units conversion factors
+# TODO: Make this an Enum, or use a library
+# atomic units to electronvolts
+AUtoEV = 27.2114386245
+AUtoKCAL = 627.04
+KCALtoKJ = 4.183
+EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
+
 
 def get_formula(data_node):
     """A wrapper for getting a molecular formula out of the AiiDA Data node"""
