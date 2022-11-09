@@ -136,6 +136,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     _structures = []
     _energies = None
+    _boltzmann_weights = None
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
