@@ -190,6 +190,8 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.disabled = True
 
     def _hide_labels(self):
+        self._energies = None
+        self._boltzmann_weights = None
         self._energy_label.layout.visibility = "hidden"
         self._boltzmann_weight_label.layout.visibility = "hidden"
 
