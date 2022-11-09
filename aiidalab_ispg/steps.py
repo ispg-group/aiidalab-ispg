@@ -46,6 +46,12 @@ TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
 
+# TODO: Make this configurable
+# Safe default for 8 core, 32Gb machine
+# TODO: Figure out how to make this work as a global keyword
+# https://github.com/pzarabadip/aiida-orca/issues/45
+MEMORY_PER_CPU = 3000  # Mb
+
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
     """Integrated widget for the selection of structures from different sources."""
@@ -413,12 +419,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         }
 
     def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
-        # TODO: Make this configurable
-        # Safe default for 8 core, 32Gb machine
-        # TODO: Figure out how to make this work as a global keyword
-        # https://github.com/pzarabadip/aiida-orca/issues/45
-        MEMORY_PER_CPU = 3000  # Mb
-
         mdci_params = deepcopy(orca_parameters)
         mdci_params["input_keywords"].append(mdci_method)
         if mdci_method == ExcitedStateMethod.ADC2.value:
@@ -443,6 +443,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         tddft_params["input_keywords"].append(functional)
         tddft_params["input_blocks"]["tddft"] = {
             "nroots": nroots,
+            "maxcore": MEMORY_PER_CPU,
         }
         if es_method == ExcitedStateMethod.TDDFT.value:
             tddft_params["input_blocks"]["tddft"]["tda"] = "false"
