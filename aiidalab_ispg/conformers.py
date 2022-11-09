@@ -27,7 +27,7 @@ from rdkit.Chem import AllChem
 from aiida.plugins import DataFactory
 from aiidalab_widgets_base import SmilesWidget
 
-from .utils import argsort, KCALtoKJ, EVtoKJ
+from .utils import calc_boltzmann_weights, argsort, KCALtoKJ, EVtoKJ
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
@@ -198,10 +198,12 @@ class ConformerSmilesWidget(SmilesWidget):
         )
         traj.set_extra("smiles", conformers[0].info["smiles"])
         if energies is not None and len(energies) > 0:
-            traj.set_extra("energy_units", self._ENERGY_UNITS)
+            boltzmann_weights = np.array(calc_boltzmann_weights(energies, T=300))
             if not isinstance(energies, np.ndarray):
                 energies = np.array(energies)
             traj.set_array("energies", energies)
+            traj.set_array("boltzmann_weights", boltzmann_weights)
+            traj.set_extra("energy_units", self._ENERGY_UNITS)
         return traj
 
     # TODO: Automatically filter out conformers with high energy
