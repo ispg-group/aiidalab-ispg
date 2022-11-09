@@ -88,9 +88,11 @@ class ConformerSmilesWidget(SmilesWidget):
     )
     debug = Bool(default_value=False)
 
-    _ENERGY_UNITS = "kJ/mole"
+    _ENERGY_UNITS = "kJ/mol"
+    # This is also what ORCA uses
+    _BOLTZMANN_TEMPERATURE = 298.15  # Kelvins
     # Threshold for energy-based conformer filtering
-    _ENERGY_THR = 1e-7
+    _ENERGY_THR = 1e-6  # kJ/mol
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
@@ -198,12 +200,15 @@ class ConformerSmilesWidget(SmilesWidget):
         )
         traj.set_extra("smiles", conformers[0].info["smiles"])
         if energies is not None and len(energies) > 0:
-            boltzmann_weights = np.array(calc_boltzmann_weights(energies, T=300))
+            boltzmann_weights = np.array(
+                calc_boltzmann_weights(energies, T=self._BOLTZMANN_TEMPERATURE)
+            )
             if not isinstance(energies, np.ndarray):
                 energies = np.array(energies)
             traj.set_array("energies", energies)
             traj.set_array("boltzmann_weights", boltzmann_weights)
             traj.set_extra("energy_units", self._ENERGY_UNITS)
+            traj.set_extra("temperature", self._BOLTZMANN_TEMPERATURE)
         return traj
 
     # TODO: Automatically filter out conformers with high energy

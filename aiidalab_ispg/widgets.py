@@ -137,6 +137,7 @@ class TrajectoryDataViewer(StructureDataViewer):
     _structures = []
     _energies = None
     _energy_units = ""
+    _temperature = ""
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
@@ -179,9 +180,7 @@ class TrajectoryDataViewer(StructureDataViewer):
                 f"Energy ({self._energy_units}) = {self._energies[index]:.3f}"
             )
         if self._boltzmann_weights is not None:
-            self._boltzmann_weight_label.value = (
-                f"Boltzmann weight = {self._boltzmann_weights[index]:.3f}"
-            )
+            self._boltzmann_weight_label.value = f"Boltzmann weight ({int(self._temperature)}K) = {self._boltzmann_weights[index]:.3f}"
 
     def _reset(self):
         self.structure = None
@@ -222,9 +221,8 @@ class TrajectoryDataViewer(StructureDataViewer):
 
             if "boltzmann_weights" in trajectory.get_arraynames():
                 self._boltzmann_weights = trajectory.get_array("boltzmann_weights")
-                self._boltzmann_weight_label.value = (
-                    f"Boltzmann weight = {self._boltzmann_weights[0]:.3f}"
-                )
+                self._temperature = trajectory.get_extra("temperature", "")
+                self._boltzmann_weight_label.value = f"Boltzmann weight ({int(self._temperature)}K) = {self._boltzmann_weights[0]:.3f}"
                 self._boltzmann_weight_label.layout.visibility = "visible"
         else:
             self._structures = [trajectory]
