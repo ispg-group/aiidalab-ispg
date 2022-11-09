@@ -90,7 +90,7 @@ class ConformerSmilesWidget(SmilesWidget):
 
     _ENERGY_UNITS = "kJ/mole"
     # Threshold for energy-based conformer filtering
-    _ENERGY_THR = 1e-8
+    _ENERGY_THR = 1e-7
 
     def _mol_from_smiles(self, smiles, steps=1000):
         """Convert SMILES to ase structure try rdkit then pybel"""
