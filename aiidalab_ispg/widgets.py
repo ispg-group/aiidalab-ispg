@@ -136,8 +136,6 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     _structures = []
     _energies = None
-    _energy_units = ""
-    _temperature = ""
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
@@ -155,11 +153,9 @@ class TrajectoryDataViewer(StructureDataViewer):
 
         # Display energy and Boltzmann weights if available
         # TODO: Generalize this
-        self._energy_label = ipw.HTML(
-            value="",
-        )
+        self._energy_label = ipw.HTML(value="", style={"description_width": "initial"})
         self._boltzmann_weight_label = ipw.HTML(
-            value="",
+            value="", style={"description_width": "initial"}
         )
         labels = ipw.VBox(children=[self._energy_label, self._boltzmann_weight_label])
 
@@ -176,14 +172,10 @@ class TrajectoryDataViewer(StructureDataViewer):
         self.structure = self._structures[index]
         self.selected_structure_id = index
         if self._energies is not None:
-            self._energy_label.value = (
-                f"Energy ({self._energy_units}) = {self._energies[index]:.3f}"
-            )
+            self._energy_label.value = f"{self._energies[index]:.3f}"
         if self._boltzmann_weights is not None:
             percentage = 100 * self._boltzmann_weights[index]
-            self._boltzmann_weight_label.value = (
-                f"Boltzmann pop. ({int(self._temperature)}K) = {percentage:.1f}%"
-            )
+            self._boltzmann_weight_label.value = f"{percentage:.1f}%"
 
     def _reset(self):
         self.structure = None
@@ -216,19 +208,19 @@ class TrajectoryDataViewer(StructureDataViewer):
 
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
-                self._energy_units = trajectory.get_extra("energy_units", "")
-                self._energy_label.value = (
-                    f"Energy ({self._energy_units}) = {self._energies[0]:.3f}"
-                )
+                energy_units = trajectory.get_extra("energy_units", "")
+                self._energy_label.description = f"Energy ({energy_units}) ="
+                self._energy_label.value = f"{self._energies[0]:.3f}"
                 self._energy_label.layout.visibility = "visible"
 
             if "boltzmann_weights" in trajectory.get_arraynames():
                 self._boltzmann_weights = trajectory.get_array("boltzmann_weights")
-                self._temperature = trajectory.get_extra("temperature", "")
+                temperature = trajectory.get_extra("temperature", "")
                 percentage = 100 * self._boltzmann_weights[0]
-                self._boltzmann_weight_label.value = (
-                    f"Boltzmann pop. ({int(self._temperature)}K) = {percentage:.1f}%"
+                self._boltzmann_weight_label.description = (
+                    f"Boltzmann pop. ({int(temperature)}K) ="
                 )
+                self._boltzmann_weight_label.value = f"{percentage:.1f}%"
                 self._boltzmann_weight_label.layout.visibility = "visible"
         else:
             self._structures = [trajectory]
