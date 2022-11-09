@@ -1,3 +1,4 @@
+import math
 from aiida.plugins import DataFactory
 
 StructureData = DataFactory("structure")
@@ -11,6 +12,19 @@ AUtoEV = 27.2114386245
 AUtoKCAL = 627.04
 KCALtoKJ = 4.183
 EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
+
+# Molar gas constant, Avogadro times Boltzmann
+R = 8.3144598
+
+
+# TODO: Use numpy here? Measure the speed...
+# Energies expected in kJ / mole, Absolute temperature in Kelvins
+def calc_boltzmann_weights(energies, T):
+    RT = R * T
+    E0 = min(energies)
+    weights = [math.exp(-(1000 * (E - E0)) / RT) for E in energies]
+    Q = sum(weights)
+    return [weight / Q for weight in weights]
 
 
 def get_formula(data_node):
