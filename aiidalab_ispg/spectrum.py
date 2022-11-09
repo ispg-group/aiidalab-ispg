@@ -18,15 +18,13 @@ from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
+from .utils import AUtoEV
 
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("array.xy")
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
-
-# Conversion factor from atomic units to electronvolts
-AUtoEV = 27.2114386245
 
 
 @unique
@@ -106,15 +104,15 @@ class Spectrum(object):
     def get_energy_unit_factor(unit: EnergyUnit):
         """Returns a multiplication factor to go from eV to other energy units"""
 
-        # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
-        if unit is EnergyUnit.EV:
-            return 1.0
         # TODO: Construct these factors from scipy.constants or use pint
-        elif unit is EnergyUnit.NM:
-            return 1239.8
-        elif unit is EnergyUnit.CM:
+        # https://physics.nist.gov/cgi-bin/cuu/Info/Constants/basis.html
+        unit_factors = {
+            EnergyUnit.EV: 1.0,
+            EnergyUnit.NM: 1239.8,
             # https://physics.nist.gov/cgi-bin/cuu/Convert?exp=0&num=1&From=ev&To=minv&Action=Only+show+factor
-            return 8065.547937
+            EnergyUnit.CM: 8065.547937,
+        }
+        return unit_factors[unit]
 
     def calc_lorentzian_spectrum(self, x, y, tau: float):
         normalization_factor = tau / 2 / constants.pi / self.nsample
@@ -499,11 +497,11 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
-        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
-            self._highlight_conformer(self.selected_conformer_id)
-
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
+
+        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
+            self._highlight_conformer(self.selected_conformer_id)
 
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)

@@ -136,6 +136,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     _structures = []
     _energies = None
+    _boltzmann_weights = None
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
 
@@ -151,15 +152,15 @@ class TrajectoryDataViewer(StructureDataViewer):
         )
         self._step_selector.observe(self.update_selection, names="value")
 
-        # Display energy if available
+        # Display energy and Boltzmann weights if available
         # TODO: Generalize this
-        self._energy = ipw.HTML(
-            value="Energy ",
-            placeholder="Energy",
+        self._energy_label = ipw.HTML(value="", style={"description_width": "initial"})
+        self._boltzmann_weight_label = ipw.HTML(
+            value="", style={"description_width": "initial"}
         )
+        labels = ipw.VBox(children=[self._energy_label, self._boltzmann_weight_label])
 
-        children = [ipw.HBox(children=[self._step_selector, self._energy])]
-
+        children = [ipw.HBox(children=[self._step_selector, labels])]
         super().__init__(
             children=children, configuration_tabs=configuration_tabs, **kwargs
         )
@@ -171,34 +172,57 @@ class TrajectoryDataViewer(StructureDataViewer):
         index = change["new"] - 1
         self.structure = self._structures[index]
         self.selected_structure_id = index
-        # TODO: We should pass energy units as well somehow
         if self._energies is not None:
-            self._energy.value = f"Energy = {self._energies[index]:.2f} eV"
+            self._energy_label.value = f"{self._energies[index]:.3f}"
+        if self._boltzmann_weights is not None:
+            percentage = 100 * self._boltzmann_weights[index]
+            self._boltzmann_weight_label.value = f"{percentage:.1f}%"
+
+    def _reset(self):
+        self.structure = None
+        self.set_trait("displayed_structure", None)
+        self._reset_step_selector()
+        self._hide_labels()
+
+    def _reset_step_selector(self):
+        self._step_selector.layout.visibility = "hidden"
+        self._step_selector.max = 1
+        self._step_selector.disabled = True
+
+    def _hide_labels(self):
+        self._energy_label.layout.visibility = "hidden"
+        self._boltzmann_weight_label.layout.visibility = "hidden"
 
     @traitlets.observe("trajectory")
     def _update_trajectory(self, change):
         trajectory = change["new"]
         if trajectory is None:
-            self.structure = None
-            self.set_trait("displayed_structure", None)
-            self._step_selector.min = 1
-            self._step_selector.max = 1
-            self._step_selector.disabled = True
-            self._step_selector.layout.visibility = "hidden"
-            self._energy.layout.visibility = "hidden"
+            self._reset()
             return
 
         if isinstance(trajectory, TrajectoryData):
+            self._hide_labels()
+            self._reset_step_selector()
             self._structures = [
                 trajectory.get_step_structure(i) for i in self.trajectory.get_stepids()
             ]
+
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
-                self._energy.layout.visibility = "visible"
-                self._energy.value = f"Energy = {self._energies[0]:.2f} eV"
-            else:
-                self._energies = None
-                self._energy.layout.visibility = "hidden"
+                energy_units = trajectory.get_extra("energy_units", "")
+                self._energy_label.description = f"Energy ({energy_units}) ="
+                self._energy_label.value = f"{self._energies[0]:.3f}"
+                self._energy_label.layout.visibility = "visible"
+
+            if "boltzmann_weights" in trajectory.get_arraynames():
+                self._boltzmann_weights = trajectory.get_array("boltzmann_weights")
+                temperature = trajectory.get_extra("temperature", "")
+                percentage = 100 * self._boltzmann_weights[0]
+                self._boltzmann_weight_label.description = (
+                    f"Boltzmann pop. ({int(temperature)}K) ="
+                )
+                self._boltzmann_weight_label.value = f"{percentage:.1f}%"
+                self._boltzmann_weight_label.layout.visibility = "visible"
         else:
             self._structures = [trajectory]
 
@@ -206,7 +230,6 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.max = nframes
         if nframes == 1:
             self.structure = self._structures[0]
-            self._step_selector.layout.visibility = "hidden"
         else:
             self._step_selector.layout.visibility = "visible"
             self._step_selector.disabled = False

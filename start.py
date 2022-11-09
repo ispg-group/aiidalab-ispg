@@ -14,7 +14,7 @@ template = """
     <li><a href="{appbase}/spectrum_widget.ipynb" target="_blank">Spectrum Widget</a></li>
   </ul></td>
   <td valign="top"><ul>
-    <li><a href="{appbase}/conformer_generation.ipynb" target="_blank">Conformer Widget</a></li>
+    <li><a href="{appbase}/conformer_generation.ipynb" target="_blank">Conformer Sampling</a></li>
   </ul></td>
   <td valign="top"><ul>
     <li><a href="{appbase}/orca_optimization.ipynb" target="_blank">NEA UV/VIS single geometry</a></li>
