@@ -199,7 +199,7 @@ class TrajectoryDataViewer(StructureDataViewer):
                 self._energy.layout.visibility = "visible"
                 self._energy_units = trajectory.get_extra("energy_units", "")
                 self._energy.value = (
-                    f"Energy ({self._energy_units})= {self._energies[0]:.3f}"
+                    f"Energy ({self._energy_units}) = {self._energies[0]:.3f}"
                 )
             else:
                 self._energies = None

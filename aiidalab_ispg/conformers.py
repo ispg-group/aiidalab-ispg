@@ -15,9 +15,9 @@ Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
 """
 
-from enum import Enum
+from enum import Enum, unique
 import numpy as np
-from traitlets import Union, Instance
+from traitlets import Bool, Instance, Union
 
 from ase import Atoms
 from ase.optimize import GPMin  # BFGS
@@ -40,30 +40,29 @@ DISABLE_XTB = False
 try:
     from xtb.ase.calculator import XTB
 except ImportError:
+    print("WARNING: xTB optimization not supported")
     DISABLE_XTB = True
 
-# TODO: For now we always disable xTB optimization, until we extract it
-# to a separate editor where it can be triggered by user optionally.
-# https://github.com/ispg-group/aiidalab-ispg/issues/35
-# Also, we need to make it a lot faster, see:
-# https://github.com/ispg-group/aiidalab-ispg/issues/12
-DISABLE_XTB = True
 
-
+@unique
 class XTBMethod(Enum):
-    GFN1 = "GFN1-xTB"
-    GFN2 = "GFN2-xTB"
+    NONE = None
     # WARNING: GFN-FF now print extra output to the screen
     FF = "GFNFF"
+    GFN1 = "GFN1-xTB"
+    GFN2 = "GFN2-xTB"
 
 
+@unique
 class RDKitMethod(Enum):
-    ETKDGV1 = "ETKDGv2"
+    ETKDGV1 = "ETKDGv1"
     ETKDGV2 = "ETKDGv2"
     ETKDGV3 = "ETKDGv3"
 
 
+@unique
 class FFMethod(Enum):
+    NONE = None
     UFF = "UFF"
     MMFF94 = "MMFF94"
     MMFF94s = "MMFF94s"
@@ -75,6 +74,20 @@ class ConformerSmilesWidget(SmilesWidget):
         [Instance(Atoms), Instance(StructureData), Instance(TrajectoryData)],
         allow_none=True,
     )
+    rdkit_method = Instance(
+        RDKitMethod,
+        default_value=RDKitMethod.ETKDGV3,
+    )
+    ff_method = Instance(
+        FFMethod,
+        default_value=FFMethod.MMFF94,
+    )
+    xtb_method = Instance(
+        XTBMethod,
+        default_value=XTBMethod.NONE,
+    )
+    debug = Bool(default_value=False)
+
     _ENERGY_UNITS = "kJ/mole"
     # Threshold for energy-based conformer filtering
     _ENERGY_THR = 1e-8
@@ -92,16 +105,12 @@ class ConformerSmilesWidget(SmilesWidget):
         if canonical_smiles != smiles:
             self.output.value = f"Canonical SMILES: {canonical_smiles}"
 
-        # TODO: Make a dropdown menu for algorithm selection
-        rdkit_algorithm = RDKitMethod.ETKDGV3
-        optimization_algorithm = FFMethod.MMFF94
-        xtb_algorithm = XTBMethod.GFN2
         try:
             conformers, energies = self._rdkit_opt(
                 canonical_smiles,
                 steps,
-                algo=rdkit_algorithm,
-                opt_algo=optimization_algorithm,
+                algo=self.rdkit_method,
+                opt_algo=self.ff_method,
             )
             if not conformers:
                 return None
@@ -110,13 +119,17 @@ class ConformerSmilesWidget(SmilesWidget):
             return None
 
         # Fallback if XTB is not available
-        if not DISABLE_XTB:
+        if self.xtb_method.value is not None and not DISABLE_XTB:
             conformers, energies = self.optimize_conformers_with_xtb(
-                conformers, xtb_method=xtb_algorithm
+                conformers, xtb_method=self.xtb_method
             )
 
-        conformers, energies = self._filter_and_sort_conformers(conformers, energies)
-        # self.output.value = f"Final energies: {energies}"
+        if energies is not None:
+            conformers, energies = self._filter_and_sort_conformers(
+                conformers, energies
+            )
+            if self.debug:
+                print(f"Final energies: {energies}")
         return self._create_trajectory_node(conformers, energies)
 
     def canonicalize_smiles(self, smiles):
@@ -145,7 +158,7 @@ class ConformerSmilesWidget(SmilesWidget):
         # opt = BFGS(atoms, maxstep=0.06, trajectory=None, logfile=None)
         opt = GPMin(atoms, trajectory=None, logfile=None)
         converged = opt.run(steps=max_steps, fmax=fmax)
-        if converged:
+        if converged and self.debug:
             print(
                 f"{xtb_method.value} minimization converged in {opt.get_number_of_steps()} iterations"
             )
@@ -160,14 +173,9 @@ class ConformerSmilesWidget(SmilesWidget):
         max_steps = 5
         fmax = 0.15
 
-        if len(conformers) == 1:
-            self.output.value = (
-                f"Optimizing {len(conformers)} conformer with {xtb_method.value}"
-            )
-        else:
-            self.output.value = (
-                f"Optimizing {len(conformers)} conformers with {xtb_method.value}"
-            )
+        self.output.value += (
+            f"<br>Optimizing {len(conformers)} conformer(s) with {xtb_method.value}"
+        )
 
         opt_structs = []
         for ase_struct in conformers:
@@ -178,6 +186,7 @@ class ConformerSmilesWidget(SmilesWidget):
                 opt_structs.append(opt_struct)
 
         xtb_energies = [EVtoKJ * conf.get_potential_energy() for conf in opt_structs]
+        self.output.value = ""
         return opt_structs, xtb_energies
 
     def _create_trajectory_node(self, conformers, energies):
@@ -219,7 +228,9 @@ class ConformerSmilesWidget(SmilesWidget):
     def _rdkit_opt(self, smiles, steps, algo=RDKitMethod.ETKDGV1, opt_algo=None):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
 
-        # self.output.value += f"<br>Using algorithm: {algo}"
+        if self.debug:
+            self.output.value = f"Using algorithm: {algo.value}"
+
         mol = Chem.MolFromSmiles(smiles, sanitize=True)
         if mol is None:
             # Something is seriously wrong with the SMILES code,
@@ -236,15 +247,13 @@ class ConformerSmilesWidget(SmilesWidget):
             params = AllChem.ETKDGv2()
         elif algo == RDKitMethod.ETKDGV3:
             params = AllChem.ETKDGv3()
-        else:
-            raise ValueError(f"Invalid RDKit algorithm '{algo}'")
 
         # TODO: This should probably be lower, but we need to implement filtering after optimization as well
         params.pruneRmsThresh = 0.1
         params.maxAttempts = 20
         params.randomSeed = 422
         # TODO: Determine the num_confs parameter adaptively based on the molecule size
-        num_confs = 10
+        num_confs = 20
         conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, params=params)
 
         # Not sure what is the fail condition here
@@ -281,7 +290,8 @@ class ConformerSmilesWidget(SmilesWidget):
             else:
                 self.output.value += " RDKit WARNING: Missing MMFF94 parameters"
 
-        # self.output.value += f"<br> Initial number of conformers = {len(conf_ids)}"
+        if self.debug:
+            print(f"Initial number of conformers = {len(conf_ids)}")
 
         # Convert conformers to an array of ASE Atoms objects
         conformers = []
@@ -297,6 +307,7 @@ class ConformerSmilesWidget(SmilesWidget):
             conformers, ffenergies = self._filter_and_sort_conformers(
                 conformers, ffenergies
             )
-        # print(f"{opt_algo.value} energies")
-        # print(ffenergies)
+            if self.debug:
+                print(f"{opt_algo.value} energies")
+                print(ffenergies)
         return conformers, ffenergies
