@@ -19,7 +19,7 @@ from aiida.engine import ProcessState, submit
 from aiida.orm import ProcessNode, load_code
 
 from aiida.orm import WorkChainNode
-from aiida.plugins import DataFactory
+from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ComputationalResourcesWidget,
@@ -49,6 +49,7 @@ StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
+OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 # TODO: Make this configurable
 # Safe default for 8 core, 32Gb machine
@@ -686,8 +687,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             conformer_workchains.reverse()
             assert nconf == len(conformer_workchains)
             for node in conformer_workchains:
-                for wc in node.called:
-                    if wc.label != "single-point-tddft":
+                for link in node.get_outgoing(
+                    link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
+                ):
+                    wc = link.node
+                    if wc.label == "":
                         temperature = wc.outputs.output_parameters["temperature"]
                         free_energy = wc.outputs.output_parameters["freeenergy"]
                         free_energies.append(free_energy)
