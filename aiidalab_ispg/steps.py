@@ -11,9 +11,10 @@ import re
 from copy import deepcopy
 
 import ipywidgets as ipw
+import numpy as np
 import traitlets
 from traitlets import Union, Instance
-from aiida.common import NotExistent
+from aiida.common import NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import ProcessNode, load_code
 
@@ -32,10 +33,13 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
 
-from .utils import get_formula
+from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
 try:
-    from aiidalab_atmospec_workchain import AtmospecWorkChain
+    from aiidalab_atmospec_workchain import (
+        AtmospecWorkChain,
+        OrcaWignerSpectrumWorkChain,
+    )
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
@@ -625,6 +629,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # TODO: Instead of setting another process monitor here,
         # we should just observe the process traitlet, and only set it
         # when the process is_finished_ok.
+        # This also makes debugging extremely tedious
         self.process_monitor = ProcessMonitor(
             timeout=0.5,
             callbacks=[
@@ -666,15 +671,41 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         nsample = (
             self.process.inputs.nwigner.value if self.process.inputs.nwigner > 0 else 1
         )
-        # TODO: Compute Boltzmann weight from Gibbs energy of conformers
-        boltzmann_weight = 1.0 / len(self.process.inputs.structure.get_stepids())
+
+        nconf = len(self.process.inputs.structure.get_stepids())
+        free_energies = []
+        boltzmann_weights = [1.0]
+        if self.process.inputs.optimize:
+            conformer_workchains = [
+                link.node
+                for link in self.process.get_outgoing(
+                    link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
+                )
+            ]
+            # TODO: Not sure if this reverse thing will always get the correct ordering
+            conformer_workchains.reverse()
+            assert nconf == len(conformer_workchains)
+            for node in conformer_workchains:
+                for wc in node.called:
+                    if wc.label != "single-point-tddft":
+                        print(wc.label)
+                        temperature = wc.outputs.output_parameters["temperature"]
+                        free_energy = wc.outputs.output_parameters["freeenergy"]
+                        free_energies.append(free_energy)
+
+            en0 = min(free_energies)
+            free_energies = [(en - en0) * AUtoKJ for en in free_energies]
+            boltzmann_weights = calc_boltzmann_weights(free_energies, T=temperature)
+
+        # TODO: How to ensure the correct order of process.outputs.spectrum_data.get_list()?
+        # with respect to boltzmann_weights that we computed above?
         conformer_transitions = [
             {
                 "transitions": self._wigner_output_to_transitions(conformer),
                 "nsample": nsample,
-                "weight": boltzmann_weight,
+                "weight": boltzmann_weights[i],
             }
-            for conformer in self.process.outputs.spectrum_data.get_list()
+            for i, conformer in enumerate(self.process.outputs.spectrum_data.get_list())
         ]
 
         self.spectrum.conformer_transitions = conformer_transitions
@@ -692,8 +723,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.spectrum.smiles = None
 
         if "relaxed_structures" in self.process.outputs:
+            assert nconf == len(self.process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
-            self.spectrum.conformer_structures = self.process.outputs.relaxed_structures
+            conformers = self.process.outputs.relaxed_structures.clone()
+            if nconf > 1:
+                conformers.set_array("energies", np.array(free_energies))
+                conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
+                conformers.set_extra("energy_units", "kJ/mol")
+                conformers.set_extra("temperature", temperature)
+            self.spectrum.conformer_structures = conformers
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
