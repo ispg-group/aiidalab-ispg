@@ -688,7 +688,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             for node in conformer_workchains:
                 for wc in node.called:
                     if wc.label != "single-point-tddft":
-                        print(wc.label)
                         temperature = wc.outputs.output_parameters["temperature"]
                         free_energy = wc.outputs.output_parameters["freeenergy"]
                         free_energies.append(free_energy)
@@ -747,7 +746,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 r"<sub>\1</sub>",
                 get_formula(self.process.inputs.structure),
             )
-            solvent = bp["solvent"] if bp["solvent"] != "None" else "the gas phase"
+            solvent = "the gas phase"
+            if bp.get("solvent") is not None:
+                solvent = (
+                    bp["solvent"] if bp.get("solvent") != "None" else "the gas phase"
+                )
             # TODO: Compatibility hack
             es_method = bp.get("excited_method", "TDA-TDDFT")
             self.header.value = (
