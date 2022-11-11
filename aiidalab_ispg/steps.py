@@ -43,13 +43,17 @@ try:
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
+try:
+    OrcaBaseWorkChain = WorkflowFactory("orca.base")
+except:
+    print("ERROR: Could not find aiida-orca plugin!")
+
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
 StructureData = DataFactory("structure")
 TrajectoryData = DataFactory("array.trajectory")
 Dict = DataFactory("dict")
 Bool = DataFactory("bool")
-OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 # TODO: Make this configurable
 # Safe default for 8 core, 32Gb machine
