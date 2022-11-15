@@ -742,7 +742,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
-            self.spectrum.conformer_structures = self.process.inputs.structure
+            structures = self.process.inputs.structure.clone()
+            # Overwrite the energy and boltzmann weights because they may come
+            # from conformer sampling, i.e. xTB or MM. We do not use these
+            # for spectrum weighting so displaying them would be misleading.
+            if "energies" in structures.get_arraynames():
+                structures.delete_array("energies")
+            if "boltzmann_weights" in structures.get_arraynames():
+                structures.delete_array("boltzmann_weights")
+            self.spectrum.conformer_structures = structures
 
     def _update_header(self):
         if self.process is None:
