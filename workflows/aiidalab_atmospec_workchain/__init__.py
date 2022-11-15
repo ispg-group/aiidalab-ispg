@@ -253,7 +253,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs.orca.code = self.inputs.code
 
         calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_opt.label = ""
+        calc_opt.label = "optimization"
         return ToContext(calc_opt=calc_opt)
 
     def inspect_optimization(self):

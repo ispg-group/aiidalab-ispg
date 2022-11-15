@@ -684,7 +684,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                     link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
                 ):
                     wc = link.node
-                    if wc.label == "":
+                    if wc.label == "optimization":
                         temperature = wc.outputs.output_parameters["temperature"]
                         free_energy = wc.outputs.output_parameters["freeenergy"]
                         free_energies.append(free_energy)
