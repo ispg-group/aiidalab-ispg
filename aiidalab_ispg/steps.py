@@ -458,14 +458,16 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             tddft_params["input_blocks"]["tddft"]["tda"] = "false"
         return tddft_params
 
-    def _add_optimization_orca_params(self, base_orca_parameters, gs_method):
+    def _add_optimization_orca_params(self, base_orca_parameters, basis, gs_method):
         opt_params = deepcopy(base_orca_parameters)
         opt_params["input_keywords"].append(gs_method)
         opt_params["input_keywords"].append("TightOpt")
         opt_params["input_keywords"].append("AnFreq")
         # For MP2, analytical frequencies are only available without Frozen Core
-        if gs_method.lower() == "mp2":
+        if gs_method.lower() in ("ri-mp2", "mp2"):
             opt_params["input_keywords"].append("NoFrozenCore")
+            opt_params["input_keywords"].append(f"{basis}/C")
+            opt_params["input_blocks"]["mp2"] = {"maxcore": MEMORY_PER_CPU}
         return opt_params
 
     def submit(self, _=None):
@@ -482,7 +484,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         base_orca_parameters = self.build_base_orca_params(bp)
         gs_opt_parameters = self._add_optimization_orca_params(
-            base_orca_parameters, bp["method"]
+            base_orca_parameters, basis=bp["basis"], gs_method=bp["method"]
         )
         if bp["excited_method"] in (
             ExcitedStateMethod.TDA.value,
