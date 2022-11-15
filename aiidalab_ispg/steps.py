@@ -45,7 +45,7 @@ except ImportError:
 
 try:
     OrcaBaseWorkChain = WorkflowFactory("orca.base")
-except:
+except ImportError:
     print("ERROR: Could not find aiida-orca plugin!")
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
@@ -679,7 +679,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         nconf = len(self.process.inputs.structure.get_stepids())
         free_energies = []
-        boltzmann_weights = [1.0]
+        boltzmann_weights = [1.0 for i in range(nconf)]
         if self.process.inputs.optimize:
             conformer_workchains = [
                 link.node
