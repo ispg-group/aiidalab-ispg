@@ -14,7 +14,7 @@ import ipywidgets as ipw
 import numpy as np
 import traitlets
 from traitlets import Union, Instance
-from aiida.common import NotExistent, LinkType
+from aiida.common import MissingEntryPointError, NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import load_node, load_code
 
@@ -45,7 +45,7 @@ except ImportError:
 
 try:
     OrcaBaseWorkChain = WorkflowFactory("orca.base")
-except ImportError:
+except MissingEntryPointError:
     print("ERROR: Could not find aiida-orca plugin!")
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
@@ -668,7 +668,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         nconf = len(process.inputs.structure.get_stepids())
         free_energies = []
-        boltzmann_weights = [1.0]
+        boltzmann_weights = [1.0 for i in range(nconf)]
         if process.inputs.optimize:
             conformer_workchains = [
                 link.node
@@ -731,7 +731,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
-            self.spectrum.conformer_structures = process.inputs.structure
+            structures = process.inputs.structure.clone()
+            # Overwrite the energy and boltzmann weights because they may come
+            # from conformer sampling, i.e. xTB or MM. We do not use these
+            # for spectrum weighting so displaying them would be misleading.
+            if "energies" in structures.get_arraynames():
+                structures.delete_array("energies")
+            if "boltzmann_weights" in structures.get_arraynames():
+                structures.delete_array("boltzmann_weights")
+            self.spectrum.conformer_structures = structures
 
     def _update_header(self):
         if self.process_uuid is None:

@@ -199,7 +199,7 @@ class ConformerSmilesWidget(SmilesWidget):
             structurelist=[StructureData(ase=conformer) for conformer in conformers]
         )
         traj.set_extra("smiles", conformers[0].info["smiles"])
-        if energies is not None and len(energies) > 0:
+        if energies is not None and len(energies) > 1:
             boltzmann_weights = np.array(
                 calc_boltzmann_weights(energies, T=self._BOLTZMANN_TEMPERATURE)
             )
