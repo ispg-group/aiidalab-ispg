@@ -14,7 +14,7 @@ import ipywidgets as ipw
 import numpy as np
 import traitlets
 from traitlets import Union, Instance
-from aiida.common import NotExistent, LinkType
+from aiida.common import MissingEntryPointError, NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import ProcessNode, load_code
 
@@ -45,7 +45,7 @@ except ImportError:
 
 try:
     OrcaBaseWorkChain = WorkflowFactory("orca.base")
-except ImportError:
+except MissingEntryPointError:
     print("ERROR: Could not find aiida-orca plugin!")
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
