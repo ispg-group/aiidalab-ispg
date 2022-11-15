@@ -742,6 +742,6 @@ class SpectrumWidget(ipw.VBox):
         line_options = {
             "line_color": "orange",
             "line_dash": "dashed",
-            "line_width": "2",
+            "line_width": 2,
         }
         self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)

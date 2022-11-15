@@ -160,7 +160,10 @@ class TrajectoryDataViewer(StructureDataViewer):
         )
         labels = ipw.VBox(children=[self._energy_label, self._boltzmann_weight_label])
 
-        children = [ipw.HBox(children=[self._step_selector, labels])]
+        # NOTE: Having children step selector and labels horizontally
+        # does not work well in the SpectrumWidget context.
+        # children = [ipw.HBox(children=[self._step_selector, labels])]
+        children = [self._step_selector, labels]
         super().__init__(
             children=children, configuration_tabs=configuration_tabs, **kwargs
         )
@@ -190,6 +193,8 @@ class TrajectoryDataViewer(StructureDataViewer):
         self._step_selector.disabled = True
 
     def _hide_labels(self):
+        self._energies = None
+        self._boltzmann_weights = None
         self._energy_label.layout.visibility = "hidden"
         self._boltzmann_weight_label.layout.visibility = "hidden"
 

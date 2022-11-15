@@ -11,6 +11,7 @@ CifData = DataFactory("cif")
 AUtoEV = 27.2114386245
 AUtoKCAL = 627.04
 KCALtoKJ = 4.183
+AUtoKJ = AUtoKCAL * KCALtoKJ
 EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
 
 # Molar gas constant, Avogadro times Boltzmann

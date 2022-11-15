@@ -11,14 +11,15 @@ import re
 from copy import deepcopy
 
 import ipywidgets as ipw
+import numpy as np
 import traitlets
 from traitlets import Union, Instance
-from aiida.common import NotExistent
+from aiida.common import NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import load_node, load_code
 
 from aiida.orm import WorkChainNode
-from aiida.plugins import DataFactory
+from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ComputationalResourcesWidget,
@@ -32,12 +33,20 @@ from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
 
-from .utils import get_formula
+from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
 try:
-    from aiidalab_atmospec_workchain import AtmospecWorkChain
+    from aiidalab_atmospec_workchain import (
+        AtmospecWorkChain,
+        OrcaWignerSpectrumWorkChain,
+    )
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+
+try:
+    OrcaBaseWorkChain = WorkflowFactory("orca.base")
+except ImportError:
+    print("ERROR: Could not find aiida-orca plugin!")
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
@@ -45,6 +54,12 @@ StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
 Dict = DataFactory("core.dict")
 Bool = DataFactory("core.bool")
+
+# TODO: Make this configurable
+# Safe default for 8 core, 32Gb machine
+# TODO: Figure out how to make this work as a global keyword
+# https://github.com/pzarabadip/aiida-orca/issues/45
+MEMORY_PER_CPU = 3000  # Mb
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
@@ -396,12 +411,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         }
 
     def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
-        # TODO: Make this configurable
-        # Safe default for 8 core, 32Gb machine
-        # TODO: Figure out how to make this work as a global keyword
-        # https://github.com/pzarabadip/aiida-orca/issues/45
-        MEMORY_PER_CPU = 3000  # Mb
-
         mdci_params = deepcopy(orca_parameters)
         mdci_params["input_keywords"].append(mdci_method)
         if mdci_method == ExcitedStateMethod.ADC2.value:
@@ -426,6 +435,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         tddft_params["input_keywords"].append(functional)
         tddft_params["input_blocks"]["tddft"] = {
             "nroots": nroots,
+            "maxcore": MEMORY_PER_CPU,
         }
         if es_method == ExcitedStateMethod.TDDFT.value:
             tddft_params["input_blocks"]["tddft"]["tda"] = "false"
@@ -612,6 +622,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # TODO: Instead of setting another process monitor here,
         # we should just observe the process traitlet, and only set it
         # when the process is_finished_ok.
+        # This also makes debugging extremely tedious
         self.process_monitor = ProcessMonitor(
             timeout=0.5,
             callbacks=[
@@ -654,15 +665,43 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         # Number of Wigner geometries per conformer
         nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
-        # TODO: Compute Boltzmann weight from Gibbs energy of conformers
-        boltzmann_weight = 1.0 / len(process.inputs.structure.get_stepids())
+
+        nconf = len(process.inputs.structure.get_stepids())
+        free_energies = []
+        boltzmann_weights = [1.0]
+        if process.inputs.optimize:
+            conformer_workchains = [
+                link.node
+                for link in process.get_outgoing(
+                    link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
+                )
+            ]
+            # TODO: Not sure if this reverse thing will always get the correct ordering
+            conformer_workchains.reverse()
+            assert nconf == len(conformer_workchains)
+            for node in conformer_workchains:
+                for link in node.get_outgoing(
+                    link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
+                ):
+                    wc = link.node
+                    if wc.label == "":
+                        temperature = wc.outputs.output_parameters["temperature"]
+                        free_energy = wc.outputs.output_parameters["freeenergy"]
+                        free_energies.append(free_energy)
+
+            en0 = min(free_energies)
+            free_energies = [(en - en0) * AUtoKJ for en in free_energies]
+            boltzmann_weights = calc_boltzmann_weights(free_energies, T=temperature)
+
+        # TODO: How to ensure the correct order of process.outputs.spectrum_data.get_list()?
+        # with respect to boltzmann_weights that we computed above?
         conformer_transitions = [
             {
                 "transitions": self._wigner_output_to_transitions(conformer),
                 "nsample": nsample,
-                "weight": boltzmann_weight,
+                "weight": boltzmann_weights[i],
             }
-            for conformer in process.outputs.spectrum_data.get_list()
+            for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
         ]
 
         self.spectrum.conformer_transitions = conformer_transitions
@@ -680,8 +719,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.spectrum.smiles = None
 
         if "relaxed_structures" in process.outputs:
+            assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
-            self.spectrum.conformer_structures = process.outputs.relaxed_structures
+            conformers = process.outputs.relaxed_structures.clone()
+            if nconf > 1:
+                conformers.set_array("energies", np.array(free_energies))
+                conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
+                conformers.set_extra("energy_units", "kJ/mol")
+                conformers.set_extra("temperature", temperature)
+            self.spectrum.conformer_structures = conformers
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
@@ -698,7 +744,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 r"<sub>\1</sub>",
                 get_formula(process.inputs.structure),
             )
-            solvent = bp["solvent"] if bp["solvent"] != "None" else "the gas phase"
+            solvent = "the gas phase"
+            if bp.get("solvent") is not None:
+                solvent = (
+                    bp["solvent"] if bp.get("solvent") != "None" else "the gas phase"
+                )
             # TODO: Compatibility hack
             es_method = bp.get("excited_method", "TDA-TDDFT")
             self.header.value = (
