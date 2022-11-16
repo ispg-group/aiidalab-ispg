@@ -1,9 +1,9 @@
 import math
 from aiida.plugins import DataFactory
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
-CifData = DataFactory("cif")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
+CifData = DataFactory("core.cif")
 
 # Energy units conversion factors
 # TODO: Make this an Enum, or use a library

@@ -28,9 +28,9 @@ from aiidalab_widgets_base.viewers import StructureDataViewer
 import aiidalab_ispg.qeapp as qeapp
 from .utils import get_formula
 
-StructureData = DataFactory("structure")
-CifData = DataFactory("cif")
-TrajectoryData = DataFactory("array.trajectory")
+StructureData = DataFactory("core.structure")
+CifData = DataFactory("core.cif")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 __all__ = [
     "TrajectoryDataViewer",

@@ -491,8 +491,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         else:
             raise ValueError(f"Excited method {bp['excited_method']} not implemented")
 
-        builder.opt.orca.parameters = Dict(dict=gs_opt_parameters)
-        builder.exc.orca.parameters = Dict(dict=es_parameters)
+        builder.opt.orca.parameters = Dict(gs_opt_parameters)
+        builder.exc.orca.parameters = Dict(es_parameters)
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:

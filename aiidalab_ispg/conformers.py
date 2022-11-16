@@ -29,8 +29,8 @@ from aiidalab_widgets_base import SmilesWidget
 
 from .utils import calc_boltzmann_weights, argsort, KCALtoKJ, EVtoKJ
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 # xTB cannot be installed automatically in official AiiDAlab Docker images,
 # because the dependencies are installed via pip,

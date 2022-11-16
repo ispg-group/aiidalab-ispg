@@ -10,15 +10,15 @@ from aiida.orm import to_aiida_type
 
 from .wigner import Wigner
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
-SinglefileData = DataFactory("singlefile")
-Int = DataFactory("int")
-Float = DataFactory("float")
-Bool = DataFactory("bool")
-Code = DataFactory("code")
-List = DataFactory("list")
-Dict = DataFactory("dict")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
+SinglefileData = DataFactory("core.singlefile")
+Int = DataFactory("core.int")
+Float = DataFactory("core.float")
+Bool = DataFactory("core.bool")
+Code = DataFactory("core.code")
+List = DataFactory("core.list")
+Dict = DataFactory("core.dict")
 
 OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
@@ -78,7 +78,7 @@ def add_orca_wf_guess(orca_params: Dict) -> Dict:
     params = orca_params.get_dict()
     params["input_keywords"].append("MOREAD")
     params["input_blocks"]["scf"]["moinp"] = '"aiida_old.gbw"'
-    return Dict(dict=params)
+    return Dict(params)
 
 
 @calcfunction

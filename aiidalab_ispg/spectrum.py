@@ -22,9 +22,9 @@ from .utils import AUtoEV
 
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
-XyData = DataFactory("array.xy")
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
+XyData = DataFactory("core.array.xy")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 
 @unique
