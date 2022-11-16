@@ -514,10 +514,14 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
-            # NOTE: We only paralellize the optimizations job,
+            # NOTE: We only paralelize the optimizations job,
             # because we suppose there will be lot's of TDDFT jobs in NEA,
             # which can be trivially launched in parallel.
+            # We also paralelize EOM-CCSD as it is expensive and likely
+            # used only for single point calculations.
             builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
+            if bp["excited_method"] == ExcitedStateMethod.CCSD.value:
+                builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
 
         metadata = {
             "options": {
@@ -532,8 +536,9 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         }
         builder.opt.orca.metadata = metadata
         builder.exc.orca.metadata = deepcopy(metadata)
-        builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
-        builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
+        if bp["excited_method"] != ExcitedStateMethod.CCSD.value:
+            builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
+            builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
