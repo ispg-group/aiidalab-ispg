@@ -290,15 +290,15 @@ class CalcJobOutputFollower(traitlets.HasTraits):
         assert isinstance(calcjob, CalcJobNode)
         if "retrieved" in calcjob.outputs:
             try:
-                self.filename = calcjob.attributes["output_filename"]
-                with calcjob.outputs.retrieved.open(self.filename) as f:
+                self.filename = calcjob.base.attributes.all["output_filename"]
+                with calcjob.outputs.retrieved.base.repository.open(self.filename) as f:
                     return f.read().splitlines()
             except OSError:
                 return list()
 
         elif "remote_folder" in calcjob.outputs:
             try:
-                fn_out = calcjob.attributes["output_filename"]
+                fn_out = calcjob.base.attributes.all["output_filename"]
                 self.filename = fn_out
                 with NamedTemporaryFile() as tmpfile:
                     calcjob.outputs.remote_folder.getfile(fn_out, tmpfile.name)

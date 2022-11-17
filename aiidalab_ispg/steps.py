@@ -315,7 +315,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             # so commenting out?
             # if process_node is not None:
             # self.input_structure = process_node.inputs.structure
-            # builder_parameters = process_node.get_extra("builder_parameters", None)
+            # builder_parameters = process_node.base.extras.get("builder_parameters", None)
             # if builder_parameters is not None:
             #    self.set_trait("builder_parameters", builder_parameters)
             self._update_state()
@@ -533,7 +533,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         builder.wigner_low_freq_thr = self.qm_config.wigner_low_freq_thr.value
 
         process = submit(builder)
-        process.set_extra("builder_parameters", self.builder_parameters.copy())
+        process.base.extras.set("builder_parameters", self.builder_parameters.copy())
         # NOTE: It is important to set_extra builder_parameters before we update the traitlet
         self.process = process
 
@@ -560,7 +560,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
     def __init__(self, **kwargs):
         self.process_tree = ProcessNodesTreeWidget()
-        ipw.dlink((self, "process_uuid"), (self.process_tree, "process_uuid"))
+        ipw.dlink((self, "process_uuid"), (self.process_tree, "value"))
 
         self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
@@ -578,7 +578,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
                 self._update_state,
             ],
         )
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "process_uuid"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
         super().__init__([self.process_status], **kwargs)
 
@@ -635,7 +635,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "process_uuid"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
         super().__init__([self.header, self.spectrum], **kwargs)
 
@@ -674,7 +674,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if process.inputs.optimize:
             conformer_workchains = [
                 link.node
-                for link in process.get_outgoing(
+                for link in process.base.links.get_outgoing(
                     link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
                 )
             ]
@@ -682,7 +682,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             conformer_workchains.reverse()
             assert nconf == len(conformer_workchains)
             for node in conformer_workchains:
-                for link in node.get_outgoing(
+                for link in node.base.links.get_outgoing(
                     link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
                 ):
                     wc = link.node
@@ -714,7 +714,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
             if "relaxed_structures" in process.outputs:
-                process.outputs.relaxed_structures.set_extra(
+                process.outputs.relaxed_structures.base.extras.set(
                     "smiles", self.spectrum.smiles
                 )
         else:
@@ -727,8 +727,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             if nconf > 1:
                 conformers.set_array("energies", np.array(free_energies))
                 conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.set_extra("energy_units", "kJ/mol")
-                conformers.set_extra("temperature", temperature)
+                conformers.base.extras.set("energy_units", "kJ/mol")
+                conformers.base.extras.set("temperature", temperature)
             self.spectrum.conformer_structures = conformers
         else:
             # If we did not optimize the structure, just show the input structure(s)
@@ -748,7 +748,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.header.value = ""
             return
         process = load_node(self.process_uuid)
-        if bp := process.get_extra("builder_parameters", None):
+        if bp := process.base.extras.get("builder_parameters", None):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",

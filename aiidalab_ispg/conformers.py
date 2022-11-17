@@ -198,7 +198,7 @@ class ConformerSmilesWidget(SmilesWidget):
         traj = TrajectoryData(
             structurelist=[StructureData(ase=conformer) for conformer in conformers]
         )
-        traj.set_extra("smiles", conformers[0].info["smiles"])
+        traj.base.extras.set("smiles", conformers[0].info["smiles"])
         if energies is not None and len(energies) > 1:
             boltzmann_weights = np.array(
                 calc_boltzmann_weights(energies, T=self._BOLTZMANN_TEMPERATURE)
@@ -207,8 +207,8 @@ class ConformerSmilesWidget(SmilesWidget):
                 energies = np.array(energies)
             traj.set_array("energies", energies)
             traj.set_array("boltzmann_weights", boltzmann_weights)
-            traj.set_extra("energy_units", self._ENERGY_UNITS)
-            traj.set_extra("temperature", self._BOLTZMANN_TEMPERATURE)
+            traj.base.extras.set("energy_units", self._ENERGY_UNITS)
+            traj.base.extras.set("temperature", self._BOLTZMANN_TEMPERATURE)
         return traj
 
     # TODO: Automatically filter out conformers with high energy

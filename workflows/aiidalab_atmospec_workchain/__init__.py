@@ -195,7 +195,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
 
             # Pass in converged SCF wavefunction
-            with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+            with self.ctx.calc_opt.outputs.retrieved.base.repository.open(
+                "aiida.gbw", "rb"
+            ) as handler:
                 gbw_file = SinglefileData(handler)
             inputs.orca.file = {"gbw": gbw_file}
             inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
@@ -232,7 +234,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         )
         inputs.orca.code = self.inputs.code
         # Pass in SCF wavefunction from minimum geometry
-        with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+        with self.ctx.calc_opt.outputs.retrieved.base.repository.open(
+            "aiida.gbw", "rb"
+        ) as handler:
             gbw_file = SinglefileData(handler)
         inputs.orca.file = {"gbw": gbw_file}
         inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
