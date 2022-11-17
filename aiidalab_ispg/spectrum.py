@@ -1,4 +1,4 @@
-"""Widget for displaying UV/VIS spectra in an interactive graph.
+"""Calculating NEA UV/vis spectra and displaying them in an interactive plot.
 
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
