@@ -9,7 +9,7 @@ import traitlets
 from scipy import constants
 import numpy as np
 
-from aiida.orm import QueryBuilder
+from aiida.orm import load_node, QueryBuilder
 from aiida.plugins import DataFactory
 
 # https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
@@ -190,7 +190,7 @@ class SpectrumWidget(ipw.VBox):
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
     smiles = traitlets.Unicode(allow_none=True)
-    experimental_spectrum = traitlets.Instance(XyData, allow_none=True)
+    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True)
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm^2 per molecule"
@@ -430,9 +430,10 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
-        if self.experimental_spectrum is not None:
+        if self.experimental_spectrum_uuid is not None:
+            node = load_node(self.experimental_spectrum_uuid)
             self._plot_experimental_spectrum(
-                spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
+                spectrum_node=node, energy_unit=energy_unit
             )
 
     def _unhighlight_conformer(self):
@@ -624,7 +625,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
-            self.experimental_spectrum = None
+            self.experimental_spectrum_uuid = None
 
         self.disable_controls()
         self.clean_figure()
@@ -703,9 +704,10 @@ class SpectrumWidget(ipw.VBox):
         # TODO: For now let's just assume we have one
         # canonical experimental spectrum per compound.
         # for spectrum in qb.iterall():
-        self.experimental_spectrum = qb.first()[0]
+        experimental_spectrum_node = qb.first()[0]
+        self.experimental_spectrum_uuid = experimental_spectrum_node.uuid
         self._plot_experimental_spectrum(
-            spectrum_node=self.experimental_spectrum,
+            spectrum_node=experimental_spectrum_node,
             energy_unit=self.energy_unit_selector.value,
         )
 
