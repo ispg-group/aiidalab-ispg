@@ -678,8 +678,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                     link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
                 )
             ]
-            # TODO: Not sure if this reverse thing will always get the correct ordering
-            conformer_workchains.reverse()
             assert nconf == len(conformer_workchains)
             for node in conformer_workchains:
                 for link in node.base.links.get_outgoing(
