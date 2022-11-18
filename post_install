@@ -17,12 +17,13 @@ function create_orca_code() {
   code_name=orca
   verdi code show ${code_name}@${computer_name} 2>/dev/null || \
     echo "Creating code node ${code_name}@${computer_name}" && \
-    verdi code setup --non-interactive \
+    verdi code create core.code.installed --non-interactive \
+    --
     --label ${code_name} \
     --description "${code_name} code mounted via Docker volume." \
-    --input-plugin ${code_name}.${code_name} \
+    --default-calc-job-plugin ${code_name}.${code_name} \
     --computer ${computer_name} \
-    --remote-abs-path ${ORCA_PATH}/orca \
+    --filepath-executable ${ORCA_PATH}/orca \
     --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=/opt/conda/lib:\$LD_LIBRARY_PATH"
 }
 
