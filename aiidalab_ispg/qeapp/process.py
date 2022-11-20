@@ -4,7 +4,7 @@ from threading import Event, Lock, Thread
 
 import ipywidgets as ipw
 import traitlets
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node
 
 

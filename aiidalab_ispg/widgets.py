@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import ase
 from ase import Atoms
 
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node, Node, Data
 from aiida.plugins import DataFactory
 
