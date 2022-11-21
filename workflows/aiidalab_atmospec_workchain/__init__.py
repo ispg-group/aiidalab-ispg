@@ -16,7 +16,7 @@ SinglefileData = DataFactory("core.singlefile")
 Int = DataFactory("core.int")
 Float = DataFactory("core.float")
 Bool = DataFactory("core.bool")
-Code = DataFactory("core.code")
+Code = DataFactory("core.code.installed")
 List = DataFactory("core.list")
 Dict = DataFactory("core.dict")
 
