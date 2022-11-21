@@ -18,7 +18,6 @@ function create_orca_code() {
   verdi code show ${code_name}@${computer_name} 2>/dev/null || \
     echo "Creating code node ${code_name}@${computer_name}" && \
     verdi code create core.code.installed --non-interactive \
-    --
     --label ${code_name} \
     --description "${code_name} code mounted via Docker volume." \
     --default-calc-job-plugin ${code_name}.${code_name} \
