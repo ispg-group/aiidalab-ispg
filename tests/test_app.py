@@ -14,7 +14,7 @@ def test_notebook_service_available(notebook_service):
 def test_atmospec_app_init(selenium_driver):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
-    driver.get_screenshot_as_file("screenshots/atmospec-app.png")
+    driver.get_screenshot_as_file("~/screenshots/atmospec-app.png")
 
 
 def test_atmospec_generate_mol_from_smiles(selenium_driver):
@@ -30,11 +30,11 @@ def test_atmospec_generate_mol_from_smiles(selenium_driver):
 
     # Once the structure is generated, proceed to the next workflow step
     time.sleep(2)
-    driver.get_screenshot_as_file("screenshots/atmospec-mol-generated.png")
+    driver.get_screenshot_as_file("~/screenshots/atmospec-mol-generated.png")
 
     confirm_btn = driver.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
     confirm_btn.click()
-    driver.get_screenshot_as_file("screenshots/atmospec-mol-confirmed.png")
+    driver.get_screenshot_as_file("~/screenshots/atmospec-mol-confirmed.png")
 
     # Test that we have indeed proceeded to the next step
     driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
