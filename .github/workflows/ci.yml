@@ -16,7 +16,7 @@ jobs:
       matrix:
         tag: [latest]
         image: ["aiidalab/full-stack"]
-        python-version: [3.8]
+        python-version: [3.8, 3.10]
 
         # Chrome seems to fail fairly often with timeout errors coming from
         # the selenium.get_screenshot_as_file()
@@ -25,7 +25,7 @@ jobs:
         # ```
         # Googling around, this seems to be a common problem so disabling for now.
         # browser: [ chrome, firefox ]
-        browser: [Firefox]
+        browser: [Firefox, Chrome]
       fail-fast: false
 
     steps:
