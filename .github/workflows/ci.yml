@@ -16,7 +16,7 @@ jobs:
       matrix:
         tag: [latest]
         image: ["aiidalab/full-stack"]
-        python-version: [3.8, 3.10]
+        python-version: ["3.8", "3.10"]
 
         # Chrome seems to fail fairly often with timeout errors coming from
         # the selenium.get_screenshot_as_file()
@@ -75,3 +75,4 @@ jobs:
         with:
           name: Screenshots-${{ matrix.image }}-${{ matrix.tag }}-${{ matrix.browser }}
           path: '/home/runner/work/aiidalab-ispg/aiidalab-ispg/screenshots/'
+          if-no-files-found: error
