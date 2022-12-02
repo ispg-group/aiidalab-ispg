@@ -2,7 +2,7 @@ import requests
 import time
 
 # https://selenium-python.readthedocs.io/locating-elements.html
-from driver.webdriver.common.by import By
+from selenium.webdriver.common.by import By
 
 
 def test_notebook_service_available(notebook_service):
