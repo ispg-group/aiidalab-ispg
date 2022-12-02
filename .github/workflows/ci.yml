@@ -44,7 +44,7 @@ jobs:
               **/requirements*.txt
 
       - name: Install dependencies for tests
-        run: pip install -U -r requirements_test.txt
+        run: pip install -U -r requirements-test.txt
 
       # The Firefox and its engine geckodrive need do be installed manually to run
       # selenium tests.
