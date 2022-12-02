@@ -64,7 +64,7 @@ jobs:
             tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
-        run: pytest --driver ${{ matrix.browser }}
+        run: pytest -v -s --driver ${{ matrix.browser }}
         env:
             TAG: ${{ matrix.tag }}
             IMAGE: ${{ matrix.image }}
