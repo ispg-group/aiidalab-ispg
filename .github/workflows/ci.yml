@@ -1,4 +1,4 @@
-# Run basic tests for this app on the latest aiidalab-docker image.
+# Run basic tests for this app on the latest aiidalab/full-stack docker image.
 
 name: continuous-integration
 
@@ -10,13 +10,14 @@ jobs:
   test-app:
 
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     strategy:
       matrix:
-        # For now, we're only targeting latest aiidalab image.
-        # tag: [ stable, latest ]
         tag: [latest]
+        image: ["aiidalab/full-stack"]
+        python-version: [3.8]
+
         # Chrome seems to fail fairly often with timeout errors coming from
         # the selenium.get_screenshot_as_file()
         # ```
@@ -24,23 +25,50 @@ jobs:
         # ```
         # Googling around, this seems to be a common problem so disabling for now.
         # browser: [ chrome, firefox ]
-        browser: [firefox]
+        browser: [Firefox]
       fail-fast: false
 
     steps:
 
       - name: Check out app
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
-      - name: Test app
-        uses: aiidalab/aiidalab-test-app-action@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
         with:
-          image: aiidalab/aiidalab-docker-stack:${{ matrix.tag }}
-          browser: ${{ matrix.browser }}
-          name: aiidalab-ispg
+            python-version: ${{ matrix.python-version }}
+            cache: pip
+            cache-dependency-path: |
+              **/setup.cfg
+              **/pyproject.toml
+              **/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install .[test]
+
+      # The Firefox and its engine geckodrive need do be installed manually to run
+      # selenium tests.
+      - name: Install Firefox
+        if: matrix.browser == 'Firefox'
+        uses: browser-actions/setup-firefox@latest
+        with:
+            firefox-version: ${{ matrix.firefox }}
+
+      - name: Install geckodriver
+        if: matrix.browser == 'Firefox'
+        run: |
+            wget -c https://github.com/mozilla/geckodriver/releases/download/v0.30.0/geckodriver-v0.30.0-linux64.tar.gz
+            tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
+
+      - name: Run pytest
+        run: pytest --driver ${{ matrix.browser }}
+        env:
+            TAG: ${{ matrix.tag }}
+            IMAGE: ${{ matrix.image }}
 
       - name: Upload screenshots as artifacts
-        uses: actions/upload-artifact@v2
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
-          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+          name: Screenshots-${{ matrix.image }}-${{ matrix.tag }}-${{ matrix.browser }}
           path: 'screenshots/'
