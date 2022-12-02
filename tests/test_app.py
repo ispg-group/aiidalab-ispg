@@ -14,12 +14,17 @@ def test_notebook_service_available(notebook_service):
 def test_atmospec_app_init(selenium_driver):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
-    driver.get_screenshot_as_file("~/screenshots/atmospec-app.png")
+    driver.get_screenshot_as_file(
+        "/home/runner/work/aiidalab-ispg/aiidalab-ispg/screenshots/atmospec-app.png"
+    )
 
 
 def test_atmospec_generate_mol_from_smiles(selenium_driver):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
+    driver.get_screenshot_as_file(
+        "/home/runner/work/aiidalab-ispg/aiidalab-ispg/screenshots/atmospec-app2.png"
+    )
     return
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
     smiles_textarea.send_keys("C")
