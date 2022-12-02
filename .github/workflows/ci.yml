@@ -43,8 +43,8 @@ jobs:
               **/pyproject.toml
               **/requirements*.txt
 
-      - name: Install dependencies
-        run: pip install .[test]
+      - name: Install dependencies for tests
+        run: pip install -U -r requirements_test.txt
 
       # The Firefox and its engine geckodrive need do be installed manually to run
       # selenium tests.
