@@ -20,19 +20,20 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
+    time.sleep(15)
     driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-app.png")
 
 
 def test_spectrum_app_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
+    time.sleep(15)
     driver.get_screenshot_as_file(f"{screenshot_dir}/spectrum-widget.png")
 
 
 def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(1920, 1450)
-    time.sleep(30)
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
 
     smiles_textarea.send_keys("C")
