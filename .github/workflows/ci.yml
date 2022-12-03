@@ -16,7 +16,6 @@ jobs:
       matrix:
         tag: [latest]
         image: ["aiidalab/full-stack"]
-        python-version: ["3.8", "3.10"]
         browser: [Firefox, Chrome]
       fail-fast: false
 
@@ -25,10 +24,10 @@ jobs:
       - name: Check out app
         uses: actions/checkout@v3
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
-            python-version: ${{ matrix.python-version }}
+            python-version: "3.10"
             cache: pip
             cache-dependency-path: |
               **/setup.cfg
@@ -56,7 +55,7 @@ jobs:
             tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
-        run: mkdir ../repo-copy && cp -r * ../repo-copy && pytest -v -s --driver ${{ matrix.browser }}
+        run: pytest -v -s --driver ${{ matrix.browser }}
         env:
             TAG: ${{ matrix.tag }}
             IMAGE: ${{ matrix.image }}
@@ -65,6 +64,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}-${{ matrix.python-version }}
+          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
           path: '~/screenshots/'
           if-no-files-found: error
