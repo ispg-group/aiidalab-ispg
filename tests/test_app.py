@@ -22,6 +22,7 @@ def test_conformer_generation_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
 
+    # Generate methane molecule
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
     smiles_textarea.send_keys("C")
 
@@ -29,8 +30,17 @@ def test_conformer_generation_steps(selenium_driver, screenshot_dir):
         By.XPATH, "//button[contains(.,'Generate molecule')]"
     )
     generate_mol_button.click()
+    time.sleep(5)
+    driver.get_screenshot_as_file(
+        f"{screenshot_dir}/conformer-generation-generated.png"
+    )
+
+    # click `Download` tab in StructureDataViewer
+    driver.find_element(By.XPATH, "//*[text()='Download']").click()
     time.sleep(2)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-steps.png")
+    driver.get_screenshot_as_file(
+        f"{screenshot_dir}/conformer-generation-download-tab.png"
+    )
 
 
 def test_spectrum_app_init(selenium_driver, screenshot_dir):
@@ -49,7 +59,7 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
 
 def test_atmospec_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
-    driver.set_window_size(1920, 1450)
+    driver.set_window_size(1920, 1650)
 
     # For some reason this test is stuck on the loading page
     time.sleep(10)
