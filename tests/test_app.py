@@ -1,7 +1,7 @@
 import requests
 import time
 
-from os import listdir, getcwd
+from os import listdir, getcwd, mkdir
 
 # https://selenium-python.readthedocs.io/locating-elements.html
 from selenium.webdriver.common.by import By
@@ -36,7 +36,9 @@ def test_spectrum_app_init(selenium_driver):
 def test_atmospec_generate_mol_from_smiles(selenium_driver):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
+    mkdir(SCREENSHOT_DIR)
     driver.get_screenshot_as_file("atmospec-app2.png")
+    driver.get_screenshot_as_file(f"{SCREENSHOT_DIR}/atmospec-app2.png")
     print(getcwd())
     print(listdir("."))
     print(f"{SCREENSHOT_DIR}")
