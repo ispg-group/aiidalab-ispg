@@ -16,3 +16,6 @@ services:
             - aiidalab_ispg_pytest:/home/jovyan/apps/aiidalab-ispg
         ports:
             - 8998:8888
+
+volumes:
+    aiidalab_ispg_pytest:
