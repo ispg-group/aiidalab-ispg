@@ -32,7 +32,7 @@ def test_spectrum_app_init(selenium_driver, screenshot_dir):
 def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(1920, 1450)
-    time.sleep(10)
+    time.sleep(60)
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
 
     smiles_textarea.send_keys("C")

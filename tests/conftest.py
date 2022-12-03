@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from urllib.parse import urljoin
 
 import pytest
@@ -69,8 +70,9 @@ def selenium_driver(selenium, notebook_service):
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    os.mkdir(SCREENSHOT_DIR)
-    return SCREENSHOT_DIR
+    sdir = Path.joinpath(Path.home(), "screenshots")
+    os.mkdir(sdir)
+    return sdir
 
 
 @pytest.fixture
