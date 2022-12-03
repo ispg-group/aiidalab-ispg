@@ -31,7 +31,7 @@ jobs:
     steps:
 
       - name: Check out app
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
@@ -74,5 +74,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Screenshots-${{ matrix.image }}-${{ matrix.tag }}-${{ matrix.browser }}
-          path: '/home/runner/work/aiidalab-ispg/aiidalab-ispg/screenshots/'
+          path: '/home/runner/work/aiidalab-ispg/screenshots/'
           if-no-files-found: error
