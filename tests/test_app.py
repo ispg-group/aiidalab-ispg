@@ -14,7 +14,7 @@ def test_notebook_service_available(notebook_service):
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
-    driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+    driver.find_element(By.XPATH, "//button[contains(.,'Generate molecule')]")
     driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-init.png")
 
 
@@ -35,11 +35,17 @@ def test_conformer_generation_steps(selenium_driver, screenshot_dir):
         f"{screenshot_dir}/conformer-generation-generated.png"
     )
 
-    # click `Download` tab in StructureDataViewer
+    # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
-    time.sleep(2)
+    download_btn = driver.find_element(By.XPATH, "//button[contains(.,'Download')]")
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/conformer-generation-download-tab.png"
+    )
+    # Click the Download button to download molecule
+    download_btn.click()
+    time.sleep(5)
+    driver.get_screenshot_as_file(
+        f"{screenshot_dir}/conformer-generation-download-dialog.png"
     )
 
 
@@ -59,7 +65,7 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
 
 def test_atmospec_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
-    driver.set_window_size(1920, 1650)
+    driver.set_window_size(1920, 2050)
 
     # For some reason this test is stuck on the loading page
     time.sleep(10)
