@@ -6,6 +6,8 @@ import requests
 from requests.exceptions import ConnectionError
 from selenium.webdriver.common.by import By
 
+SCREENSHOT_DIR = "/home/runner/work/aiidalab-ispg/screenshots"
+
 
 def is_responsive(url):
     try:
@@ -63,6 +65,12 @@ def selenium_driver(selenium, notebook_service):
         return selenium
 
     return _selenium_driver
+
+
+@pytest.fixture(scope="session")
+def screenshot_dir():
+    os.mkdir(SCREENSHOT_DIR)
+    return SCREENSHOT_DIR
 
 
 @pytest.fixture
