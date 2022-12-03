@@ -11,27 +11,42 @@ def test_notebook_service_available(notebook_service):
     assert response.status_code == 200
 
 
+def test_conformer_generation_init(selenium_driver, screenshot_dir):
+    driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
+    driver.set_window_size(1920, 1450)
+    driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+    driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-init.png")
+
+
+def test_conformer_generation_steps(selenium_driver, screenshot_dir):
+    driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
+    driver.set_window_size(1920, 1450)
+
+    smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+    smiles_textarea.send_keys("C")
+
+    generate_mol_button = driver.find_element(
+        By.XPATH, "//button[contains(.,'Generate molecule')]"
+    )
+    generate_mol_button.click()
+    time.sleep(2)
+    driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-steps.png")
+
+
+def test_spectrum_app_init(selenium_driver, screenshot_dir):
+    driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
+    driver.set_window_size(1920, 1450)
+    driver.find_element(By.XPATH, "//button[contains(.,'Download spectrum')]")
+    driver.get_screenshot_as_file(f"{screenshot_dir}/spectrum-widget.png")
+
+
 def test_atmospec_app_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app.png")
 
 
-def test_conformer_generation_init(selenium_driver, screenshot_dir):
-    driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
-    driver.set_window_size(1920, 1450)
-    time.sleep(15)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-app.png")
-
-
-def test_spectrum_app_init(selenium_driver, screenshot_dir):
-    driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
-    driver.set_window_size(1920, 1450)
-    time.sleep(15)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/spectrum-widget.png")
-
-
-def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
+def test_atmospec_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(1920, 1450)
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
