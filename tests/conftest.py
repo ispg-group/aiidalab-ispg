@@ -7,8 +7,6 @@ import requests
 from requests.exceptions import ConnectionError
 from selenium.webdriver.common.by import By
 
-SCREENSHOT_DIR = "/home/runner/work/aiidalab-ispg/screenshots"
-
 
 def is_responsive(url):
     try:
@@ -26,12 +24,11 @@ def notebook_service(docker_ip, docker_services):
     docker_compose = docker_services._docker_compose
 
     # assurance for host user UID other that 1000
+    # WARNING: This will render the repo directory
+    # inaccessible outside of the docker container!
+    # Also you'll mess up you're git if you run the tests locally!
     chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-ispg'"
     docker_compose.execute(chown_command)
-
-    # install_command = "bash -c 'pip install -U .'"
-    # command = f"exec --workdir /home/jovyan/apps/aiidalab-ispg/workflows -T aiidalab {install_command}"
-    # docker_compose.execute(command)
 
     install_command = "bash -c 'pip install -U .'"
     command = (

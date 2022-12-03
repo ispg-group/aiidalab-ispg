@@ -32,7 +32,7 @@ def test_spectrum_app_init(selenium_driver, screenshot_dir):
 def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(1920, 1450)
-    time.sleep(60)
+    time.sleep(30)
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
 
     smiles_textarea.send_keys("C")
@@ -43,11 +43,11 @@ def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
 
     # Once the structure is generated, proceed to the next workflow step
     time.sleep(2)
-    driver.get_screenshot_as_file("~/screenshots/atmospec-mol-generated.png")
+    driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
 
     confirm_btn = driver.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
     confirm_btn.click()
-    driver.get_screenshot_as_file("~/screenshots/atmospec-mol-confirmed.png")
+    driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-confirmed.png")
 
     # Test that we have indeed proceeded to the next step
     driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
