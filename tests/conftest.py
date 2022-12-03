@@ -23,6 +23,9 @@ def notebook_service(docker_ip, docker_services):
 
     docker_compose = docker_services._docker_compose
 
+    command = "cp . aiidalab:/home/jovyan/apps/aiidalab-ispg/"
+    docker_compose.execute(command)
+
     install_command = "bash -c 'pip install -U .'"
     command = (
         f"exec --workdir /home/jovyan/apps/aiidalab-ispg -T aiidalab {install_command}"
