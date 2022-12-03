@@ -1,8 +1,6 @@
 import requests
 import time
 
-from os import listdir, getcwd
-
 # https://selenium-python.readthedocs.io/locating-elements.html
 from selenium.webdriver.common.by import By
 
@@ -32,15 +30,11 @@ def test_spectrum_app_init(selenium_driver, screenshot_dir):
 
 
 def test_atmospec_generate_mol_from_smiles(selenium_driver, screenshot_dir):
-    driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
+    driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(1920, 1450)
-    driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app2.png")
-    print(getcwd())
-    print(listdir("."))
-    print(f"{screenshot_dir}")
-    print(listdir(screenshot_dir))
-    return
+    time.sleep(10)
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+
     smiles_textarea.send_keys("C")
     generate_mol_button = driver.find_element(
         By.XPATH, "//button[contains(.,'Generate molecule')]"

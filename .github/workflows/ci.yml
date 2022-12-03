@@ -73,6 +73,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}-${{ matrix.python-version }}
           path: '/home/runner/work/aiidalab-ispg/screenshots/'
           if-no-files-found: error
