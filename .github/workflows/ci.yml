@@ -17,14 +17,6 @@ jobs:
         tag: [latest]
         image: ["aiidalab/full-stack"]
         python-version: ["3.8", "3.10"]
-
-        # Chrome seems to fail fairly often with timeout errors coming from
-        # the selenium.get_screenshot_as_file()
-        # ```
-        # WARNING: Failed to gather screenshot: Message: timeout: Timed out receiving message from renderer: 10.000
-        # ```
-        # Googling around, this seems to be a common problem so disabling for now.
-        # browser: [ chrome, firefox ]
         browser: [Firefox, Chrome]
       fail-fast: false
 
