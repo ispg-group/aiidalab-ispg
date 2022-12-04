@@ -18,6 +18,15 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
+def docker_exec(docker_services, notebook_service):
+    def _docker_exec(command, user="jovyan"):
+        compose = "exec -T -u {user} aiidalab bash -c '{command}'"
+        docker_services._docker_compose.execute(compose)
+
+    return _docker_exec
+
+
+@pytest.fixture(scope="session")
 def notebook_service(docker_ip, docker_services):
     """Ensure that HTTP service is up and responsive."""
 
@@ -30,7 +39,8 @@ def notebook_service(docker_ip, docker_services):
     chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-ispg'"
     docker_compose.execute(chown_command)
 
-    install_command = "bash -c 'pip install -U .'"
+    # Install dependencies via pip
+    install_command = "bash -c 'pip install .'"
     command = (
         f"exec --workdir /home/jovyan/apps/aiidalab-ispg -T aiidalab {install_command}"
     )

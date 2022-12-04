@@ -11,6 +11,10 @@ def test_notebook_service_available(notebook_service):
     assert response.status_code == 200
 
 
+def test_dependencies(notebook_service, docker_exec):
+    docker_exec("pip check")
+
+
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(1920, 1450)
