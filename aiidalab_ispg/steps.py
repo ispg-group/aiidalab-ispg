@@ -551,9 +551,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
-        print(DEFAULT_PARAMETERS)
-        print(params["orca_code"])
-
         orca_code = params["orca_code"]
         if orca_code is None:
             return params
