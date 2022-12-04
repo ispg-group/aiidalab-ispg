@@ -82,11 +82,11 @@ jobs:
           tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
-        run: pytest -v -s --driver ${{ matrix.browser }}
+        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR
         env:
           TAG: ${{ matrix.tag }}
           IMAGE: ${{ matrix.image }}
-          STEPWISE_CACHE_DIR: "${{ github.workspace }}/../.pytest_cache"
+          PYTEST_CACHE_DIR: "${{ github.workspace }}/../.pytest_cache"
 
       - name: Upload screenshots as artifacts
         if: always()
