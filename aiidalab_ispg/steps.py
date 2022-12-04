@@ -551,11 +551,12 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
+        print(DEFAULT_PARAMETERS)
+        print(params["orca_code"])
         try:
-            print(params["orca_code"])
             orca_code = load_code(label=params["orca_code"])
             params["orca_code"] = orca_code.uuid
-        except NotExistent:
+        except (NotExistent, ValueError):
             params["orca_code"] = None
         return params
 
