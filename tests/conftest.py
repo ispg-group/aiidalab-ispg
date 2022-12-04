@@ -22,7 +22,7 @@ def docker_exec(docker_services):
     def _docker_exec(command, user="jovyan"):
         container = "aiidalab"
         compose = (
-            f"exec -T -u {user} --workdir /home/jovyan/apps/aiidalab-ispg"
+            f"exec -T -u {user} --workdir /home/jovyan/apps/aiidalab-ispg "
             f"{container} bash -c '{command}'"
         )
         docker_services._docker_compose.execute(compose)
