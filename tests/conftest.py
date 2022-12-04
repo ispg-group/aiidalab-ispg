@@ -18,33 +18,31 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
-def docker_exec(docker_services, notebook_service):
+def docker_exec(docker_services):
     def _docker_exec(command, user="jovyan"):
-        compose = f"exec -T -u {user} aiidalab bash -c '{command}'"
+        container = "aiidalab"
+        compose = (
+            f"exec -T -u {user} --workdir /home/jovyan/apps/aiidalab-ispg"
+            f"{container} bash -c '{command}'"
+        )
         docker_services._docker_compose.execute(compose)
 
     return _docker_exec
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services):
+def notebook_service(docker_ip, docker_services, docker_exec):
     """Ensure that HTTP service is up and responsive."""
-
-    docker_compose = docker_services._docker_compose
 
     # assurance for host user UID other that 1000
     # WARNING: This will render the repo directory
     # inaccessible outside of the docker container!
     # Also you'll mess up you're git if you run the tests locally!
-    chown_command = "exec -T -u root aiidalab bash -c 'chown -R jovyan:users /home/jovyan/apps/aiidalab-ispg'"
-    docker_compose.execute(chown_command)
+    chown_command = "chown -R jovyan:users /home/jovyan/apps/aiidalab-ispg"
+    docker_exec(chown_command, user="root")
 
     # Install dependencies via pip
-    install_command = "bash -c 'pip install .'"
-    command = (
-        f"exec --workdir /home/jovyan/apps/aiidalab-ispg -T aiidalab {install_command}"
-    )
-    docker_compose.execute(command)
+    docker_exec("pip install .", user="root")
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
