@@ -553,12 +553,18 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         params = DEFAULT_PARAMETERS
         print(DEFAULT_PARAMETERS)
         print(params["orca_code"])
+
+        orca_code = params["orca_code"]
+        if orca_code is None:
+            return params
+
         try:
-            orca_code = load_code(label=params["orca_code"])
-            params["orca_code"] = orca_code.uuid
+            params["orca_code"] = load_code(orca_code).uuid
         except (NotExistent, ValueError):
+            print(f"WARNING: Code {orca_code} not found")
             params["orca_code"] = None
-        return params
+        finally:
+            return params
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
