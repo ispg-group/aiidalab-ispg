@@ -1,7 +1,7 @@
 # Default builder parameters for the OrcaWorkChain
 
 ## Codes
-orca_code: orca@localhost
+orca_code: orca@slurm
 
 ## Molecular parameters
 spin_mult: 1
