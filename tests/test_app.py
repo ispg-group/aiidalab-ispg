@@ -5,6 +5,11 @@ import time
 from selenium.webdriver.common.by import By
 
 
+@pytest.mark.tryfirst
+def test_post_install(notebook_service, docker_exec):
+    docker_exec("./post_install", user="jovyan")
+
+
 def test_notebook_service_available(notebook_service):
     url, token = notebook_service
     response = requests.get(f"{url}/?token={token}")
