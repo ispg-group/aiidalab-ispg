@@ -67,7 +67,7 @@ def selenium_driver(selenium, notebook_service):
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    sdir = Path.joinpath(Path.home(), "screenshots")
+    sdir = Path.joinpath(Path().absolute(), "..", "screenshots")
     os.mkdir(sdir)
     return sdir
 
