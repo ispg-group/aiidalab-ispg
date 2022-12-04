@@ -20,7 +20,7 @@ def is_responsive(url):
 @pytest.fixture(scope="session")
 def docker_exec(docker_services, notebook_service):
     def _docker_exec(command, user="jovyan"):
-        compose = "exec -T -u {user} aiidalab bash -c '{command}'"
+        compose = f"exec -T -u {user} aiidalab bash -c '{command}'"
         docker_services._docker_compose.execute(compose)
 
     return _docker_exec

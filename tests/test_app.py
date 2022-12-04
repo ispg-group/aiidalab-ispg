@@ -12,7 +12,7 @@ def test_notebook_service_available(notebook_service):
 
 
 def test_dependencies(notebook_service, docker_exec):
-    docker_exec("pip check")
+    docker_exec("pip check", user="jovyan")
 
 
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
@@ -63,7 +63,7 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
 
 def test_atmospec_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
-    driver.set_window_size(1920, 2050)
+    driver.set_window_size(1920, 1450)
 
     # For some reason this test is stuck on the loading page
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
