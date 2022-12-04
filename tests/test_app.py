@@ -1,6 +1,7 @@
 import requests
 import time
 
+import pytest
 # https://selenium-python.readthedocs.io/locating-elements.html
 from selenium.webdriver.common.by import By
 

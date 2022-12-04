@@ -70,13 +70,13 @@ jobs:
       # The Firefox and its engine geckodrive need do be installed manually to run
       # selenium tests.
       - name: Install Firefox
-        if: matrix.browser == "Firefox"
+        if: matrix.browser == 'Firefox'
         uses: browser-actions/setup-firefox@latest
         with:
           firefox-version: latest
 
       - name: Install geckodriver
-        if: matrix.browser == "Firefox"
+        if: matrix.browser == 'Firefox'
         run: |
           wget -c https://github.com/mozilla/geckodriver/releases/download/v0.30.0/geckodriver-v0.30.0-linux64.tar.gz
           tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
@@ -93,5 +93,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
-          path: "~/screenshots/"
+          path: '~/screenshots/'
           if-no-files-found: error
