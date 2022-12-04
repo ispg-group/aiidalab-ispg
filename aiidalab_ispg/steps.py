@@ -461,7 +461,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder = AtmospecWorkChain.get_builder()
 
-        builder.code = load_code(self.codes_selector.orca.value)
+        builder.code = load_code(label=self.codes_selector.orca.value)
         builder.structure = self.input_structure
 
         base_orca_parameters = self.build_base_orca_params(bp)
@@ -552,7 +552,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
         try:
-            orca_code = load_code(params["orca_code"])
+            print(params["orca_code"])
+            orca_code = load_code(label=params["orca_code"])
             params["orca_code"] = orca_code.uuid
         except NotExistent:
             params["orca_code"] = None

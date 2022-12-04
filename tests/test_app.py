@@ -37,15 +37,9 @@ def test_conformer_generation_steps(selenium_driver, screenshot_dir):
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
-    download_btn = driver.find_element(By.XPATH, "//button[contains(.,'Download')]")
+    driver.find_element(By.XPATH, "//button[contains(.,'Download')]").click()
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/conformer-generation-download-tab.png"
-    )
-    # Click the Download button to download molecule
-    download_btn.click()
-    time.sleep(5)
-    driver.get_screenshot_as_file(
-        f"{screenshot_dir}/conformer-generation-download-dialog.png"
     )
 
 
