@@ -38,11 +38,14 @@ jobs:
 
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      packages: read
+      contents: read
 
     strategy:
       matrix:
         tag: [latest]
-        image: ["aiidalab/full-stack"]
+        image: ["aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
       fail-fast: false
 
