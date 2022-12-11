@@ -170,7 +170,7 @@ class CodeSettings(ipw.VBox):
     def __init__(self, **kwargs):
 
         self.orca = ComputationalResourcesWidget(
-            input_plugin="orca.orca",
+            default_calc_job_plugin="orca.orca",
             description="Main ORCA program",
         )
         super().__init__(
