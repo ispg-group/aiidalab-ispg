@@ -48,6 +48,9 @@ jobs:
         image: ["aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
       fail-fast: false
+      env:
+        IMAGE: ${{ matrix.image }}
+        TAG: ${{ matrix.tag }}
 
     steps:
 
@@ -93,12 +96,9 @@ jobs:
 
       - name: Run pytest
         run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR
-        env:
-          TAG: ${{ matrix.tag }}
-          IMAGE: ${{ matrix.image }}
 
       - name: Replace slashes in image name
-        run: echo "IMAGE_NAME=${${{matrix.image}}//\//-}" >> $GITHUB_ENV
+        run: echo "IMAGE_NAME=${IMAGE//\//-}" >> $GITHUB_ENV
 
       - name: Upload screenshots as artifacts
         if: always()
