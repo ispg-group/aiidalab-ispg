@@ -10,8 +10,8 @@ WINDOW_HEIGHT = 1250
 
 
 @pytest.mark.tryfirst
-def test_post_install(notebook_service, docker_exec):
-    docker_exec("./post_install", user="jovyan")
+def test_post_install(notebook_service, aiidalab_exec, nb_user, appdir):
+    aiidalab_exec("./post_install", workdir=appdir, user=nb_user)
 
 
 def test_notebook_service_available(notebook_service):
@@ -20,8 +20,8 @@ def test_notebook_service_available(notebook_service):
     assert response.status_code == 200
 
 
-def test_dependencies(notebook_service, docker_exec):
-    docker_exec("pip check", user="jovyan")
+def test_dependencies(notebook_service, aiidalab_exec, nb_user):
+    aiidalab_exec("pip check", user=nb_user)
 
 
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
@@ -31,12 +31,14 @@ def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-init.png")
 
 
-def test_conformer_generation_steps(selenium_driver, screenshot_dir, generate_mol):
+def test_conformer_generation_steps(
+    selenium_driver, screenshot_dir, generate_mol_from_smiles
+):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
-    generate_mol(driver, "C")
+    generate_mol_from_smiles(driver, "C")
 
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
@@ -72,12 +74,12 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app.png")
 
 
-def test_atmospec_steps(selenium_driver, screenshot_dir, generate_mol):
+def test_atmospec_steps(selenium_driver, screenshot_dir, generate_mol_from_smiles):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
-    generate_mol(driver, "C")
+    generate_mol_from_smiles(driver, "C")
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
 
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()

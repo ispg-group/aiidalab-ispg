@@ -19,31 +19,45 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
-def docker_exec(docker_services):
-    def _docker_exec(command, user="jovyan"):
-        container = "aiidalab"
-        compose = (
-            f"exec -T -u {user} --workdir /home/jovyan/apps/aiidalab-ispg "
-            f"{container} bash -c '{command}'"
-        )
-        docker_services._docker_compose.execute(compose)
-
-    return _docker_exec
+def docker_compose(docker_services):
+    return docker_services._docker_compose
 
 
 @pytest.fixture(scope="session")
-def notebook_service(docker_ip, docker_services, docker_exec):
+def aiidalab_exec(docker_compose):
+    def _execute(command, user=None, workdir=None, **kwargs):
+        opts = "-T"
+        if user:
+            opts = f"{opts} --user={user}"
+        if workdir:
+            opts = f"{opts} --workdir={workdir}"
+        command = f"exec {opts} aiidalab {command}"
+
+        return docker_compose.execute(command, **kwargs)
+
+    return _execute
+
+
+@pytest.fixture(scope="session")
+def nb_user(aiidalab_exec):
+    return aiidalab_exec("bash -c 'echo \"${NB_USER}\"'").decode().strip()
+
+
+@pytest.fixture(scope="session")
+def appdir(nb_user):
+    return f"/home/{nb_user}/apps/aiidalab-ispg"
+
+
+@pytest.fixture(scope="session")
+def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir):
     """Ensure that HTTP service is up and responsive."""
 
-    # assurance for host user UID other that 1000
-    # WARNING: This will render the repo directory
-    # inaccessible outside of the docker container!
-    # Also you'll mess up you're git if you run the tests locally!
-    chown_command = "chown -R jovyan:users /home/jovyan/apps/aiidalab-ispg"
-    docker_exec(chown_command, user="root")
+    # Directory ~/apps/aiidalab-qe/ is mounted by docker,
+    # make it writeable for jovyan user, needed for `pip install`
+    aiidalab_exec(f"chmod -R a+rw {appdir}", user="root")
 
     # Install dependencies via pip
-    docker_exec("pip install .", user="root")
+    aiidalab_exec("pip install .", workdir=appdir, user=nb_user)
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -75,20 +89,22 @@ def selenium_driver(selenium, notebook_service):
 
 
 @pytest.fixture
-def generate_mol():
-    # Generate molecule from smiles
-    def _generate(driver, smiles):
+def generate_mol_from_smiles():
+    def _generate_mol(driver, smiles):
         driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys(smiles)
         driver.find_element(By.XPATH, "//button[text()='Generate molecule']").click()
         time.sleep(3)
 
-    return _generate
+    return _generate_mol
 
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    sdir = Path.joinpath(Path.home(), "screenshots")
-    os.mkdir(sdir)
+    sdir = Path.joinpath(Path.cwd(), "screenshots")
+    try:
+        os.mkdir(sdir)
+    except FileExistsError:
+        pass
     return sdir
 
 
