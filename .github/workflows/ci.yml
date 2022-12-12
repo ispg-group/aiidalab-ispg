@@ -72,7 +72,7 @@ jobs:
               **/requirements*.txt
 
       - name: Install dependencies for tests
-        run: pip install -U -r requirements-test.txt
+        run: pip install -r requirements-test.txt
 
       - name: Set jupyter token env
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -96,12 +96,14 @@ jobs:
         env:
           TAG: ${{ matrix.tag }}
           IMAGE: ${{ matrix.image }}
-          PYTEST_CACHE_DIR: "${{ github.workspace }}/../.pytest_cache"
+
+      - name: Replace slashes in image name
+        run: echo "IMAGE_NAME=${${{matrix.image}}//\//-}" >> $GITHUB_ENV
 
       - name: Upload screenshots as artifacts
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: Screenshots-${{ matrix.tag }}-${{ matrix.browser }}
+          name: Screenshots-${{env.IMAGE_NAME}}-${{ matrix.tag }}-${{ matrix.browser }}
           path: screenshots/
           if-no-files-found: error
