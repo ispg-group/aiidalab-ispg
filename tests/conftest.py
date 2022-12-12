@@ -73,6 +73,22 @@ def selenium_driver(selenium, notebook_service):
     return _selenium_driver
 
 
+@pytest.fixture
+def generate_mol()
+    # Generate molecule from smiles
+    def _generate(driver, smiles):
+        driver.find_element(
+            By.XPATH,
+            "//input[@placeholder='C=C']"
+        ).send_keys(smiles)
+        driver.find_element(
+            By.XPATH, "//button[text()='Generate molecule']"
+        ).click()
+        time.sleep(3)
+
+    return _generate
+
+
 @pytest.fixture(scope="session")
 def screenshot_dir():
     sdir = Path.joinpath(Path.home(), "screenshots")

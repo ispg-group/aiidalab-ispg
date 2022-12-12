@@ -30,26 +30,32 @@ def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-init.png")
 
 
-def test_conformer_generation_steps(selenium_driver, screenshot_dir):
+def test_conformer_generation_steps(
+        selenium_driver, 
+        screenshot_dir,
+        generate_mol
+    ):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
-    smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
-    smiles_textarea.send_keys("C")
+    generate_mol(driver, "C")
 
-    generate_mol_button = driver.find_element(
-        By.XPATH, "//button[contains(.,'Generate molecule')]"
-    )
-    generate_mol_button.click()
-    time.sleep(5)
+    # Select the first atom
+    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    driver.find_element(
+        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+    ).send_keys("1")
+    driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
+
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/conformer-generation-generated.png"
     )
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
-    driver.find_element(By.XPATH, "//button[contains(.,'Download')]").click()
+    driver.find_element(By.XPATH, "//button[text()='Download']").click()
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/conformer-generation-download-tab.png"
     )
@@ -58,14 +64,14 @@ def test_conformer_generation_steps(selenium_driver, screenshot_dir):
 def test_spectrum_app_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    driver.find_element(By.XPATH, "//button[contains(.,'Download spectrum')]")
+    driver.find_element(By.XPATH, "//button[text()='Download spectrum']")
     driver.get_screenshot_as_file(f"{screenshot_dir}/spectrum-widget.png")
 
 
 def test_atmospec_app_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    driver.find_element(By.XPATH, "//button[contains(.,'Refresh')]")
+    driver.find_element(By.XPATH, "//button[text()='Refresh']")
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app.png")
 
 
@@ -73,12 +79,11 @@ def test_atmospec_steps(selenium_driver, screenshot_dir):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
-    # For some reason this test is stuck on the loading page
     smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
 
     smiles_textarea.send_keys("C")
     generate_mol_button = driver.find_element(
-        By.XPATH, "//button[contains(.,'Generate molecule')]"
+        By.XPATH, "//button[text()='Generate molecule']"
     )
     generate_mol_button.click()
 
@@ -86,9 +91,9 @@ def test_atmospec_steps(selenium_driver, screenshot_dir):
     time.sleep(5)
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
 
-    confirm_btn = driver.find_element(By.XPATH, "//button[contains(.,'Confirm')]")
+    confirm_btn = driver.find_element(By.XPATH, "//button[text()='Confirm']")
     confirm_btn.click()
     # Test that we have indeed proceeded to the next step
-    driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
+    driver.find_element(By.XPATH, "//span[text()='✓ Step 1']")
 
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-confirmed.png")
