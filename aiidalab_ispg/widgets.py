@@ -17,7 +17,7 @@ from dataclasses import dataclass
 import ase
 from ase import Atoms
 
-from aiida.cmdline.utils.query.calculation import CalculationQueryBuilder
+from aiida.tools.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node, Node, Data
 from aiida.plugins import DataFactory
 
@@ -28,9 +28,9 @@ from aiidalab_widgets_base.viewers import StructureDataViewer
 import aiidalab_ispg.qeapp as qeapp
 from .utils import get_formula
 
-StructureData = DataFactory("structure")
-CifData = DataFactory("cif")
-TrajectoryData = DataFactory("array.trajectory")
+StructureData = DataFactory("core.structure")
+CifData = DataFactory("core.cif")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 __all__ = [
     "TrajectoryDataViewer",
@@ -127,7 +127,7 @@ class WorkChainSelector(qeapp.WorkChainSelector):
                 self.set_trait("busy", False)  # reenable the widget
 
 
-@register_viewer_widget("data.array.trajectory.TrajectoryData.")
+@register_viewer_widget("data.core.array.trajectory.TrajectoryData.")
 class TrajectoryDataViewer(StructureDataViewer):
 
     # TODO: Do not subclass StructureDataViewer, but have it as a component
@@ -214,14 +214,14 @@ class TrajectoryDataViewer(StructureDataViewer):
 
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
-                energy_units = trajectory.get_extra("energy_units", "")
+                energy_units = trajectory.base.extras.get("energy_units", "")
                 self._energy_label.description = f"Energy ({energy_units}) ="
                 self._energy_label.value = f"{self._energies[0]:.3f}"
                 self._energy_label.layout.visibility = "visible"
 
             if "boltzmann_weights" in trajectory.get_arraynames():
                 self._boltzmann_weights = trajectory.get_array("boltzmann_weights")
-                temperature = trajectory.get_extra("temperature", "")
+                temperature = trajectory.base.extras.get("temperature", "")
                 percentage = 100 * self._boltzmann_weights[0]
                 self._boltzmann_weight_label.description = (
                     f"Boltzmann pop. ({int(temperature)}K) ="
@@ -441,9 +441,9 @@ class QMSelectionWidget(ipw.HBox):
 # the trajectory viewer is merged to AWB
 class TrajectoryManagerWidget(StructureManagerWidget):
     SUPPORTED_DATA_FORMATS = {
-        "CifData": "cif",
-        "StructureData": "structure",
-        "TrajectoryData": "array.trajectory",
+        "CifData": "core.cif",
+        "StructureData": "core.structure",
+        "TrajectoryData": "core.array.trajectory",
     }
 
     def __init__(
@@ -539,7 +539,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
             # If the Atoms object was created by SmilesWidget,
             # attach its SMILES code as an extra.
             if "smiles" in structure.info:
-                structure_node.set_extra("smiles", structure.info["smiles"])
+                structure_node.base.extras.set("smiles", structure.info["smiles"])
             return structure_node
 
         # If the input_structure trait is set to AiiDA node, check what type

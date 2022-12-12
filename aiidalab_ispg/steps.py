@@ -16,7 +16,7 @@ import traitlets
 from traitlets import Union, Instance
 from aiida.common import MissingEntryPointError, NotExistent, LinkType
 from aiida.engine import ProcessState, submit
-from aiida.orm import ProcessNode, load_code
+from aiida.orm import load_node, load_code
 
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory, WorkflowFactory
@@ -50,10 +50,10 @@ except MissingEntryPointError:
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
-Dict = DataFactory("dict")
-Bool = DataFactory("bool")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
+Dict = DataFactory("core.dict")
+Bool = DataFactory("core.bool")
 
 # TODO: Make this configurable
 # Safe default for 8 core, 32Gb machine
@@ -170,7 +170,7 @@ class CodeSettings(ipw.VBox):
     def __init__(self, **kwargs):
 
         self.orca = ComputationalResourcesWidget(
-            input_plugin="orca.orca",
+            default_calc_job_plugin="orca.orca",
             description="Main ORCA program",
         )
         super().__init__(
@@ -315,7 +315,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
             # so commenting out?
             # if process_node is not None:
             # self.input_structure = process_node.inputs.structure
-            # builder_parameters = process_node.get_extra("builder_parameters", None)
+            # builder_parameters = process_node.base.extras.get("builder_parameters", None)
             # if builder_parameters is not None:
             #    self.set_trait("builder_parameters", builder_parameters)
             self._update_state()
@@ -343,12 +343,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @staticmethod
     def _serialize_builder_parameters(parameters):
         parameters = parameters.copy()  # create copy to not modify original dict
-
-        # Codes
-        def _get_uuid(code):
-            return None if code is None else str(code.uuid)
-
-        parameters["orca_code"] = _get_uuid(parameters["orca_code"])
         # Serialize Enum
         parameters["excited_method"] = parameters["excited_method"].value
         return parameters
@@ -356,17 +350,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @staticmethod
     def _deserialize_builder_parameters(parameters):
         parameters = parameters.copy()  # create copy to not modify original dict
-
-        # Codes
-        def _load_code(code):
-            if code is not None:
-                try:
-                    return load_code(code)
-                except NotExistent as error:
-                    print("error", error)
-                    return None
-
-        parameters["orca_code"] = _load_code(parameters["orca_code"])
         parameters["excited_method"] = ExcitedStateMethod(parameters["excited_method"])
         return parameters
 
@@ -478,8 +461,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         builder = AtmospecWorkChain.get_builder()
 
-        orca_code = self.codes_selector.orca.value
-        builder.code = orca_code
+        builder.code = load_code(self.codes_selector.orca.value)
         builder.structure = self.input_structure
 
         base_orca_parameters = self.build_base_orca_params(bp)
@@ -509,8 +491,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         else:
             raise ValueError(f"Excited method {bp['excited_method']} not implemented")
 
-        builder.opt.orca.parameters = Dict(dict=gs_opt_parameters)
-        builder.exc.orca.parameters = Dict(dict=es_parameters)
+        builder.opt.orca.parameters = Dict(gs_opt_parameters)
+        builder.exc.orca.parameters = Dict(es_parameters)
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
@@ -556,7 +538,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         builder.wigner_low_freq_thr = self.qm_config.wigner_low_freq_thr.value
 
         process = submit(builder)
-        process.set_extra("builder_parameters", self.builder_parameters.copy())
+        process.base.extras.set("builder_parameters", self.builder_parameters.copy())
         # NOTE: It is important to set_extra builder_parameters before we update the traitlet
         self.process = process
 
@@ -569,16 +551,26 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
-        return params
+        orca_code = params["orca_code"]
+        if orca_code is None:
+            return params
+
+        try:
+            params["orca_code"] = load_code(orca_code).uuid
+        except (NotExistent, ValueError):
+            print(f"WARNING: Code {orca_code} not found")
+            params["orca_code"] = None
+        finally:
+            return params
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
         self.process_tree = ProcessNodesTreeWidget()
-        ipw.dlink((self, "process"), (self.process_tree, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_tree, "value"))
 
         self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
@@ -596,7 +588,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
                 self._update_state,
             ],
         )
-        ipw.dlink((self, "process"), (self.process_monitor, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
         super().__init__([self.process_status], **kwargs)
 
@@ -605,14 +597,15 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         return self.state is not self.State.ACTIVE
 
     def reset(self):
-        self.process = None
+        self.process_uuid = None
 
     def _update_state(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process_state = self.process.process_state
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
             ProcessState.RUNNING,
@@ -621,20 +614,20 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
             self.state = self.State.ACTIVE
         elif (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
-            or self.process.is_failed
+            or process.is_failed
         ):
             self.state = self.State.FAIL
-        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
-    @traitlets.observe("process")
+    @traitlets.observe("process_uuid")
     def _observe_process(self, change):
         self._update_state()
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
         # Setup process monitor
@@ -652,12 +645,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
-        ipw.dlink((self, "process"), (self.process_monitor, "process"))
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
-        self.process = None
+        self.process_uuid = None
         self.spectrum.reset()
 
     def _orca_output_to_transitions(self, output_dict, geom_index):
@@ -676,33 +669,32 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         return transitions
 
     def _show_spectrum(self):
-        if self.process is None or not self.process.is_finished_ok:
+        if self.process_uuid is None:
+            return
+        process = load_node(self.process_uuid)
+        if not process.is_finished_ok:
             return
 
         # Number of Wigner geometries per conformer
-        nsample = (
-            self.process.inputs.nwigner.value if self.process.inputs.nwigner > 0 else 1
-        )
+        nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
 
-        nconf = len(self.process.inputs.structure.get_stepids())
+        nconf = len(process.inputs.structure.get_stepids())
         free_energies = []
         boltzmann_weights = [1.0 for i in range(nconf)]
-        if self.process.inputs.optimize:
+        if process.inputs.optimize:
             conformer_workchains = [
                 link.node
-                for link in self.process.get_outgoing(
+                for link in process.base.links.get_outgoing(
                     link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
                 )
             ]
-            # TODO: Not sure if this reverse thing will always get the correct ordering
-            conformer_workchains.reverse()
             assert nconf == len(conformer_workchains)
             for node in conformer_workchains:
-                for link in node.get_outgoing(
+                for link in node.base.links.get_outgoing(
                     link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
                 ):
                     wc = link.node
-                    if wc.label == "":
+                    if wc.label == "optimization":
                         temperature = wc.outputs.output_parameters["temperature"]
                         free_energy = wc.outputs.output_parameters["freeenergy"]
                         free_energies.append(free_energy)
@@ -719,37 +711,37 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 "nsample": nsample,
                 "weight": boltzmann_weights[i],
             }
-            for i, conformer in enumerate(self.process.outputs.spectrum_data.get_list())
+            for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
         ]
 
         self.spectrum.conformer_transitions = conformer_transitions
 
-        if "smiles" in self.process.inputs.structure.extras:
-            self.spectrum.smiles = self.process.inputs.structure.extras["smiles"]
+        if "smiles" in process.inputs.structure.extras:
+            self.spectrum.smiles = process.inputs.structure.extras["smiles"]
             # We're attaching smiles extra for the optimized structures as well
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
-            if "relaxed_structures" in self.process.outputs:
-                self.process.outputs.relaxed_structures.set_extra(
+            if "relaxed_structures" in process.outputs:
+                process.outputs.relaxed_structures.base.extras.set(
                     "smiles", self.spectrum.smiles
                 )
         else:
             self.spectrum.smiles = None
 
-        if "relaxed_structures" in self.process.outputs:
-            assert nconf == len(self.process.outputs.relaxed_structures.get_stepids())
+        if "relaxed_structures" in process.outputs:
+            assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
-            conformers = self.process.outputs.relaxed_structures.clone()
+            conformers = process.outputs.relaxed_structures.clone()
             if nconf > 1:
                 conformers.set_array("energies", np.array(free_energies))
                 conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.set_extra("energy_units", "kJ/mol")
-                conformers.set_extra("temperature", temperature)
+                conformers.base.extras.set("energy_units", "kJ/mol")
+                conformers.base.extras.set("temperature", temperature)
             self.spectrum.conformer_structures = conformers
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
-            structures = self.process.inputs.structure.clone()
+            structures = process.inputs.structure.clone()
             # Overwrite the energy and boltzmann weights because they may come
             # from conformer sampling, i.e. xTB or MM. We do not use these
             # for spectrum weighting so displaying them would be misleading.
@@ -760,14 +752,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.spectrum.conformer_structures = structures
 
     def _update_header(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.header.value = ""
             return
-        if bp := self.process.get_extra("builder_parameters", None):
+        process = load_node(self.process_uuid)
+        if bp := process.base.extras.get("builder_parameters", None):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",
-                get_formula(self.process.inputs.structure),
+                get_formula(process.inputs.structure),
             )
             solvent = "the gas phase"
             if bp.get("solvent") is not None:
@@ -782,17 +775,16 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )
-            if self.process.inputs.optimize and self.process.inputs.nwigner > 0:
-                self.header.value += (
-                    f", {self.process.inputs.nwigner.value} Wigner samples"
-                )
+            if process.inputs.optimize and process.inputs.nwigner > 0:
+                self.header.value += f", {process.inputs.nwigner.value} Wigner samples"
 
     def _update_state(self):
-        if self.process is None:
+        if self.process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process_state = self.process.process_state
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
             ProcessState.RUNNING,
@@ -801,13 +793,13 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.state = self.State.ACTIVE
         elif (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
-            or self.process.is_failed
+            or process.is_failed
         ):
             self.state = self.State.FAIL
-        elif process_state is ProcessState.FINISHED and self.process.is_finished_ok:
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
-    @traitlets.observe("process")
+    @traitlets.observe("process_uuid")
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return

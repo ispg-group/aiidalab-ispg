@@ -10,15 +10,15 @@ from aiida.orm import to_aiida_type
 
 from .wigner import Wigner
 
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
-SinglefileData = DataFactory("singlefile")
-Int = DataFactory("int")
-Float = DataFactory("float")
-Bool = DataFactory("bool")
-Code = DataFactory("code")
-List = DataFactory("list")
-Dict = DataFactory("dict")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
+SinglefileData = DataFactory("core.singlefile")
+Int = DataFactory("core.int")
+Float = DataFactory("core.float")
+Bool = DataFactory("core.bool")
+Code = DataFactory("core.code.installed")
+List = DataFactory("core.list")
+Dict = DataFactory("core.dict")
 
 OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
@@ -78,7 +78,7 @@ def add_orca_wf_guess(orca_params: Dict) -> Dict:
     params = orca_params.get_dict()
     params["input_keywords"].append("MOREAD")
     params["input_blocks"]["scf"]["moinp"] = '"aiida_old.gbw"'
-    return Dict(dict=params)
+    return Dict(params)
 
 
 @calcfunction
@@ -195,7 +195,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
 
             # Pass in converged SCF wavefunction
-            with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+            with self.ctx.calc_opt.outputs.retrieved.base.repository.open(
+                "aiida.gbw", "rb"
+            ) as handler:
                 gbw_file = SinglefileData(handler)
             inputs.orca.file = {"gbw": gbw_file}
             inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
@@ -232,7 +234,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         )
         inputs.orca.code = self.inputs.code
         # Pass in SCF wavefunction from minimum geometry
-        with self.ctx.calc_opt.outputs.retrieved.open("aiida.gbw", "rb") as handler:
+        with self.ctx.calc_opt.outputs.retrieved.base.repository.open(
+            "aiida.gbw", "rb"
+        ) as handler:
             gbw_file = SinglefileData(handler)
         inputs.orca.file = {"gbw": gbw_file}
         inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
@@ -253,7 +257,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         inputs.orca.code = self.inputs.code
 
         calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_opt.label = ""
+        calc_opt.label = "optimization"
         return ToContext(calc_opt=calc_opt)
 
     def inspect_optimization(self):

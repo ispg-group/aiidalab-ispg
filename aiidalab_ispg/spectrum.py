@@ -1,4 +1,4 @@
-"""Widget for displaying UV/VIS spectra in an interactive graph.
+"""Calculating NEA UV/vis spectra and displaying them in an interactive plot.
 
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
@@ -9,7 +9,7 @@ import traitlets
 from scipy import constants
 import numpy as np
 
-from aiida.orm import QueryBuilder
+from aiida.orm import load_node, QueryBuilder
 from aiida.plugins import DataFactory
 
 # https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
@@ -22,9 +22,9 @@ from .utils import AUtoEV
 
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
-XyData = DataFactory("array.xy")
-StructureData = DataFactory("structure")
-TrajectoryData = DataFactory("array.trajectory")
+XyData = DataFactory("core.array.xy")
+StructureData = DataFactory("core.structure")
+TrajectoryData = DataFactory("core.array.trajectory")
 
 
 @unique
@@ -48,6 +48,7 @@ class BokehFigureContext(ipw.Output):
     def __init__(self, fig):
         super().__init__()
         self._figure = fig
+        self._handle = None
         self.on_displayed(lambda x: x.set_handle())
 
     def set_handle(self):
@@ -62,7 +63,8 @@ class BokehFigureContext(ipw.Output):
         return self._figure
 
     def update(self):
-        push_notebook(handle=self._handle)
+        if self._handle is not None:
+            push_notebook(handle=self._handle)
 
 
 class Spectrum(object):
@@ -188,7 +190,7 @@ class SpectrumWidget(ipw.VBox):
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
     smiles = traitlets.Unicode(allow_none=True)
-    experimental_spectrum = traitlets.Instance(XyData, allow_none=True)
+    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True)
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm^2 per molecule"
@@ -428,9 +430,10 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
-        if self.experimental_spectrum is not None:
+        if self.experimental_spectrum_uuid is not None:
+            node = load_node(self.experimental_spectrum_uuid)
             self._plot_experimental_spectrum(
-                spectrum_node=self.experimental_spectrum, energy_unit=energy_unit
+                spectrum_node=node, energy_unit=energy_unit
             )
 
     def _unhighlight_conformer(self):
@@ -622,7 +625,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
-            self.experimental_spectrum = None
+            self.experimental_spectrum_uuid = None
 
         self.disable_controls()
         self.clean_figure()
@@ -701,9 +704,10 @@ class SpectrumWidget(ipw.VBox):
         # TODO: For now let's just assume we have one
         # canonical experimental spectrum per compound.
         # for spectrum in qb.iterall():
-        self.experimental_spectrum = qb.first()[0]
+        experimental_spectrum_node = qb.first()[0]
+        self.experimental_spectrum_uuid = experimental_spectrum_node.uuid
         self._plot_experimental_spectrum(
-            spectrum_node=self.experimental_spectrum,
+            spectrum_node=experimental_spectrum_node,
             energy_unit=self.energy_unit_selector.value,
         )
 

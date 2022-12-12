@@ -3,37 +3,42 @@
 # This script automatically creates required code Nodes in AiiDA database,
 # based on the assumption that the codes are accessible locally.
 
-# If you plan to do remote execution, you need to first create
-# a computer node via `verdi computer setup`,
-# and then change the computer_name variable below accordingly.
-
 # This needs to match the path where you mounted the code!
 # Perhaps we could autodetermine this via find?
 ORCA_PATH=/opt/orca
 
+# We append LD_LIBRARY path since we install OpenMPI
+# via conda in ATMOSPEC Docker image
+OPENMPI_LIB=/opt/conda/lib
+
 function create_orca_code() {
-  # NOTE: We append LD_LIBRARY path since we install OpenMPI via conda in ATMOSPEC Docker image
-  computer_name=$1
-  code_name=orca
-  verdi code show ${code_name}@${computer_name} 2>/dev/null || \
-    echo "Creating code node ${code_name}@${computer_name}" && \
-    verdi code setup --non-interactive \
-    --label ${code_name} \
-    --description "${code_name} code mounted via Docker volume." \
-    --input-plugin ${code_name}.${code_name} \
-    --computer ${computer_name} \
-    --remote-abs-path ${ORCA_PATH}/orca \
-    --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=/opt/conda/lib:\$LD_LIBRARY_PATH"
+    computer=$1
+    code=orca
+    full_label=${code}@${computer}
+    calcjob=${code}.${code}
+
+    verdi code list -Y $computer -d $calcjob -P full_label | \
+    grep -q "$full_label" || (\
+        echo "Creating code node $full_label" && \
+        verdi code create core.code.installed \
+            --non-interactive \
+            --label ${code} \
+            --description "${code} code mounted via Docker volume." \
+            --default-calc-job-plugin ${calcjob} \
+            --computer ${computer} \
+            --filepath-executable ${ORCA_PATH}/orca \
+            --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=${OPENMPI_LIB}:\$LD_LIBRARY_PATH" \
+    )
 }
 
 # Create orca code node on computer localhost,
 # which is created by default in aiidalab Docker image
-computer_name=localhost
-create_orca_code $computer_name
+computer=localhost
+create_orca_code $computer
 
 # If we have SLURM, install extra code on localhost configured with slurm
 # This computer node is created in our custom Docker image.
-computer_name=slurm
-verdi computer show $computer_name &> /dev/null && \
-  create_orca_code $computer_name
+computer=slurm
+verdi computer show $computer &> /dev/null && \
+    create_orca_code $computer
 exit 0
