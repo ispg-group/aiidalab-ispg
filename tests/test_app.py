@@ -32,7 +32,7 @@ def test_conformer_generation_init(selenium_driver, screenshot_dir):
 
 
 def test_conformer_generation_steps(
-    selenium_driver, screenshot_dir, generate_mol_from_smiles
+    selenium_driver, screenshot_dir, generate_mol_from_smiles, check_first_atom
 ):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -42,11 +42,7 @@ def test_conformer_generation_steps(
 
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
-    driver.find_element(
-        By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
-    ).send_keys("1")
-    driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
-    driver.find_element(By.XPATH, "//div[starts-with(text(),'Id: 1; Symbol: C;')]")
+    check_first_atom(driver, "C")
 
     driver.get_screenshot_as_file(
         f"{screenshot_dir}/conformer-generation-generated.png"
@@ -74,12 +70,15 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app.png")
 
 
-def test_atmospec_steps(selenium_driver, screenshot_dir, generate_mol_from_smiles):
+def test_atmospec_steps(
+    selenium_driver, screenshot_dir, generate_mol_from_smiles, check_first_atom
+):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
     generate_mol_from_smiles(driver, "C")
+    check_first_atom(driver, "C")
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
 
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
