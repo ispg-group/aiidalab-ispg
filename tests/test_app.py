@@ -48,6 +48,17 @@ def test_conformer_generation_steps(
         f"{screenshot_dir}/conformer-generation-generated.png"
     )
 
+    # Test different generation options
+    driver.find_element(By.XPATH, "//option[@value='UFF']").click()
+    driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
+    generate_mol_from_smiles(driver, "N")
+    check_first_atom(driver, "N")
+
+    driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
+    driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
+    generate_mol_from_smiles(driver, "O")
+    check_first_atom(driver, "O")
+
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
     driver.find_element(By.XPATH, "//button[text()='Download']").click()
