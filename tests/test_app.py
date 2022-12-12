@@ -1,12 +1,13 @@
 import requests
-import time
 
 import pytest
+
 # https://selenium-python.readthedocs.io/locating-elements.html
 from selenium.webdriver.common.by import By
 
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 1250
+
 
 @pytest.mark.tryfirst
 def test_post_install(notebook_service, docker_exec):
@@ -26,15 +27,11 @@ def test_dependencies(notebook_service, docker_exec):
 def test_conformer_generation_init(selenium_driver, screenshot_dir):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    driver.find_element(By.XPATH, "//button[contains(.,'Generate molecule')]")
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
     driver.get_screenshot_as_file(f"{screenshot_dir}/conformer-generation-init.png")
 
 
-def test_conformer_generation_steps(
-        selenium_driver, 
-        screenshot_dir,
-        generate_mol
-    ):
+def test_conformer_generation_steps(selenium_driver, screenshot_dir, generate_mol):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
@@ -75,25 +72,16 @@ def test_atmospec_app_init(selenium_driver, screenshot_dir):
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-app.png")
 
 
-def test_atmospec_steps(selenium_driver, screenshot_dir):
+def test_atmospec_steps(selenium_driver, screenshot_dir, generate_mol):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
-    smiles_textarea = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
-
-    smiles_textarea.send_keys("C")
-    generate_mol_button = driver.find_element(
-        By.XPATH, "//button[text()='Generate molecule']"
-    )
-    generate_mol_button.click()
-
-    # Once the structure is generated, proceed to the next workflow step
-    time.sleep(5)
+    # Generate methane molecule
+    generate_mol(driver, "C")
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
 
-    confirm_btn = driver.find_element(By.XPATH, "//button[text()='Confirm']")
-    confirm_btn.click()
+    driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
     # Test that we have indeed proceeded to the next step
-    driver.find_element(By.XPATH, "//span[text()='✓ Step 1']")
+    driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
 
     driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-confirmed.png")
