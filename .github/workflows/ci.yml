@@ -48,9 +48,9 @@ jobs:
         image: ["aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
       fail-fast: false
-      env:
-        IMAGE: ${{ matrix.image }}
-        TAG: ${{ matrix.tag }}
+    env:
+      IMAGE: ${{ matrix.image }}
+      TAG: ${{ matrix.tag }}
 
     steps:
 
