@@ -91,7 +91,9 @@ def selenium_driver(selenium, notebook_service):
 @pytest.fixture
 def generate_mol_from_smiles():
     def _generate_mol(driver, smiles):
-        driver.find_element(By.XPATH, "//input[@placeholder='C=C']").send_keys(smiles)
+        driver.find_element(By.XPATH, "//input[@placeholder='C=C']").clear().send_keys(
+            smiles
+        )
         driver.find_element(By.XPATH, "//button[text()='Generate molecule']").click()
         time.sleep(3)
 
