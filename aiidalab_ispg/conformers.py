@@ -289,7 +289,7 @@ class ConformerSmilesWidget(SmilesWidget):
                     mol, mmffVariant=opt_algo.value, maxIters=steps
                 )
                 ffenergies = [KCALtoKJ * energy for _, energy in conf_opt]
-                for converged, energy in conf_opt:
+                for converged, _ in conf_opt:
                     if converged != 0:
                         self.output.value += (
                             "<br> WARNING: MMFF94 optimization did not converge"

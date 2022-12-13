@@ -110,19 +110,19 @@ class DownloadButton(ipw.Button):
         digest = hashlib.md5(self.payload).hexdigest()  # bypass browser cache
         payload = base64.b64encode(self.payload).decode()
 
-        id = f"dl_{digest}"
+        link_id = f"dl_{digest}"
 
         display(
             HTML(
                 f"""
             <html>
             <body>
-            <a id="{id}" download="{self.filename}" href="data:text/plain;base64,{payload}" download>
+            <a id="{link_id}" download="{self.filename}" href="data:text/plain;base64,{payload}" download>
             </a>
 
             <script>
             (function download() {{
-            document.getElementById('{id}').click();
+            document.getElementById('{link_id}').click();
             }})()
             </script>
 
@@ -294,7 +294,7 @@ class CalcJobOutputFollower(traitlets.HasTraits):
                 with calcjob.outputs.retrieved.base.repository.open(self.filename) as f:
                     return f.read().splitlines()
             except OSError:
-                return list()
+                return []
 
         elif "remote_folder" in calcjob.outputs:
             try:
@@ -304,9 +304,9 @@ class CalcJobOutputFollower(traitlets.HasTraits):
                     calcjob.outputs.remote_folder.getfile(fn_out, tmpfile.name)
                     return tmpfile.read().decode().splitlines()
             except OSError:
-                return list()
+                return []
         else:
-            return list()
+            return []
 
     _EOF = None
 

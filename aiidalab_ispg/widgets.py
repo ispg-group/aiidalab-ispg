@@ -254,7 +254,7 @@ class TrajectoryDataViewer(StructureDataViewer):
                 comp_id
             ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
-            self.selection = list()
+            self.selection = []
             if change["new"] is not None:
                 self._viewer.add_component(nglview.ASEStructure(change["new"]))
                 # Interestingly, this doesn't work, I am getting (True, True, True)
