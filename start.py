@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import ipywidgets as ipw
 
 template = """

@@ -67,7 +67,7 @@ class BokehFigureContext(ipw.Output):
             push_notebook(handle=self._handle)
 
 
-class Spectrum(object):
+class Spectrum:
     COEFF = (
         constants.pi
         * 8.478354e-30**2  # AUtoCm
@@ -637,10 +637,7 @@ class SpectrumWidget(ipw.VBox):
         if conformer_transitions is None:
             return None
         if not all(
-            (
-                self._validate_transitions(c["transitions"])
-                for c in conformer_transitions
-            )
+            self._validate_transitions(c["transitions"]) for c in conformer_transitions
         ):
             raise ValueError("Invalid conformer transitions")
         return conformer_transitions
