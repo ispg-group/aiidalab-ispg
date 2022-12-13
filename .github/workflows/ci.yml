@@ -10,7 +10,6 @@ jobs:
   # Adapted from: https://github.com/aiidalab/aiidalab-qe
   pre-commit:
 
-    if: false
     runs-on: ubuntu-latest
 
     steps:
