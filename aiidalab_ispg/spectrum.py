@@ -454,7 +454,7 @@ class SpectrumWidget(ipw.VBox):
         self._unhighlight_conformer()
         f = self.figure.get_figure()
         labels = [r.name for r in f.renderers]
-        for label in filter(lambda l: l.startswith("conformer_"), labels):
+        for label in filter(lambda label: label.startswith("conformer_"), labels):
             # NOTE: Hiding does not seem to work
             # Removing without immediate figure update also does not work
             self.remove_line(label, update=True)
