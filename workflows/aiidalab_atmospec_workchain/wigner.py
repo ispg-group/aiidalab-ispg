@@ -13,8 +13,8 @@ HARTREE_TO_EV = 27.211396132  # conversion factor from Hartree to eV
 U_TO_AMU = 1.0 / 5.4857990943e-4  # conversion from g/mol to amu
 ANG_TO_BOHR = 1.0 / 0.529177211  # 1.889725989      # conversion from Angstrom to bohr
 
-class Wigner:
 
+class Wigner:
     def __init__(
         self,
         ase_molecule,
@@ -40,8 +40,9 @@ class Wigner:
             {"freq": freq * CM_TO_HARTREE, "move": vib}
             for vib, freq in zip(vibrations, frequencies)
         ]
-        self.modes = self._convert_orca_normal_modes(modes,
-                self.ase_molecule.get_masses())
+        self.modes = self._convert_orca_normal_modes(
+            modes, self.ase_molecule.get_masses()
+        )
 
     def _set_random_seed(self, seed):
         self.rnd = random.Random(seed)
@@ -81,7 +82,7 @@ class Wigner:
                     # and unweigh mass-weighted normal modes
                     positions[i][xyz] += (
                         random_Q * mode["move"][i][xyz] * math.sqrt(1.0 / masses[i])
-                   )
+                    )
 
         sample = self.ase_molecule.copy()
         sample.set_positions(positions / ANG_TO_BOHR)
@@ -127,9 +128,7 @@ class Wigner:
             converted_mode = copy.deepcopy(modes[imode])
             for j, mass in enumerate(masses):
                 for xyz in range(3):
-                    converted_mode["move"][j][xyz] /= norm / math.sqrt(
-                        mass / U_TO_AMU
-                    )
+                    converted_mode["move"][j][xyz] /= norm / math.sqrt(mass / U_TO_AMU)
             converted_modes.append(converted_mode)
 
         return converted_modes
