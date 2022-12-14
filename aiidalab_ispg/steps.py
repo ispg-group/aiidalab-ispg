@@ -357,7 +357,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         self.set_trait(
             "builder_parameters",
             self._serialize_builder_parameters(
-                dict(
+                dict(  # noqa C408
                     orca_code=self.codes_selector.orca.value,
                     method=self.qm_config.method.value,
                     excited_method=self.qm_config.excited_method.value,
@@ -560,8 +560,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         except (NotExistent, ValueError):
             print(f"WARNING: Code {orca_code} not found")
             params["orca_code"] = None
-        finally:
-            return params
+        return params
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):

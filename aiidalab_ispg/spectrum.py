@@ -67,7 +67,7 @@ class BokehFigureContext(ipw.Output):
             push_notebook(handle=self._handle)
 
 
-class Spectrum(object):
+class Spectrum:
     COEFF = (
         constants.pi
         * 8.478354e-30**2  # AUtoCm
@@ -454,7 +454,7 @@ class SpectrumWidget(ipw.VBox):
         self._unhighlight_conformer()
         f = self.figure.get_figure()
         labels = [r.name for r in f.renderers]
-        for label in filter(lambda l: l.startswith("conformer_"), labels):
+        for label in filter(lambda label: label.startswith("conformer_"), labels):
             # NOTE: Hiding does not seem to work
             # Removing without immediate figure update also does not work
             self.remove_line(label, update=True)
@@ -637,10 +637,7 @@ class SpectrumWidget(ipw.VBox):
         if conformer_transitions is None:
             return None
         if not all(
-            (
-                self._validate_transitions(c["transitions"])
-                for c in conformer_transitions
-            )
+            self._validate_transitions(c["transitions"]) for c in conformer_transitions
         ):
             raise ValueError("Invalid conformer transitions")
         return conformer_transitions

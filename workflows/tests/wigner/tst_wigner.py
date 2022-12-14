@@ -6,6 +6,7 @@ from aiidalab_atmospec_workchain.wigner import ANG_TO_BOHR
 
 LOW_FREQ_THR = 200
 
+
 def write_ase_molecules(ase_molecules, filename):
     string = ""
     for i, mol in enumerate(ase_molecules):
@@ -19,6 +20,7 @@ def write_ase_molecules(ase_molecules, filename):
 
     with open(filename, "w") as fl:
         fl.write(string)
+
 
 seed = 16661  # This is the default in wigner_sharc.py
 nsample = 2
@@ -65,9 +67,7 @@ ase_molecule = ase.Atoms(
     masses=masses,
     positions=coords,
 )
-ase_molecule.set_positions(
-    ase_molecule.get_positions() / ANG_TO_BOHR
-)
+ase_molecule.set_positions(ase_molecule.get_positions() / ANG_TO_BOHR)
 
 if __name__ == "__main__":
     w = wigner.Wigner(
