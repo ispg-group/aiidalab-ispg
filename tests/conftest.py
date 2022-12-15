@@ -75,7 +75,7 @@ def selenium_driver(selenium, notebook_service, screenshot_dir):
 
     def _selenium_driver(nb_path, wait_time=5.0, screenshot_name=None):
         url, token = notebook_service
-        global final_screenshot_name
+        nonlocal final_screenshot_name
         final_screenshot_name = screenshot_name
         url_with_token = urljoin(
             url, f"apps/apps/aiidalab-ispg/{nb_path}?token={token}"
