@@ -70,10 +70,10 @@ def test_conformer_generation_steps(
     )
 
 
-def test_spectrum_app_init(selenium_driver, take_final_screenshot):
+def test_spectrum_app_init(selenium_driver, final_screenshot):
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    final_screenshot = "spectrum-widget.png"
+    final_screenshot["name"] = "spectrum-widget.png"
     driver.find_element(By.XPATH, "//button[text()='Download spectrum']")
 
 

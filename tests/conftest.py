@@ -131,15 +131,11 @@ def screenshot_dir():
 
 
 @pytest.fixture
-def take_final_screenshot(request, selenium, screenshot_dir):
-    yield
-    try:
-        filename = getattr(request.function, "final_screenshot")
-        selenium.get_screenshot_as_file(f"{screenshot_dir}/{filename}")
-    except AttributeError:
-        raise
-    #    # TODO: Emmit warning
-    #    pass
+def final_screenshot(request, selenium, screenshot_dir):
+    ctx = {"name": ""}
+    yield ctx
+    if ctx["name"]:
+        selenium.get_screenshot_as_file(f"{screenshot_dir}/{ctx['name']}")
 
 
 @pytest.fixture
