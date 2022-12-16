@@ -131,11 +131,12 @@ def screenshot_dir():
 
 
 @pytest.fixture
-def final_screenshot(request, selenium, screenshot_dir):
+def final_screenshot(selenium, screenshot_dir):
     ctx = {"name": ""}
     yield ctx
-    if ctx["name"]:
-        selenium.get_screenshot_as_file(f"{screenshot_dir}/{ctx['name']}")
+    if not ctx["name"]:
+        raise ValueError("You forgot to set the final screenshot name!")
+    selenium.get_screenshot_as_file(f"{screenshot_dir}/{ctx['name']}")
 
 
 @pytest.fixture
