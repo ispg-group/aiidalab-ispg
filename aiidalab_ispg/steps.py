@@ -32,10 +32,10 @@ import aiidalab_ispg.qeapp as qeapp
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from aiidalab_ispg.widgets import ResourceSelectionWidget
 from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
+from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
-from .workflows import OrcaWignerSpectrumWorkChain
 
 try:
     OrcaBaseWorkChain = WorkflowFactory("orca.base")
@@ -43,8 +43,7 @@ except MissingEntryPointError:
     print("ERROR: Could not find aiida-orca plugin!")
 
 AtmospecWorkChain = WorkflowFactory("atmospec.atmospec")
-
-from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
+OrcaWignerSpectrumWorkChain = WorkflowFactory("atmospec.orca_opt")
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
