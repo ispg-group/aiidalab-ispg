@@ -35,18 +35,14 @@ from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
 
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
-try:
-    from aiidalab_atmospec_workchain import (
-        AtmospecWorkChain,
-        OrcaWignerSpectrumWorkChain,
-    )
-except ImportError:
-    print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+from .workflows import OrcaWignerSpectrumWorkChain
 
 try:
     OrcaBaseWorkChain = WorkflowFactory("orca.base")
 except MissingEntryPointError:
     print("ERROR: Could not find aiida-orca plugin!")
+
+AtmospecWorkChain = WorkflowFactory("atmospec.atmospec")
 
 from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
 

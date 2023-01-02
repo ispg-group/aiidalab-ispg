@@ -23,6 +23,7 @@ Dict = DataFactory("core.dict")
 OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
+__all__ = ["AtmospecWorkChain" "OrcaWignerSpectrumWorkChain"]
 
 # Meta WorkChain for combining all inputs from a dynamic namespace into List.
 # Used to combine outputs from several subworkflows into one output.
@@ -397,6 +398,3 @@ class AtmospecWorkChain(WorkChain):
             }
             output = run(ConcatStructuresToTrajectory, structures=relaxed_structures)
             self.out("relaxed_structures", output["trajectory"])
-
-
-__version__ = "0.1-alpha"
