@@ -1,4 +1,5 @@
 import requests
+from pathlib import Path
 
 import pytest
 
@@ -26,7 +27,6 @@ def test_dependencies(notebook_service, aiidalab_exec, nb_user):
 
 def test_conformer_generation_init(selenium_driver, final_screenshot):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
-    final_screenshot["name"] = "conformer-generation-init.png"
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
 
@@ -43,8 +43,6 @@ def test_conformer_generation_steps(
     # Select the first atom
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     check_first_atom(driver, "C")
-
-    final_screenshot["name"] = "conformer-generation-steps.png"
 
     # Test different generation options
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
@@ -63,7 +61,6 @@ def test_conformer_generation_steps(
 
 
 def test_spectrum_app_init(selenium_driver, final_screenshot):
-    final_screenshot["name"] = "spectrum-app-init.png"
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Download spectrum']")
@@ -72,12 +69,15 @@ def test_spectrum_app_init(selenium_driver, final_screenshot):
 def test_atmospec_app_init(selenium_driver, final_screenshot):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    final_screenshot["name"] = "atmospec-app.png"
     driver.find_element(By.XPATH, "//button[text()='Refresh']")
 
 
 def test_atmospec_steps(
-    selenium_driver, screenshot_dir, generate_mol_from_smiles, check_first_atom
+    selenium_driver,
+    screenshot_dir,
+    final_screenshot,
+    generate_mol_from_smiles,
+    check_first_atom,
 ):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -85,10 +85,10 @@ def test_atmospec_steps(
     # Generate methane molecule
     generate_mol_from_smiles(driver, "C")
     check_first_atom(driver, "C")
-    driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-generated.png")
+    driver.get_screenshot_as_file(
+        Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
+    )
 
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
     # Test that we have indeed proceeded to the next step
     driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
-
-    driver.get_screenshot_as_file(f"{screenshot_dir}/atmospec-mol-confirmed.png")
