@@ -70,13 +70,9 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir)
 
 
 @pytest.fixture(scope="function")
-def selenium_driver(selenium, notebook_service, screenshot_dir):
-    final_screenshot_name = None
-
-    def _selenium_driver(nb_path, wait_time=5.0, screenshot_name=None):
+def selenium_driver(selenium, notebook_service):
+    def _selenium_driver(nb_path, wait_time=5.0):
         url, token = notebook_service
-        nonlocal final_screenshot_name
-        final_screenshot_name = screenshot_name
         url_with_token = urljoin(
             url, f"apps/apps/aiidalab-ispg/{nb_path}?token={token}"
         )
@@ -89,9 +85,7 @@ def selenium_driver(selenium, notebook_service, screenshot_dir):
 
         return selenium
 
-    yield _selenium_driver
-    if final_screenshot_name is not None:
-        selenium.get_screenshot_as_file(f"{screenshot_dir}/{final_screenshot_name}")
+    return _selenium_driver
 
 
 @pytest.fixture

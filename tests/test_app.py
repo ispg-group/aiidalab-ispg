@@ -25,10 +25,7 @@ def test_dependencies(notebook_service, aiidalab_exec, nb_user):
 
 
 def test_conformer_generation_init(selenium_driver, final_screenshot):
-    driver = selenium_driver(
-        "conformer_generation.ipynb",
-        wait_time=30.0,
-    )
+    driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     final_screenshot["name"] = "conformer-generation-init.png"
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
@@ -65,10 +62,9 @@ def test_conformer_generation_steps(
     driver.find_element(By.XPATH, "//button[text()='Download']").click()
 
 
-def test_spectrum_app_init(selenium_driver):
-    driver = selenium_driver(
-        "spectrum_widget.ipynb", wait_time=30.0, screenshot_name="spectrum-widget.png"
-    )
+def test_spectrum_app_init(selenium_driver, final_screenshot):
+    final_screenshot["name"] = "spectrum-app-init.png"
+    driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Download spectrum']")
 
