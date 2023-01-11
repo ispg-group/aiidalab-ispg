@@ -1,9 +1,12 @@
 # Run basic tests for this app on the latest aiidalab/full-stack docker image.
 
-name: continuous-integration
+name: CI
 
 on:
-    [push]
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
 
