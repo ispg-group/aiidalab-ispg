@@ -104,11 +104,11 @@ def generate_mol_from_smiles():
 def check_first_atom():
     def _select_first_atom(driver, atom_symbol):
         driver.find_element(
-            By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
+            By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
         ).send_keys("1")
         driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
         driver.find_element(
-            By.XPATH, f"//p[contains(text(),'Id: 1; Symbol: {atom_symbol};')]"
+            By.XPATH, f"//div[starts-with(text(),'Id: 1; Symbol: {atom_symbol};')]"
         )
 
     return _select_first_atom
