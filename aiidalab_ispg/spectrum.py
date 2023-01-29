@@ -185,12 +185,12 @@ class SpectrumWidget(ipw.VBox):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    selected_conformer_id = traitlets.Int(allow_none=True)
+    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
-    smiles = traitlets.Unicode(allow_none=True)
-    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True)
+    smiles = traitlets.Unicode(allow_none=True, default_value=None)
+    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True, default_value=None)
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm^2 per molecule"
@@ -430,7 +430,7 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=energy_unit,
         )
-        if self.experimental_spectrum_uuid is not None:
+        if self.experimental_spectrum_uuid:
             node = load_node(self.experimental_spectrum_uuid)
             self._plot_experimental_spectrum(
                 spectrum_node=node, energy_unit=energy_unit
