@@ -1,7 +1,6 @@
 # AiiDAlab ISPG applications
 
-ATMOSPEC - automatic ab initio workflow for UV/VIS spectroscopy
-of atmospherically relevant molecules. 
+ATMOSPEC - ab initio workflow for UV/VIS spectroscopy of organic molecules.
 
 ## Installation
 
@@ -17,7 +16,7 @@ See below for complete installation instructions on local machine.
 
 ## Usage
 
-Here may go a few sreenshots / animated gifs illustrating how to use the app.
+TODO: A few screenshots / animated gifs illustrating how to use the app.
 
 ## License
 
@@ -29,87 +28,119 @@ NOTE: The details of some of the commands will depend on your
 OS and its version. The concrete examples are based on Ubuntu 20.04.
 
 ### Install dependencies
-0. Install ab initio dependencies (ORCA)
+0. [Install ORCA](https://www.orcasoftware.de/tutorials_orca/first_steps/install.html)
 
-1. Install Docker
+1. [Install Docker](https://docs.docker.com/engine/install/#server)
 
-```sh
-$ sudo apt install docker.io
+```console
+sudo apt install docker.io
 ```
 
-1.1 Add yourself to the docker group and restart shell session
+Then add yourself to the `docker` unix group and restart the shell session
 
-```sh
-$ sudo usermod -a -G docker $USER`
+```console
+sudo usermod -a -G docker $USER`
 ```
 
 2. Install pipx
 
-```sh
-$ apt install python-venv pipx
+```console
+sudo apt install python-venv pipx
 ```
 
-3. Install aiidalab-launch to manage the AiiDAlab containers
+3. Install `aiidalab-launch` to manage the AiiDAlab containers
 
-```sh
-$ pipx install aiidalab-launch
+```console
+pipx install aiidalab-launch
 ```
 
 If pipx is giving you trouble, you should be able to install via pip as well.
 
 
-### Build AiiDAlab ISPG Docker image
+### Download the ATMOSPEC Docker image
 
-In principle, you could use the official [AiiDAlab docker image](https://hub.docker.com/r/maxcentre/aiidalab-docker-stack),
-which would be downloaded automatically when launching the Docker container.
-It is however preferable to build our custom image that contains additional
-dependencies pre-installed and includes the SLURM queuing manager.
-See [installation instructions here](https://github.com/danielhollas/aiidalab-ispg-docker-stack#readme).
+```console
+docker pull ghcr.io/ispg-group/atmospec:latest
+```
+
+This image is built and published in a separate Github repository,
+which you can visit [for more information](https://github.com/ispg-group/aiidalab-ispg-docker-stack#readme).
+
 
 ### Setup AiiDAlab launch
 
-Modify default profile to include aiidalab-ispg app
+While you can launch the Docker container directly using the `docker` command,
+it is much more convenient to use the [aiidalab-launch application](https://github.com/aiidalab/aiidalab-launch).
+
+Let's first modify the default profile to include to ATMOSPEC app from this repo
 
 ```sh
-$ aiidalab-launch profiles edit default
+aiidalab-launch profiles edit default
 ```
 
-Copy paste this profile configuration (substitute path to ORCA and the Docker image name if needed)
+This should open your default text editor.
+Copy-paste the following profile configuration (substitute path to ORCA and the Docker image name if needed)
 ```
 port = 8888
-default_apps = [ "aiidalab-widgets-base", "aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main",]
-system_user = "aiida"
-image = aiidalab-ispg:latest"
-home_mount = "aiidalab_ispg_home"
-extra_mounts = ["/home/hollas/software/orca/5.0.3/arch/linux_x86-64_openmpi411_static:/opt/orca:ro",]
+default_apps = [ "aiidalab-ispg@git+https://github.com/ispg-group/aiidalab-ispg.git@main",]
+system_user = "jovyan"
+image = ghcr.io/ispg-group/atmospec:latest"
+home_mount = "aiidalab_atmospec_home"
+extra_mounts = ["/absolute/path/to/orca/:/opt/orca:ro",]
+```
+
+With this configuration, all the data will be stored in a separate Docker volume `aiidalab_atmospec_home`.
+Alternatively, you can specify the absolute path to a directory in your file system to store the data, for example
+
+```
+home_mount = "/home/username/aiidalab_atmospec_home/"
 ```
 
 ### Launch and manage container
 
  - Launch the container
 
-```sh
-$ aiidalab-launch start
+```console
+aiidalab-launch start
 ```
-This command will print the URL that you can then access in the browser
+
+This command will print the URL that you can then access in the browser.
+With the configuration above it should be `http://localhost:8888`
 
  - Stop the container
 
-```sh
-$ aiidalab-launch stop
+```console
+aiidalab-launch stop
 ```
 
  - Print container status
 
-```sh
-$ aiidalab-launch status
+```console
+aiidalab-launch status
+```
+
+ - Run a command inside a running container
+
+```console
+aiidalab-launch exec -- <command>
+```
+
+ - Entering the container
+
+```console
+docker exec -it -u jovyan aiidalab_atmospec /bin/bash
+```
+
+To display all available commands
+
+```console
+aiidalab-launch --help
 ```
 
 ## Development
 
 Re-install packages for development in the container
 ```sh
-$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
-$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
-$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-widgets-base/
+aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
+aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
 ```
