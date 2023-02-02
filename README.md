@@ -33,19 +33,19 @@ OS and its version. The concrete examples are based on Ubuntu 20.04.
 1. [Install Docker](https://docs.docker.com/engine/install/#server)
 
 ```console
-$ sudo apt install docker.io
+sudo apt install docker.io
 ```
 
 Then add yourself to the `docker` unix group and restart the shell session
 
 ```console
-$ sudo usermod -a -G docker $USER`
+sudo usermod -a -G docker $USER`
 ```
 
 2. Install pipx
 
 ```console
-$ sudo apt install python-venv pipx
+sudo apt install python-venv pipx
 ```
 
 3. Install `aiidalab-launch` to manage the AiiDAlab containers
@@ -75,7 +75,7 @@ it is much more convenient to use the [aiidalab-launch application](https://gith
 Let's first modify the default profile to include to ATMOSPEC app from this repo
 
 ```sh
-$ aiidalab-launch profiles edit default
+aiidalab-launch profiles edit default
 ```
 
 This should open your default text editor.
@@ -101,7 +101,7 @@ home_mount = "/home/username/aiidalab_atmospec_home/"
  - Launch the container
 
 ```console
-$ aiidalab-launch start
+aiidalab-launch start
 ```
 
 This command will print the URL that you can then access in the browser.
@@ -110,13 +110,25 @@ With the configuration above it should be `http://localhost:8888`
  - Stop the container
 
 ```console
-$ aiidalab-launch stop
+aiidalab-launch stop
 ```
 
  - Print container status
 
 ```console
-$ aiidalab-launch status
+aiidalab-launch status
+```
+
+ - Run a command inside a running container
+
+```console
+aiidalab-launch exec -- <command>
+```
+
+ - Entering the container
+
+```console
+docker exec -it -u jovyan aiidalab_atmospec /bin/bash
 ```
 
 To display all available commands
@@ -129,6 +141,6 @@ aiidalab-launch --help
 
 Re-install packages for development in the container
 ```sh
-$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
-$ aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
+aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/
+aiidalab-launch exec -- pip install -e /home/aiida/apps/aiidalab-ispg/workflows/
 ```
