@@ -39,7 +39,7 @@ sudo apt install docker.io
 Then add yourself to the `docker` unix group and restart the shell session
 
 ```console
-sudo usermod -a -G docker $USER`
+sudo usermod -a -G docker $USER
 ```
 
 2. Install pipx
