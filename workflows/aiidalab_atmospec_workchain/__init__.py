@@ -53,22 +53,6 @@ class ConcatInputsToList(WorkChain):
         self.out("output", List(list=input_list).store())
 
 
-# TODO: Allow optional inputs for array data to store energies
-class ConcatStructuresToTrajectory(WorkChain):
-    """WorkChain for combining a list of StructureData into TrajectoryData"""
-
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.input_namespace("structures", dynamic=True, valid_type=StructureData)
-        spec.output("trajectory", valid_type=TrajectoryData)
-        spec.outline(cls.combine)
-
-    def combine(self):
-        structurelist = [self.inputs.structures[k] for k in self.inputs.structures]
-        self.out("trajectory", TrajectoryData(structurelist=structurelist).store())
-
-
 # TODO: Switch to variadic arguments (supported since AiiDA 2.3)
 @calcfunction
 def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
@@ -404,24 +388,14 @@ class AtmospecWorkChain(WorkChain):
 
         # Combine all optimized geometries into single TrajectoryData
         # TODO: Include energies in TrajectoryData for optimized structures
+        # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if self.inputs.optimize:
-            relaxed_structures = {}
-            free_energies = []
-            # TODO: Can we rely on the order of iteration here and use comprehensions?
-            for i, wc in enumerate(self.ctx.confs):
-                relaxed_structures[str(i)] = wc.outputs.relaxed_structure
-                params = wc.outputs.output_parameters
-                free_energies.append(params["freeenergy"])
-                # TODO: We should have temperature as an workchain input
-                temperature = wc.output_parameters("temperature")
-            arrays = Array()
-            arrays.set_array("free_energy", free_energies)
-            # TODO: Calculate Boltzmann weights and append them to TrajectoryData
-
-            trajectory = structures_to_trajectory(arrays, **relaxed_structures)
-            # trajectory.base.extras.set("energy_units", "kJ/mol")
-            # trajectory.base.extras.set("temperature", temperature)
-            self.out("relaxed_structures", output["trajectory"])
+            relaxed_structures = {
+                f"struct_{i}": wc.outputs.relaxed_structure
+                for i, wc in enumerate(self.ctx.confs)
+            }
+            trajectory = structures_to_trajectory(**relaxed_structures)
+            self.out("relaxed_structures", trajectory)
 
 
 __version__ = "0.1-alpha"
