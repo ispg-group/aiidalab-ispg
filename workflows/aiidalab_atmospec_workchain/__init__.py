@@ -13,6 +13,7 @@ from .wigner import Wigner
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
 SinglefileData = DataFactory("core.singlefile")
+Array = DataFactory("core.array")
 Int = DataFactory("core.int")
 Float = DataFactory("core.float")
 Bool = DataFactory("core.bool")
@@ -52,20 +53,17 @@ class ConcatInputsToList(WorkChain):
         self.out("output", List(list=input_list).store())
 
 
-# TODO: Allow optional inputs for array data to store energies
-class ConcatStructuresToTrajectory(WorkChain):
-    """WorkChain for combining a list of StructureData into TrajectoryData"""
-
-    @classmethod
-    def define(cls, spec):
-        super().define(spec)
-        spec.input_namespace("structures", dynamic=True, valid_type=StructureData)
-        spec.output("trajectory", valid_type=TrajectoryData)
-        spec.outline(cls.combine)
-
-    def combine(self):
-        structurelist = [self.inputs.structures[k] for k in self.inputs.structures]
-        self.out("trajectory", TrajectoryData(structurelist=structurelist).store())
+# TODO: Switch to variadic arguments (supported since AiiDA 2.3)
+@calcfunction
+def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
+    """Concatenate a list of StructureData to TrajectoryData
+    Optionally, set additional data as Arrays.
+    """
+    traj = TrajectoryData([structure for structure in structures.values()])
+    if arrays is not None:
+        for name in arrays.get_arraynames():
+            traj.set_array(name, arrays.get_array(name))
+    return traj
 
 
 @calcfunction
@@ -390,13 +388,14 @@ class AtmospecWorkChain(WorkChain):
 
         # Combine all optimized geometries into single TrajectoryData
         # TODO: Include energies in TrajectoryData for optimized structures
+        # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if self.inputs.optimize:
             relaxed_structures = {
-                str(i): wc.outputs.relaxed_structure
+                f"struct_{i}": wc.outputs.relaxed_structure
                 for i, wc in enumerate(self.ctx.confs)
             }
-            output = run(ConcatStructuresToTrajectory, structures=relaxed_structures)
-            self.out("relaxed_structures", output["trajectory"])
+            trajectory = structures_to_trajectory(**relaxed_structures)
+            self.out("relaxed_structures", trajectory)
 
 
 __version__ = "0.1-alpha"
