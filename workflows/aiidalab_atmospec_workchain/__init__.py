@@ -13,6 +13,7 @@ from .wigner import Wigner
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
 SinglefileData = DataFactory("core.singlefile")
+Array = DataFactory("core.array")
 Int = DataFactory("core.int")
 Float = DataFactory("core.float")
 Bool = DataFactory("core.bool")
@@ -66,6 +67,19 @@ class ConcatStructuresToTrajectory(WorkChain):
     def combine(self):
         structurelist = [self.inputs.structures[k] for k in self.inputs.structures]
         self.out("trajectory", TrajectoryData(structurelist=structurelist).store())
+
+
+# TODO: Switch to variadic arguments (supported since AiiDA 2.3)
+@calcfunction
+def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
+    """Concatenate a list of StructureData to TrajectoryData
+    Optionally, set additional data as Arrays.
+    """
+    traj = TrajectoryData([structure for structure in structures.values()])
+    if arrays is not None:
+        for name in arrays.get_arraynames():
+            traj.set_array(name, arrays.get_array(name))
+    return traj
 
 
 @calcfunction
@@ -391,11 +405,22 @@ class AtmospecWorkChain(WorkChain):
         # Combine all optimized geometries into single TrajectoryData
         # TODO: Include energies in TrajectoryData for optimized structures
         if self.inputs.optimize:
-            relaxed_structures = {
-                str(i): wc.outputs.relaxed_structure
-                for i, wc in enumerate(self.ctx.confs)
-            }
-            output = run(ConcatStructuresToTrajectory, structures=relaxed_structures)
+            relaxed_structures = {}
+            free_energies = []
+            # TODO: Can we rely on the order of iteration here and use comprehensions?
+            for i, wc in enumerate(self.ctx.confs):
+                relaxed_structures[str(i)] = wc.outputs.relaxed_structure
+                params = wc.outputs.output_parameters
+                free_energies.append(params["freeenergy"])
+                # TODO: We should have temperature as an workchain input
+                temperature = wc.output_parameters("temperature")
+            arrays = Array()
+            arrays.set_array("free_energy", free_energies)
+            # TODO: Calculate Boltzmann weights and append them to TrajectoryData
+
+            trajectory = structures_to_trajectory(arrays, **relaxed_structures)
+            # trajectory.base.extras.set("energy_units", "kJ/mol")
+            # trajectory.base.extras.set("temperature", temperature)
             self.out("relaxed_structures", output["trajectory"])
 
 
