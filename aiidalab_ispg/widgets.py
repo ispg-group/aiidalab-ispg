@@ -316,6 +316,66 @@ class ResourceSelectionWidget(ipw.VBox):
         self.num_mpi_tasks.value = 1
 
 
+class MoleculeDefinitionWidget(ipw.VBox):
+    title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Molecule specification</h4>
+        </div>"""
+    )
+    _DEFAULT_CHARGE = 0
+    _DEFAULT_MULTIPLICITY = 1
+
+    def __init__(self, **kwargs):
+        self.multiplicity = ipw.BoundedIntText(
+            min=1,
+            max=1,
+            step=1,
+            description="Multiplicity",
+            disabled=True,
+            value=self._DEFAULT_MULTIPLICITY,
+        )
+
+        self.charge = ipw.IntText(
+            description="Charge",
+            disabled=False,
+            value=self._DEFAULT_CHARGE,
+        )
+        super().__init__(children=[self.title, self.charge, self.multiplicity])
+
+    def reset(self):
+        self.charge.value = self._DEFAULT_CHARGE
+        self.charge.multiplicity.value = self._DEFAULT_MULTIPLICITY
+
+
+class GroundStateDefinitionWidget(ipw.VBox):
+    title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Ground state electronic structure</h4>
+        </div>"""
+    )
+
+    # TODO: This should probably live elsewhere as a config
+    _DEFAULT_FUNCTIONAL = "PBE"
+    _DEFAULT_BASIS = "def2-SVP"
+
+    def __init__(self, **kwargs):
+        style = {"description_width": "initial"}
+
+        # TODO: Have separate DFT functional selection for excited state?
+        self.method = ipw.Text(
+            value=self._DEFAULT_FUNCTIONAL,
+            description="Ground state method",
+            style=style,
+        )
+
+        self.basis = ipw.Text(value=self._DEFAULT_BASIS, description="Basis set")
+        super().__init__(children=[self.title, self.method, self.basis])
+
+    def reset(self):
+        self.method.value = self._DEFAULT_FUNCTIONAL
+        self.basis.value = self._DEFAULT_BASIS
+
+
 class QMSelectionWidget(ipw.HBox):
     """Widget for selecting ab initio level (basis set, method, etc.)"""
 

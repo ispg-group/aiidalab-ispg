@@ -9,6 +9,7 @@ from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
 
 from .wigner import Wigner
+from .optimization import structures_to_trajectory
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")

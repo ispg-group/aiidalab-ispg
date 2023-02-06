@@ -233,6 +233,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         self.submit_button.on_click(self._on_submit_button_clicked)
 
+        # TODO: I think this is not needed, since we have a default decorator on this traitlet
         self._update_builder_parameters()
 
         self.builder_parameters_view = ipw.HTML(layout=ipw.Layout(width="auto"))
@@ -755,7 +756,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.header.value = ""
             return
         process = load_node(self.process_uuid)
-        if bp := process.base.extras.get("builder_parameters", None):
+        if bp := process.base.extras.get("builder_parameters"):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",
