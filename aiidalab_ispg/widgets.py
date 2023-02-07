@@ -324,6 +324,7 @@ class MoleculeDefinitionWidget(ipw.VBox):
     )
     _DEFAULT_CHARGE = 0
     _DEFAULT_MULTIPLICITY = 1
+    _DEFAULT_SOLVENT = "None"
 
     def __init__(self, **kwargs):
         self.multiplicity = ipw.BoundedIntText(
@@ -340,7 +341,18 @@ class MoleculeDefinitionWidget(ipw.VBox):
             disabled=False,
             value=self._DEFAULT_CHARGE,
         )
-        super().__init__(children=[self.title, self.charge, self.multiplicity])
+
+        style = {"description_width": "initial"}
+        self.solvent = ipw.Dropdown(
+            options=PCM_SOLVENT_LIST,
+            value=self._DEFAULT_SOLVENT,
+            description="PCM solvent",
+            disabled=False,
+            style=style,
+        )
+        super().__init__(
+            children=[self.title, self.charge, self.multiplicity, self.solvent]
+        )
 
     def reset(self):
         self.charge.value = self._DEFAULT_CHARGE
