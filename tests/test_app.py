@@ -60,6 +60,31 @@ def test_conformer_generation_steps(
     driver.find_element(By.XPATH, "//button[text()='Download']").click()
 
 
+def test_optimization_init(selenium_driver, final_screenshot):
+    driver = selenium_driver("optimization.ipynb", wait_time=30.0)
+    driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+
+
+def test_optimization_steps(
+    selenium_driver,
+    final_screenshot,
+    generate_mol_from_smiles,
+    check_first_atom,
+):
+    driver = selenium_driver("optimization.ipynb", wait_time=30.0)
+    driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+    # Generate methane molecule
+    generate_mol_from_smiles(driver, "C")
+    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    check_first_atom(driver, "C")
+
+    driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
+    # Test that we have indeed proceeded to the next step
+    driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
+
+
 def test_spectrum_app_init(selenium_driver, final_screenshot):
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
