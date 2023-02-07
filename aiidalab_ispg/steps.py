@@ -236,15 +236,6 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
         # TODO: I think this is not needed, since we have a default decorator on this traitlet
         self._update_builder_parameters()
 
-        self.builder_parameters_view = ipw.HTML(layout=ipw.Layout(width="auto"))
-        ipw.dlink(
-            (self, "builder_parameters"),
-            (self.builder_parameters_view, "value"),
-            transform=lambda p: '<pre style="line-height: 100%">'
-            + pformat(p, indent=2, width=200)
-            + "</pre>",
-        )
-
         super().__init__(
             children=[
                 self.message_area,
