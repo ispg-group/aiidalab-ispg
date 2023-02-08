@@ -54,19 +54,6 @@ class ConcatInputsToList(WorkChain):
         self.out("output", List(list=input_list).store())
 
 
-# TODO: Switch to variadic arguments (supported since AiiDA 2.3)
-@calcfunction
-def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
-    """Concatenate a list of StructureData to TrajectoryData
-    Optionally, set additional data as Arrays.
-    """
-    traj = TrajectoryData([structure for structure in structures.values()])
-    if arrays is not None:
-        for name in arrays.get_arraynames():
-            traj.set_array(name, arrays.get_array(name))
-    return traj
-
-
 @calcfunction
 def pick_wigner_structure(wigner_structures, index):
     return wigner_structures.get_step_structure(index.value)
