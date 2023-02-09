@@ -3,6 +3,8 @@
 import ipywidgets as ipw
 import traitlets
 
+from dataclasses import dataclass
+
 from aiida.engine import submit
 from aiida.orm import Bool, Dict, StructureData, TrajectoryData, WorkChainNode
 from aiida.orm import load_code
@@ -18,6 +20,25 @@ except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
 
 
+@dataclass(frozen=True)
+class OptimizationParameters:
+    charge: int
+    multiplicity: int
+    method: str
+    basis: str
+    solvent: str
+
+
+# TODO: Set production defaults
+DEFAULT_OPTIMIZATION_PARAMETERS = OptimizationParameters(
+    charge=0,
+    multiplicity=1,
+    method="wB97X-D4",
+    basis="def2-SVP",
+    solvent="Water",
+)
+
+
 class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
@@ -25,6 +46,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         self.molecule_settings = MoleculeDefinitionWidget()
         self.ground_state_settings = GroundStateDefinitionWidget()
         components = [ipw.HBox([self.molecule_settings, self.ground_state_settings])]
+        self._update_ui_from_parameters(DEFAULT_OPTIMIZATION_PARAMETERS)
         super().__init__(components=components)
 
     # TODO: Check the ORCA code is available, perhaps other verifications
@@ -33,30 +55,54 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         """Validate input parameters"""
         return True
 
+    def _update_ui_from_parameters(self, parameters: OptimizationParameters) -> None:
+        """Update UI widgets according to builder parameters.
+
+        This function is called when we load an already finished workflow,
+        and we want the input widgets to be updated accordingly
+        """
+        self.molecule_settings.charge.value = parameters.charge
+        self.molecule_settings.multiplicity.value = parameters.multiplicity
+        self.molecule_settings.solvent.value = parameters.solvent
+        self.ground_state_settings.method.value = parameters.method
+        self.ground_state_settings.basis.value = parameters.basis
+
+    def _get_parameters_from_ui(self) -> OptimizationParameters:
+        """Prepare builder parameters from the UI input widgets"""
+        return OptimizationParameters(
+            charge=self.molecule_settings.charge.value,
+            multiplicity=self.molecule_settings.multiplicity.value,
+            solvent=self.molecule_settings.solvent.value,
+            method=self.ground_state_settings.method.value,
+            basis=self.ground_state_settings.basis.value,
+        )
+
     def submit(self, _=None):
 
         assert self.input_structure is not None
 
+        parameters = self._get_parameters_from_ui()
         builder = ConformerOptimizationWorkChain.get_builder()
 
         # TODO: ComputationalResourceWidget
         builder.code = load_code("orca@localhost")
         builder.structure = self.input_structure
         builder.orca.parameters = Dict(self._build_orca_params())
-        builder.orca.metadata = self._set_metadata()
+        builder.orca.metadata = self._get_metadata()
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
         builder.orca.clean_workdir = Bool(True)
 
         process = submit(builder)
-        # process.base.extras.set("builder_parameters", self.builder_parameters.copy())
+
         # NOTE: It is important to set_extra builder_parameters before we update the traitlet
+        process.base.extras.set("builder_parameters", vars(parameters))
         self.process = process
 
     # TODO: Need to implement logic for handling more CPUs
     # and distribute them among conformers
-    def _set_metadata(self):
+    def _get_metadata(self):
         ncpus = 1
         metadata = {
             "options": {
@@ -71,20 +117,14 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         }
         return metadata
 
-    def _build_orca_params(self):
+    def _build_orca_params(self, params: OptimizationParameters) -> dict:
         """A bit of indirection to decouple aiida-orca plugin
         from this code"""
 
-        basis = self.ground_state_settings.basis.value
-        method = self.ground_state_settings.method.value
-        charge = self.molecule_settings.charge.value
-        multiplicity = self.molecule_settings.multiplicity.value
-
-        input_keywords = [basis, method, "Opt", "AnFreq"]
-
+        input_keywords = [params.basis, params.method, "Opt", "AnFreq"]
         return {
-            "charge": charge,
-            "multiplicity": multiplicity,
+            "charge": params.charge,
+            "multiplicity": params.multiplicity,
             "input_blocks": {
                 "scf": {"convergence": "tight", "ConvForced": "true"},
             },

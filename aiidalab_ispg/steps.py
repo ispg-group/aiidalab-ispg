@@ -218,7 +218,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     def submit(self):
         """Must be overriden in the child class"""
-        pass
+        raise ValueError("submit method not implemented")
 
     def _get_state(self):
         # Process is already running.
@@ -241,9 +241,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     @traitlets.observe("input_structure")
     def _observe_input_structure(self, change):
-        # self.set_trait("builder_parameters", self._default_builder_parameters())
         self._update_state()
-        # self._set_num_mpi_tasks_to_default()
 
     @traitlets.observe("state")
     def _observe_state(self, change):

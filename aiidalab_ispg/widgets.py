@@ -329,10 +329,9 @@ class MoleculeDefinitionWidget(ipw.VBox):
     def __init__(self, **kwargs):
         self.multiplicity = ipw.BoundedIntText(
             min=1,
-            max=1,
+            max=7,
             step=1,
             description="Multiplicity",
-            disabled=True,
             value=self._DEFAULT_MULTIPLICITY,
         )
 
@@ -366,26 +365,20 @@ class GroundStateDefinitionWidget(ipw.VBox):
         </div>"""
     )
 
-    # TODO: This should probably live elsewhere as a config
-    _DEFAULT_FUNCTIONAL = "PBE"
-    _DEFAULT_BASIS = "def2-SVP"
-
     def __init__(self, **kwargs):
         style = {"description_width": "initial"}
 
-        # TODO: Have separate DFT functional selection for excited state?
         self.method = ipw.Text(
-            value=self._DEFAULT_FUNCTIONAL,
             description="Ground state method",
             style=style,
         )
 
-        self.basis = ipw.Text(value=self._DEFAULT_BASIS, description="Basis set")
+        self.basis = ipw.Text(description="Basis set")
         super().__init__(children=[self.title, self.method, self.basis])
 
     def reset(self):
-        self.method.value = self._DEFAULT_FUNCTIONAL
-        self.basis.value = self._DEFAULT_BASIS
+        self.method.value = ""
+        self.basis.value = ""
 
 
 class QMSelectionWidget(ipw.HBox):
