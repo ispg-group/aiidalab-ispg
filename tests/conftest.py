@@ -6,6 +6,8 @@ from urllib.parse import urljoin
 import pytest
 import requests
 from requests.exceptions import ConnectionError
+import selenium.webdriver.support.expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 
 
@@ -94,7 +96,12 @@ def generate_mol_from_smiles():
         smiles_input = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
         smiles_input.clear()
         smiles_input.send_keys(smiles)
-        driver.find_element(By.XPATH, "//button[text()='Generate molecule']").click()
+        generate = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable(
+                (By.XPATH, "//button[text()='Generate molecule']")
+            )
+        )
+        generate.click()
         time.sleep(3)
 
     return _generate_mol
@@ -106,7 +113,10 @@ def check_first_atom():
         driver.find_element(
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
         ).send_keys("1")
-        driver.find_element(By.XPATH, '//button[text()="Apply selection"]').click()
+        apply_selection = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
+        )
+        apply_selection.click()
         driver.find_element(
             By.XPATH, f"//div[starts-with(text(),'Id: 1; Symbol: {atom_symbol};')]"
         )

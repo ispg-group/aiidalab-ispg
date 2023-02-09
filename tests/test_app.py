@@ -4,6 +4,8 @@ from pathlib import Path
 import pytest
 
 # https://selenium-python.readthedocs.io/locating-elements.html
+import selenium.webdriver.support.expected_conditions as EC
+from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 
 WINDOW_WIDTH = 1400
@@ -41,7 +43,10 @@ def test_conformer_generation_steps(
     generate_mol_from_smiles(driver, "C")
 
     # Select the first atom
-    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    selection = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
+    )
+    selection.click()
     check_first_atom(driver, "C")
 
     # Test different generation options
@@ -57,7 +62,10 @@ def test_conformer_generation_steps(
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
-    driver.find_element(By.XPATH, "//button[text()='Download']").click()
+    download = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Download']"))
+    )
+    download.click()
 
 
 def test_spectrum_app_init(selenium_driver, final_screenshot):
@@ -89,6 +97,9 @@ def test_atmospec_steps(
         Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
     )
 
-    driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
+    confirm = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
+    )
+    confirm.click()
     # Test that we have indeed proceeded to the next step
     driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
