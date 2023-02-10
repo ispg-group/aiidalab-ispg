@@ -29,13 +29,12 @@ class OptimizationParameters:
     solvent: str
 
 
-# TODO: Set production defaults
 DEFAULT_OPTIMIZATION_PARAMETERS = OptimizationParameters(
     charge=0,
     multiplicity=1,
     method="wB97X-D4",
     basis="def2-SVP",
-    solvent="Water",
+    solvent="None",
 )
 
 
@@ -77,6 +76,21 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
             basis=self.ground_state_settings.basis.value,
         )
 
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        self._update_state()
+        process = change["new"]
+        if process is None:
+            return
+        try:
+            parameters = process.base.extras.get("builder_parameters")
+            self._update_ui_from_parameters(OptimizationParameters(**parameters))
+        # TODO: Catch possible exceptions both from extras.get and conversion to OptimizationParameters
+        # (i.e if OptimizationParameters change, we need to be forgiving for backwards compatibility
+        except AttributeError as e:
+            # extras do not exist, ignore this problem
+            pass
+
     def submit(self, _=None):
 
         assert self.input_structure is not None
@@ -87,7 +101,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         # TODO: ComputationalResourceWidget
         builder.code = load_code("orca@localhost")
         builder.structure = self.input_structure
-        builder.orca.parameters = Dict(self._build_orca_params())
+        builder.orca.parameters = Dict(self._build_orca_params(parameters))
         builder.orca.metadata = self._get_metadata()
 
         # Clean the remote directory by default,
