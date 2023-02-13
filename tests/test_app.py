@@ -155,7 +155,7 @@ def test_atmospec_steps(
     confirm_structure = WebDriverWait(driver, 30).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
-    button_enabled(confirm_structure)
+    button_enabled("Confirm")
     confirm_structure.click()
     # TODO: Figure out a better way to do this robustly
     time.sleep(3)
@@ -170,4 +170,4 @@ def test_atmospec_steps(
     submit = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
     )
-    button_enabled(submit)
+    button_enabled("Submit")

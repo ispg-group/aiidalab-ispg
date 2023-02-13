@@ -135,9 +135,13 @@ def check_atoms(selenium):
 
 @pytest.fixture
 def button_enabled(selenium):
-    def _button_enabled(button):
+    def _button_enabled(button_title):
         WebDriverWait(selenium, 15).until(
-            EC.none_of(EC.element_attribute_to_include(button, "disabled"))
+            EC.none_of(
+                EC.element_attribute_to_include(
+                    (By.XPATH, f"//button[text()='{button_title}']"), "disabled"
+                )
+            )
         )
 
     return _button_enabled
@@ -146,10 +150,10 @@ def button_enabled(selenium):
 @pytest.fixture
 def button_disabled(selenium):
     def _button_disabled(button):
-        WebDriverWait(selenium, 15).until(
-            EC.element_attribute_to_include(button, "disabled")
-        )
-        # assert button.get_attribute("disabled") == "true"
+        # WebDriverWait(selenium, 15).until(
+        #    EC.element_attribute_to_include(button, "disabled")
+        # )
+        assert button.get_attribute("disabled") == "true"
 
     return _button_disabled
 
