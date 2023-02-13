@@ -134,6 +134,11 @@ def test_atmospec_steps(
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     check_step_status(1, StepState.READY)
+    confirm_structure = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
+    )
+    # Because we don't have a structure yet, the confirm button should be disabled
+    button_disabled(confirm_structure)
 
     # Generate methane molecule
     generate_mol_from_smiles("C")
@@ -143,15 +148,18 @@ def test_atmospec_steps(
     )
     check_step_status(1, StepState.CONFIGURED)
 
-    confirm = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
-    )
-    confirm.click()
+    # Confirm structure and go to the next step
+    button_enabled(confirm_structure)
+    confirm_structure.click()
+    button_disabled(confirm_structure)
 
     check_step_status(1, StepState.SUCCESS)
     check_step_status(2, StepState.CONFIGURED)
     check_step_status(3, StepState.INIT)
     check_step_status(4, StepState.INIT)
-    confirm = WebDriverWait(driver, 10).until(
+
+    # Make sure the submit button is visible and enabled
+    submit = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
     )
+    button_enabled(submit)

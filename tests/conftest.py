@@ -133,6 +133,22 @@ def check_atoms(selenium):
     return _select_atoms
 
 
+@pytest.fixture(scope="session", autouse=True)
+def button_enabled():
+    def _button_enabled(button):
+        assert button.get_attribute("disabled") is None
+
+    return _button_enabled
+
+
+@pytest.fixture(scope="session", autouse=True)
+def button_disabled():
+    def _button_disabled(button):
+        assert button.get_attribute("disabled") == "true"
+
+    return _button_disabled
+
+
 @pytest.fixture(scope="session")
 def screenshot_dir():
     sdir = Path.joinpath(Path.cwd(), "screenshots")
