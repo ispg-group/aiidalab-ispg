@@ -69,7 +69,7 @@ def test_conformer_generation_init(selenium_driver, final_screenshot):
 
 
 def test_conformer_generation_steps(
-    selenium_driver, final_screenshot, generate_mol_from_smiles, check_first_atom
+    selenium_driver, final_screenshot, generate_mol_from_smiles, check_atoms
 ):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -82,18 +82,21 @@ def test_conformer_generation_steps(
         EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
     )
     selection.click()
-    check_first_atom("C")
+    check_atoms("CHHHH")
 
     # Test different generation options
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
     generate_mol_from_smiles("N")
-    check_first_atom("N")
+    # TODO: Selecting four atoms currently fails due to AWB bug
+    # https://github.com/ispg-group/aiidalab-ispg/issues/122
+    # check_atoms("NHHH")
+    check_atoms("NHH")
 
     driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
     generate_mol_from_smiles("O")
-    check_first_atom("O")
+    check_atoms("OHH")
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
@@ -124,7 +127,7 @@ def test_atmospec_steps(
     screenshot_dir,
     final_screenshot,
     generate_mol_from_smiles,
-    check_first_atom,
+    check_atoms,
     check_step_status,
 ):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
@@ -134,7 +137,7 @@ def test_atmospec_steps(
 
     # Generate methane molecule
     generate_mol_from_smiles("C")
-    check_first_atom("C")
+    check_atoms("CHHHH")
     driver.get_screenshot_as_file(
         Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
     )

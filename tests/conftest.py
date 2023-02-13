@@ -108,20 +108,27 @@ def generate_mol_from_smiles(selenium):
 
 
 @pytest.fixture(scope="function")
-def check_first_atom(selenium):
-    def _select_first_atom(atom_symbol):
+def check_atoms(selenium):
+    """Check that we can select atoms in a molecule given atom symbols."""
+
+    def _select_atoms(atom_symbols: str):
+        """
+        atom_symbols str: For example, "CHHHH" for methane molecule
+        The order of atom symbols must be the same as their indexes in the molecule
+        """
         selenium.find_element(
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
-        ).send_keys("1")
+        ).send_keys(f"1..{len(atom_symbols)}")
         apply_selection = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
         apply_selection.click()
-        selenium.find_element(
-            By.XPATH, f"//div[starts-with(text(),'Id: 1; Symbol: {atom_symbol};')]"
-        )
+        for i, atom in enumerate(atom_symbols):
+            selenium.find_element(
+                By.XPATH, f"//div[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
+            )
 
-    return _select_first_atom
+    return _select_atoms
 
 
 @pytest.fixture(scope="session")
