@@ -146,12 +146,7 @@ def test_atmospec_steps(
     confirm = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
-    print("Confirm button before click", type(confirm.get_attribute("disabled")))
-    submit = driver.find_element(By.XPATH, "//button[text()='Submit']")
-    print("Submit button before click", type(submit.get_attribute("disabled")))
     confirm.click()
-    print("Confirm button after click", type(confirm.get_attribute("disabled")))
-    print("Submit button after click", type(submit.get_attribute("disabled")))
 
     check_step_status(1, StepState.SUCCESS)
     check_step_status(2, StepState.CONFIGURED)
