@@ -133,6 +133,32 @@ def check_atoms(selenium):
     return _select_atoms
 
 
+@pytest.fixture
+def button_enabled(selenium):
+    def _button_enabled(button_title):
+        WebDriverWait(selenium, 15).until(
+            EC.none_of(
+                EC.element_attribute_to_include(
+                    (By.XPATH, f"//button[text()='{button_title}']"), "disabled"
+                )
+            )
+        )
+
+    return _button_enabled
+
+
+@pytest.fixture
+def button_disabled(selenium):
+    def _button_disabled(button_title):
+        WebDriverWait(selenium, 15).until(
+            EC.element_attribute_to_include(
+                (By.XPATH, f"//button[text()='{button_title}']"), "disabled"
+            )
+        )
+
+    return _button_disabled
+
+
 @pytest.fixture(scope="session")
 def screenshot_dir():
     sdir = Path.joinpath(Path.cwd(), "screenshots")
