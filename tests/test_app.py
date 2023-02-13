@@ -65,7 +65,6 @@ def test_conformer_generation_init(selenium_driver, final_screenshot):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     btn = driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
-    print(btn.get_attribute("disabled"))
 
 
 def test_conformer_generation_steps(
@@ -143,10 +142,8 @@ def test_atmospec_steps(
     confirm = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
-    submit = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
-    )
     print("Confirm button before click", confirm.get_attribute("disabled"))
+    submit = selenium.find_element(By.XPATH, "//button[text()='Submit']")
     print("Submit button before click", submit.get_attribute("disabled"))
     confirm.click()
     print("Confirm button after click", confirm.get_attribute("disabled"))
@@ -156,3 +153,6 @@ def test_atmospec_steps(
     check_step_status(2, StepState.CONFIGURED)
     check_step_status(3, StepState.INIT)
     check_step_status(4, StepState.INIT)
+    confirm = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+    )
