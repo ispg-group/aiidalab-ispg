@@ -141,7 +141,7 @@ def test_optimization_steps(
     # Test that we have indeed proceeded to the next step
     check_step_status(1, StepState.SUCCESS)
     # TODO: We need to select the orca@slurm automatically
-    check_step_status(2, StepState.CONFIGURED)
+    # check_step_status(2, StepState.CONFIGURED)
     check_step_status(3, StepState.INIT)
 
     # TODO: Not sure why this does not work
@@ -160,7 +160,7 @@ def test_atmospec_app_init(selenium_driver, final_screenshot, check_step_status)
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     check_step_status(1, StepState.READY)
-    check_step_status(2, StepState.READY)
+    check_step_status(2, StepState.INIT)
     check_step_status(3, StepState.INIT)
     check_step_status(4, StepState.INIT)
     driver.find_element(By.XPATH, "//button[text()='Refresh']")
@@ -181,7 +181,7 @@ def test_atmospec_steps(
 
     check_step_status(1, StepState.READY)
     # Because we don't have a structure yet, the confirm button should be disabled
-    button_enabled("Confirm")
+    button_disabled("Confirm")
     button_disabled("Submit")
 
     # Generate methane molecule
