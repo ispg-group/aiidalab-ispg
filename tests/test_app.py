@@ -25,9 +25,9 @@ class StepState(Enum):
 
 
 @pytest.fixture
-def check_step_status(driver):
+def check_step_status(drive):
     ICONS = {
-        StepState.INIT: "○-",
+        StepState.INIT: "○",
         StepState.READY: "◎",
         StepState.CONFIGURED: "●",
         StepState.SUCCESS: "✓",
@@ -39,9 +39,7 @@ def check_step_status(driver):
 
     def _check_step_status(step_num, expected_state: StepState):
         icon = ICONS[expected_state]
-        driver.find_element(
-            By.XPATH, f"//span[starts-with(.,'{icon} Step {step_num}')]"
-        )
+        drive.find_element(By.XPATH, f"//span[starts-with(.,'{icon} Step {step_num}')]")
 
     return _check_step_status
 
