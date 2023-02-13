@@ -209,6 +209,8 @@ def test_atmospec_steps(
     WebDriverWait(driver, 30).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     ).click()
+
+    # Once the structure is confirmed, the button should be disabled
     button_disabled("Confirm")
 
     check_step_status(1, StepState.SUCCESS)

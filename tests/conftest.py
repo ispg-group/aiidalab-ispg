@@ -151,8 +151,8 @@ def button_enabled(selenium):
 def button_disabled(selenium):
     def _button_disabled(button_title):
         WebDriverWait(selenium, 15).until(
-            EC.element_attribute_to_include(
-                (By.XPATH, f"//button[text()='{button_title}']"), "disabled"
+            EC.text_to_be_present_in_element_attribute(
+                (By.XPATH, f"//button[text()='{button_title}']"), "disabled", "true"
             )
         )
 
