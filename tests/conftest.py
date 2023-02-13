@@ -133,7 +133,7 @@ def check_atoms(selenium):
     return _select_atoms
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def button_enabled():
     def _button_enabled(button):
         assert button.get_attribute("disabled") is None
@@ -141,7 +141,7 @@ def button_enabled():
     return _button_enabled
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def button_disabled():
     def _button_disabled(button):
         assert button.get_attribute("disabled") == "true"

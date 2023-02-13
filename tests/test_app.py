@@ -126,6 +126,8 @@ def test_atmospec_steps(
     selenium_driver,
     screenshot_dir,
     final_screenshot,
+    button_enabled,
+    button_disabled,
     generate_mol_from_smiles,
     check_atoms,
     check_step_status,
