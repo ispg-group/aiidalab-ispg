@@ -6,7 +6,7 @@ import traitlets
 from dataclasses import dataclass
 
 from aiida.engine import submit
-from aiida.orm import Bool, Dict, StructureData, TrajectoryData, WorkChainNode
+from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
 from aiida.orm import load_code
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
@@ -122,7 +122,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
         num_mpiprocs = self.resources_config.num_mpi_tasks.value
         builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)
-        builder.orca.parameters = Dict(self._build_orca_params(parameters))
+        builder.orca.parameters = self._build_orca_params(parameters)
         if num_mpiprocs > 1:
             builder.orca.parameters["input_blocks"]["pal"] = {"nproc": num_mpiprocs}
 
