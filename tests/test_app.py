@@ -76,11 +76,12 @@ def test_conformer_generation_steps(
     # Generate methane molecule
     generate_mol_from_smiles("C")
 
-    # Select the first atom
+    # Switch to Selection tab
     selection = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
     )
     selection.click()
+    # Select atoms and verify them
     check_atoms("CHHHH")
 
     # Test different generation options
@@ -143,7 +144,7 @@ def test_atmospec_steps(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
     print("Confirm button before click", confirm.get_attribute("disabled"))
-    submit = selenium.find_element(By.XPATH, "//button[text()='Submit']")
+    submit = driver.find_element(By.XPATH, "//button[text()='Submit']")
     print("Submit button before click", submit.get_attribute("disabled"))
     confirm.click()
     print("Confirm button after click", confirm.get_attribute("disabled"))
