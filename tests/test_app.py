@@ -77,6 +77,10 @@ def test_spectrum_app_init(selenium_driver, final_screenshot):
 def test_atmospec_app_init(selenium_driver, final_screenshot):
     driver = selenium_driver("atmospec.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+    driver.find_element(By.XPATH, "//span[starts-with(.,'◎ Step 1')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'○ Step 2')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'○ Step 3')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'○ Step 4')]")
     driver.find_element(By.XPATH, "//button[text()='Refresh']")
 
 
@@ -90,6 +94,7 @@ def test_atmospec_steps(
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
+    driver.find_element(By.XPATH, "//span[starts-with(.,'◎ Step 1')]")
     # Generate methane molecule
     generate_mol_from_smiles(driver, "C")
     check_first_atom(driver, "C")
@@ -102,4 +107,8 @@ def test_atmospec_steps(
     )
     confirm.click()
     # Test that we have indeed proceeded to the next step
+    # TODO: Abstract these check in conftest
     driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'● Step 2')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'○ Step 3')]")
+    driver.find_element(By.XPATH, "//span[starts-with(.,'○ Step 4')]")
