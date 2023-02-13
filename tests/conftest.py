@@ -134,9 +134,9 @@ def check_atoms(selenium):
 
 
 @pytest.fixture(scope="session")
-def button_enabled():
+def button_enabled(selenium):
     def _button_enabled(button):
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(selenium, 15).until(
             EC.none_of(EC.element_attribute_to_include(button, "disabled"))
         )
 
@@ -144,9 +144,9 @@ def button_enabled():
 
 
 @pytest.fixture(scope="session")
-def button_disabled():
+def button_disabled(selenium):
     def _button_disabled(button):
-        WebDriverWait(driver, 15).until(
+        WebDriverWait(selenium, 15).until(
             EC.element_attribute_to_include(button, "disabled")
         )
         # assert button.get_attribute("disabled") == "true"
