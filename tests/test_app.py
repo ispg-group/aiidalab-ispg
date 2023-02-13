@@ -64,7 +64,7 @@ def test_dependencies(notebook_service, aiidalab_exec, nb_user):
 def test_conformer_generation_init(selenium_driver, final_screenshot):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-    btn = driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
 
 
 def test_conformer_generation_steps(
@@ -146,12 +146,12 @@ def test_atmospec_steps(
     confirm = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
-    print("Confirm button before click", confirm.get_attribute("disabled"))
+    print("Confirm button before click", type(confirm.get_attribute("disabled")))
     submit = driver.find_element(By.XPATH, "//button[text()='Submit']")
-    print("Submit button before click", submit.get_attribute("disabled"))
+    print("Submit button before click", type(submit.get_attribute("disabled")))
     confirm.click()
-    print("Confirm button after click", confirm.get_attribute("disabled"))
-    print("Submit button after click", submit.get_attribute("disabled"))
+    print("Confirm button after click", type(confirm.get_attribute("disabled")))
+    print("Submit button after click", type(submit.get_attribute("disabled")))
 
     check_step_status(1, StepState.SUCCESS)
     check_step_status(2, StepState.CONFIGURED)
