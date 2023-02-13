@@ -149,11 +149,12 @@ def button_enabled(selenium):
 
 @pytest.fixture
 def button_disabled(selenium):
-    def _button_disabled(button):
-        # WebDriverWait(selenium, 15).until(
-        #    EC.element_attribute_to_include(button, "disabled")
-        # )
-        assert button.get_attribute("disabled") == "true"
+    def _button_disabled(button_title):
+        WebDriverWait(selenium, 15).until(
+            EC.element_attribute_to_include(
+                (By.XPATH, f"//button[text()='{button_title}']"), "disabled"
+            )
+        )
 
     return _button_disabled
 
