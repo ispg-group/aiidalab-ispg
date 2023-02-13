@@ -289,8 +289,7 @@ class ResourceSelectionWidget(ipw.VBox):
     prompt = ipw.HTML(
         """<div style="line-height:120%; padding-top:0px">
         <p style="padding-bottom:10px">
-        Specify the number of MPI tasks for this calculation.
-        (used only for optimization jobs with ORCA).
+        Number of MPI tasks for this calculation.
         </p></div>"""
     )
 

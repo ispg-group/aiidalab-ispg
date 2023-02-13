@@ -160,18 +160,15 @@ class CodeSettings(ipw.VBox):
         <h4>Codes</h4></div>"""
     )
     codes_help = ipw.HTML(
-        """<div style="line-height: 140%; padding-top: 0px; padding-bottom:
-        10px"> Select the code to use for running the calculations. The codes
-        on the local machine (localhost) are installed by default, but you can
-        configure new ones on potentially more powerful machines by clicking on
-        "Setup new code".</div>"""
+        """<div style="line-height: 140%; padding-top: 0px;
+        padding-bottom: 10px"> Select the ORCA code.</div>"""
     )
 
     def __init__(self, **kwargs):
 
         self.orca = ComputationalResourcesWidget(
             default_calc_job_plugin="orca.orca",
-            description="Main ORCA program",
+            description="ORCA program",
         )
         super().__init__(
             children=[
@@ -201,7 +198,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             icon="play",
             button_style="success",
             layout=ipw.Layout(width="auto", flex="1 1 auto"),
-            disabled=False,
+            disabled=True,
         )
 
         self.submit_button.on_click(self._on_submit_button_clicked)

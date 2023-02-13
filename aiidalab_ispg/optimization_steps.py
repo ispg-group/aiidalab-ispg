@@ -11,8 +11,12 @@ from aiida.orm import load_code
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
 
-from .widgets import MoleculeDefinitionWidget, GroundStateDefinitionWidget
-from .steps import SubmitWorkChainStepBase
+from .widgets import (
+    ResourceSelectionWidget,
+    MoleculeDefinitionWidget,
+    GroundStateDefinitionWidget,
+)
+from .steps import CodeSettings, SubmitWorkChainStepBase
 
 try:
     from aiidalab_atmospec_workchain.optimization import ConformerOptimizationWorkChain
@@ -44,7 +48,22 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     def __init__(self, **kwargs):
         self.molecule_settings = MoleculeDefinitionWidget()
         self.ground_state_settings = GroundStateDefinitionWidget()
-        components = [ipw.HBox([self.molecule_settings, self.ground_state_settings])]
+        self.codes_selector = CodeSettings()
+        self.resources_config = ResourceSelectionWidget()
+        components = [
+            ipw.HBox(
+                [
+                    self.molecule_settings,
+                    self.ground_state_settings,
+                ]
+            ),
+            ipw.HBox(
+                [
+                    self.codes_selector,
+                    self.resources_config,
+                ]
+            ),
+        ]
         self._update_ui_from_parameters(DEFAULT_OPTIMIZATION_PARAMETERS)
         super().__init__(components=components)
 
@@ -98,15 +117,18 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         parameters = self._get_parameters_from_ui()
         builder = ConformerOptimizationWorkChain.get_builder()
 
-        # TODO: ComputationalResourceWidget
-        builder.code = load_code("orca@localhost")
         builder.structure = self.input_structure
+        builder.code = load_code(self.codes_selector.orca.value)
+
+        num_mpiprocs = self.resources_config.num_mpi_tasks.value
+        builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)
         builder.orca.parameters = Dict(self._build_orca_params(parameters))
-        builder.orca.metadata = self._get_metadata()
+        if num_mpiprocs > 1:
+            builder.orca.parameters["input_blocks"]["pal"] = {"nproc": num_mpiprocs}
 
         # Clean the remote directory by default,
-        # we're copying back the main output file and gbw file anyway.
-        builder.orca.clean_workdir = Bool(True)
+        # We're copying back the main output file and gbw file anyway.
+        builder.clean_workdir = Bool(True)
 
         process = submit(builder)
 
@@ -116,20 +138,18 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
     # TODO: Need to implement logic for handling more CPUs
     # and distribute them among conformers
-    def _get_metadata(self):
-        ncpus = 1
-        metadata = {
+    def _build_orca_metadata(self, num_mpiprocs):
+        return {
             "options": {
                 "withmpi": False,
                 "resources": {
-                    "tot_num_mpiprocs": ncpus,
-                    "num_mpiprocs_per_machine": ncpus,
+                    "tot_num_mpiprocs": num_mpiprocs,
+                    "num_mpiprocs_per_machine": num_mpiprocs,
                     "num_cores_per_mpiproc": 1,
                     "num_machines": 1,
                 },
             }
         }
-        return metadata
 
     def _build_orca_params(self, params: OptimizationParameters) -> dict:
         """A bit of indirection to decouple aiida-orca plugin
