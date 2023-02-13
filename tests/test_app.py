@@ -1,4 +1,5 @@
 import requests
+import time
 from enum import Enum
 from pathlib import Path
 
@@ -156,6 +157,8 @@ def test_atmospec_steps(
     )
     button_enabled(confirm_structure)
     confirm_structure.click()
+    # TODO: Figure out a better way to do this robustly
+    time.sleep(3)
     button_disabled(confirm_structure)
 
     check_step_status(1, StepState.SUCCESS)
