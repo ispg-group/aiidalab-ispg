@@ -106,10 +106,13 @@ def test_conformer_generation_steps(
     download.click()
 
 
-def test_optimization_init(selenium_driver, final_screenshot):
+def test_optimization_init(selenium_driver, final_screenshot, check_step_status):
     driver = selenium_driver("optimization.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+    check_step_status(1, StepState.READY)
+    check_step_status(2, StepState.INIT)
+    check_step_status(3, StepState.INIT)
 
 
 def test_optimization_steps(
@@ -117,18 +120,31 @@ def test_optimization_steps(
     final_screenshot,
     generate_mol_from_smiles,
     check_atoms,
+    check_step_status,
 ):
     driver = selenium_driver("optimization.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+    check_step_status(1, StepState.READY)
+    check_step_status(2, StepState.INIT)
+    check_step_status(3, StepState.INIT)
+
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
     # Generate methane molecule
     generate_mol_from_smiles("C")
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     check_atoms("C")
+    check_step_status(1, StepState.CONFIGURED)
 
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
     # Test that we have indeed proceeded to the next step
-    driver.find_element(By.XPATH, "//span[contains(.,'✓ Step 1')]")
+    check_step_status(1, StepState.SUCCESS)
+    # TODO: We need to select the orca@slurm automatically
+    # check_step_status(2, StepState.CONFIGURED)
+    check_step_status(3, StepState.INIT)
+    submit = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+    )
 
 
 def test_spectrum_app_init(selenium_driver, final_screenshot):
