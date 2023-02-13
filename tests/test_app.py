@@ -116,15 +116,15 @@ def test_optimization_steps(
     selenium_driver,
     final_screenshot,
     generate_mol_from_smiles,
-    check_first_atom,
+    check_atoms,
 ):
     driver = selenium_driver("optimization.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
     # Generate methane molecule
-    generate_mol_from_smiles(driver, "C")
+    generate_mol_from_smiles("C")
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
-    check_first_atom(driver, "C")
+    check_atoms("C")
 
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
     # Test that we have indeed proceeded to the next step
