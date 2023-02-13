@@ -25,7 +25,7 @@ class StepState(Enum):
 
 
 @pytest.fixture
-def check_step_status(drive):
+def check_step_status(selenium):
     ICONS = {
         StepState.INIT: "○",
         StepState.READY: "◎",
@@ -39,7 +39,9 @@ def check_step_status(drive):
 
     def _check_step_status(step_num, expected_state: StepState):
         icon = ICONS[expected_state]
-        drive.find_element(By.XPATH, f"//span[starts-with(.,'{icon} Step {step_num}')]")
+        selenium.find_element(
+            By.XPATH, f"//span[starts-with(.,'{icon} Step {step_num}')]"
+        )
 
     return _check_step_status
 
@@ -72,25 +74,25 @@ def test_conformer_generation_steps(
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
-    generate_mol_from_smiles(driver, "C")
+    generate_mol_from_smiles("C")
 
     # Select the first atom
     selection = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
     )
     selection.click()
-    check_first_atom(driver, "C")
+    check_first_atom("C")
 
     # Test different generation options
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
-    generate_mol_from_smiles(driver, "N")
-    check_first_atom(driver, "N")
+    generate_mol_from_smiles("N")
+    check_first_atom("N")
 
     driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
-    generate_mol_from_smiles(driver, "O")
-    check_first_atom(driver, "O")
+    generate_mol_from_smiles("O")
+    check_first_atom("O")
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
@@ -130,8 +132,8 @@ def test_atmospec_steps(
     check_step_status(1, StepState.READY)
 
     # Generate methane molecule
-    generate_mol_from_smiles(driver, "C")
-    check_first_atom(driver, "C")
+    generate_mol_from_smiles("C")
+    check_first_atom("C")
     driver.get_screenshot_as_file(
         Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
     )

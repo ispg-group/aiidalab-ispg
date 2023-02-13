@@ -90,13 +90,13 @@ def selenium_driver(selenium, notebook_service):
     return _selenium_driver
 
 
-@pytest.fixture
-def generate_mol_from_smiles():
-    def _generate_mol(driver, smiles):
-        smiles_input = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+@pytest.fixture(scope="function")
+def generate_mol_from_smiles(selenium):
+    def _generate_mol(smiles):
+        smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
         smiles_input.clear()
         smiles_input.send_keys(smiles)
-        generate = WebDriverWait(driver, 10).until(
+        generate = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//button[text()='Generate molecule']")
             )
@@ -107,17 +107,17 @@ def generate_mol_from_smiles():
     return _generate_mol
 
 
-@pytest.fixture
-def check_first_atom():
-    def _select_first_atom(driver, atom_symbol):
-        driver.find_element(
+@pytest.fixture(scope="function")
+def check_first_atom(selenium):
+    def _select_first_atom(atom_symbol):
+        selenium.find_element(
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
         ).send_keys("1")
-        apply_selection = WebDriverWait(driver, 10).until(
+        apply_selection = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
         apply_selection.click()
-        driver.find_element(
+        selenium.find_element(
             By.XPATH, f"//div[starts-with(text(),'Id: 1; Symbol: {atom_symbol};')]"
         )
 
