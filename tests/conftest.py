@@ -133,7 +133,7 @@ def check_atoms(selenium):
     return _select_atoms
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def button_enabled(selenium):
     def _button_enabled(button):
         WebDriverWait(selenium, 15).until(
@@ -143,7 +143,7 @@ def button_enabled(selenium):
     return _button_enabled
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def button_disabled(selenium):
     def _button_disabled(button):
         WebDriverWait(selenium, 15).until(
