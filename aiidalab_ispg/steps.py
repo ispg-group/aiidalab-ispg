@@ -551,15 +551,18 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.default("builder_parameters")
     def _default_builder_parameters(self):
         params = DEFAULT_PARAMETERS
-        orca_code = params["orca_code"]
-        if orca_code is None:
-            return params
 
-        try:
-            params["orca_code"] = load_code(orca_code).uuid
-        except (NotExistent, ValueError):
-            print(f"WARNING: Code {orca_code} not found")
-            params["orca_code"] = None
+        params["orca_code"] = None
+        for code_label in ("orca@slurm", "orca@localhost"):
+            try:
+                params["orca_code"] = load_code(code_label).uuid
+            except (NotExistent, ValueError):
+                pass
+            else:
+                return params
+
+        if params["orca_code"] is None:
+            print(f"WARNING: ORCA code has not been found locally")
         return params
 
 
