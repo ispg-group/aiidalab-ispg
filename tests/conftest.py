@@ -116,14 +116,16 @@ def check_atoms(selenium):
         atom_symbols str: For example, "CHHHH" for methane molecule
         The order of atom symbols must be the same as their indexes in the molecule
         """
-        selenium.find_element(
+        selection_box = selenium.find_element(
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
-        ).send_keys(f"1..{len(atom_symbols)}")
+        )
         apply_selection = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
-        apply_selection.click()
         for i, atom in enumerate(atom_symbols):
+            selection_box.clear()
+            selection_box.send_keys(str(i))
+            apply_selection.click()
             selenium.find_element(
                 By.XPATH, f"//div[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
             )

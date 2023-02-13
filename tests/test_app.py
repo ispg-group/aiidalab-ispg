@@ -88,10 +88,7 @@ def test_conformer_generation_steps(
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
     generate_mol_from_smiles("N")
-    # TODO: Selecting four atoms currently fails due to AWB bug
-    # https://github.com/ispg-group/aiidalab-ispg/issues/122
-    # check_atoms("NHHH")
-    check_atoms("NHH")
+    check_atoms("NHHH")
 
     driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
