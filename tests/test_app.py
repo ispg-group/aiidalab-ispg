@@ -25,7 +25,7 @@ class StepState(Enum):
 
 
 @pytest.fixture
-def check_step_status(driver):
+def check_step_status(selenium):
     ICONS = {
         StepState.INIT: "○",
         StepState.READY: "◎",
@@ -39,7 +39,7 @@ def check_step_status(driver):
 
     def _check_step_status(step_num, expected_state: StepState):
         icon = ICONS[expected_state]
-        driver.find_element(
+        selenium.find_element(
             By.XPATH, f"//span[starts-with(.,'{icon} Step {step_num}')]"
         )
 
@@ -68,31 +68,35 @@ def test_conformer_generation_init(selenium_driver, final_screenshot):
 
 
 def test_conformer_generation_steps(
-    selenium_driver, final_screenshot, generate_mol_from_smiles, check_first_atom
+    selenium_driver, final_screenshot, generate_mol_from_smiles, check_atoms
 ):
     driver = selenium_driver("conformer_generation.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Generate methane molecule
-    generate_mol_from_smiles(driver, "C")
+    generate_mol_from_smiles("C")
 
-    # Select the first atom
+    # Switch to Selection tab
     selection = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
     )
     selection.click()
-    check_first_atom(driver, "C")
+    # Select atoms and verify them
+    # TODO: Firefox seems to fail for atoms beyond the first one,
+    # so we just check the first one for now
+    # check_atoms("CHHHH")
+    check_atoms("C")
 
     # Test different generation options
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
-    generate_mol_from_smiles(driver, "N")
-    check_first_atom(driver, "N")
+    generate_mol_from_smiles("N")
+    check_atoms("N")
 
     driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
-    generate_mol_from_smiles(driver, "O")
-    check_first_atom(driver, "O")
+    generate_mol_from_smiles("O")
+    check_atoms("O")
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
@@ -123,7 +127,7 @@ def test_atmospec_steps(
     screenshot_dir,
     final_screenshot,
     generate_mol_from_smiles,
-    check_first_atom,
+    check_atoms,
     check_step_status,
 ):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
@@ -132,8 +136,8 @@ def test_atmospec_steps(
     check_step_status(1, StepState.READY)
 
     # Generate methane molecule
-    generate_mol_from_smiles(driver, "C")
-    check_first_atom(driver, "C")
+    generate_mol_from_smiles("C")
+    check_atoms("C")
     driver.get_screenshot_as_file(
         Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
     )
@@ -148,3 +152,6 @@ def test_atmospec_steps(
     check_step_status(2, StepState.CONFIGURED)
     check_step_status(3, StepState.INIT)
     check_step_status(4, StepState.INIT)
+    confirm = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+    )

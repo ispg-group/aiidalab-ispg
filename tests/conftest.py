@@ -90,13 +90,13 @@ def selenium_driver(selenium, notebook_service):
     return _selenium_driver
 
 
-@pytest.fixture
-def generate_mol_from_smiles():
-    def _generate_mol(driver, smiles):
-        smiles_input = driver.find_element(By.XPATH, "//input[@placeholder='C=C']")
+@pytest.fixture(scope="function")
+def generate_mol_from_smiles(selenium):
+    def _generate_mol(smiles):
+        smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
         smiles_input.clear()
         smiles_input.send_keys(smiles)
-        generate = WebDriverWait(driver, 10).until(
+        generate = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//button[text()='Generate molecule']")
             )
@@ -107,21 +107,30 @@ def generate_mol_from_smiles():
     return _generate_mol
 
 
-@pytest.fixture
-def check_first_atom():
-    def _select_first_atom(driver, atom_symbol):
-        driver.find_element(
+@pytest.fixture(scope="function")
+def check_atoms(selenium):
+    """Check that we can select atoms in a molecule given atom symbols."""
+
+    def _select_atoms(atom_symbols: str):
+        """
+        atom_symbols str: For example, "CHHHH" for methane molecule
+        The order of atom symbols must be the same as their indexes in the molecule
+        """
+        selection_box = selenium.find_element(
             By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
-        ).send_keys("1")
-        apply_selection = WebDriverWait(driver, 10).until(
+        )
+        apply_selection = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
-        apply_selection.click()
-        driver.find_element(
-            By.XPATH, f"//div[starts-with(text(),'Id: 1; Symbol: {atom_symbol};')]"
-        )
+        for i, atom in enumerate(atom_symbols):
+            selection_box.clear()
+            selection_box.send_keys(str(i + 1))
+            apply_selection.click()
+            selenium.find_element(
+                By.XPATH, f"//div[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
+            )
 
-    return _select_first_atom
+    return _select_atoms
 
 
 @pytest.fixture(scope="session")
