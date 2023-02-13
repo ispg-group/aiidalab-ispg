@@ -195,11 +195,9 @@ def test_atmospec_steps(
     # Confirm structure and go to the next step
     button_enabled("Confirm")
     button_disabled("Submit")
-    confirm_structure = (
-        WebDriverWait(driver, 30)
-        .until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']")))
-        .click()
-    )
+    WebDriverWait(driver, 30).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
+    ).click()
     button_disabled("Confirm")
 
     check_step_status(1, StepState.SUCCESS)
