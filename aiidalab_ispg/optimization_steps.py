@@ -67,10 +67,12 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         self._update_ui_from_parameters(DEFAULT_OPTIMIZATION_PARAMETERS)
         super().__init__(components=components)
 
-    # TODO: Check the ORCA code is available, perhaps other verifications
-    # (e.g. size of the molecule)
+    # TODO: More validations (molecule size etc)
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
+        # ORCA code not selected.
+        if self.codes_selector.orca.value is None:
+            return False
         return True
 
     def _update_ui_from_parameters(self, parameters: OptimizationParameters) -> None:
