@@ -134,7 +134,7 @@ def test_atmospec_steps(
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
     check_step_status(1, StepState.READY)
-    confirm_structure = WebDriverWait(driver, 10).until(
+    confirm_structure = WebDriverWait(driver, 30).until(
         EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
     )
     # Because we don't have a structure yet, the confirm button should be disabled
