@@ -123,8 +123,7 @@ def check_atoms(selenium):
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
         for i, atom in enumerate(atom_symbols):
-            selection_box.clear()
-            selection_box.send_keys(str(i))
+            selection_box.clear().send_keys(str(i + 1))
             apply_selection.click()
             selenium.find_element(
                 By.XPATH, f"//div[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
