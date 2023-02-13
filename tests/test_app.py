@@ -27,7 +27,7 @@ class StepState(Enum):
 @pytest.fixture
 def check_step_status(driver):
     ICONS = {
-        StepState.INIT: "○",
+        StepState.INIT: "○-",
         StepState.READY: "◎",
         StepState.CONFIGURED: "●",
         StepState.SUCCESS: "✓",
