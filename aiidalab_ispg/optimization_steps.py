@@ -11,11 +11,8 @@ from aiida.orm import load_code
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
 
-from .widgets import (
-    ResourceSelectionWidget,
-    MoleculeDefinitionWidget,
-    GroundStateDefinitionWidget,
-)
+from .input_widgets import MoleculeDefinitionWidget, GroundStateDefinitionWidget
+from .widgets import ResourceSelectionWidget
 from .steps import CodeSettings, SubmitWorkChainStepBase
 
 try:

@@ -96,12 +96,11 @@ def generate_mol_from_smiles(selenium):
         smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
         smiles_input.clear()
         smiles_input.send_keys(smiles)
-        generate = WebDriverWait(selenium, 10).until(
+        WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable(
                 (By.XPATH, "//button[text()='Generate molecule']")
             )
-        )
-        generate.click()
+        ).click()
         time.sleep(3)
 
     return _generate_mol
