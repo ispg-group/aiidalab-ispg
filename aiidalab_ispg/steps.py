@@ -164,13 +164,17 @@ class CodeSettings(ipw.VBox):
         padding-bottom: 10px"> Select the ORCA code.</div>"""
     )
 
+    # In the order of priority, we will select the default ORCA code from these
+    # First, we try to use SLURM on local machine, if available
+    _DEFAULT_ORCA_CODES = ("orca@slurm", "orca@localhost")
+
     def __init__(self, **kwargs):
 
         self.orca = ComputationalResourcesWidget(
             default_calc_job_plugin="orca.orca",
             description="ORCA program",
         )
-        self.set_default_codes()
+        self._set_default_codes()
         super().__init__(
             children=[
                 self.codes_title,
@@ -181,7 +185,7 @@ class CodeSettings(ipw.VBox):
         )
 
     def _set_default_codes(self):
-        for code_label in ("orca@slurm", "orca@localhost"):
+        for code_label in self._DEFAULT_ORCA_CODES:
             try:
                 self.orca.value = load_code(code_label).uuid
             except (NotExistent, ValueError):
