@@ -143,18 +143,18 @@ def test_optimization_steps(
     generate_mol_from_smiles("C")
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
     check_atoms("C")
+
     check_step_status(1, StepState.CONFIGURED)
     button_enabled("Confirm")
-
     driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
+
     # Test that we have indeed proceeded to the next step
     check_step_status(1, StepState.SUCCESS)
-    # TODO: We need to select the orca@slurm automatically
-    # check_step_status(2, StepState.CONFIGURED)
+    check_step_status(2, StepState.CONFIGURED)
     check_step_status(3, StepState.INIT)
-    button_disabled("Confirm")
 
-    # button_enabled("Submit")
+    button_disabled("Confirm")
+    button_enabled("Submit")
     # TODO: Not sure why this does not work
     # submit = WebDriverWait(driver, 10).until(
     #    EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))

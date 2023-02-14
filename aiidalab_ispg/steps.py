@@ -170,6 +170,7 @@ class CodeSettings(ipw.VBox):
             default_calc_job_plugin="orca.orca",
             description="ORCA program",
         )
+        self.set_default_codes()
         super().__init__(
             children=[
                 self.codes_title,
@@ -178,6 +179,16 @@ class CodeSettings(ipw.VBox):
             ],
             **kwargs,
         )
+
+    def _set_default_codes(self):
+        for code_label in ("orca@slurm", "orca@localhost"):
+            try:
+                self.orca.value = load_code(code_label).uuid
+            except (NotExistent, ValueError):
+                pass
+
+        if self.orca.value is None:
+            print("WARNING: ORCA code has not been found locally")
 
 
 class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
@@ -635,7 +646,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                 return params
 
         if params["orca_code"] is None:
-            print(f"WARNING: ORCA code has not been found locally")
+            print("WARNING: ORCA code has not been found locally")
         return params
 
 
