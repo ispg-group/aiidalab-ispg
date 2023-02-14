@@ -20,6 +20,7 @@ jobs:
 
   test-app:
 
+    needs: pre-commit
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
