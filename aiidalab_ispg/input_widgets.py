@@ -1,5 +1,5 @@
 """Common inputs widgets"""
-import ipywidgets as iwp
+import ipywidgets as ipw
 
 from .widgets import PCM_SOLVENT_LIST
 

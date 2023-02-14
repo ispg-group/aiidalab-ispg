@@ -188,10 +188,11 @@ class CodeSettings(ipw.VBox):
         for code_label in self._DEFAULT_ORCA_CODES:
             try:
                 self.orca.value = load_code(code_label).uuid
+                return
             except (NotExistent, ValueError):
                 pass
 
-        if self.orca.value is None:
+        if not self.orca.value:
             print("WARNING: ORCA code has not been found locally")
 
 
