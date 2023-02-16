@@ -15,6 +15,9 @@ template = """
     <li><a href="{appbase}/conformer_generation.ipynb" target="_blank">Conformer Sampling</a></li>
   </ul></td>
   <td valign="top"><ul>
+    <li><a href="{appbase}/optimization.ipynb" target="_blank">Conformer Optimization</a></li>
+  </ul></td>
+  <td valign="top"><ul>
     <li><a href="{appbase}/atmospec.ipynb" target="_blank">ATMOSPEC</a></li>
   </ul></td>
 </tr>

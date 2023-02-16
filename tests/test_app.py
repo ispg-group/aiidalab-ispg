@@ -107,6 +107,60 @@ def test_conformer_generation_steps(
     download.click()
 
 
+def test_optimization_init(
+    selenium_driver, final_screenshot, button_disabled, check_step_status
+):
+    driver = selenium_driver("optimization.ipynb", wait_time=30.0)
+    driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+    check_step_status(1, StepState.READY)
+    check_step_status(2, StepState.INIT)
+    check_step_status(3, StepState.INIT)
+    button_disabled("Confirm")
+    button_disabled("Submit")
+
+
+def test_optimization_steps(
+    selenium_driver,
+    final_screenshot,
+    button_enabled,
+    button_disabled,
+    generate_mol_from_smiles,
+    check_atoms,
+    check_step_status,
+):
+    driver = selenium_driver("optimization.ipynb", wait_time=30.0)
+    driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+
+    check_step_status(1, StepState.READY)
+    check_step_status(2, StepState.INIT)
+    check_step_status(3, StepState.INIT)
+    button_disabled("Confirm")
+    button_disabled("Submit")
+
+    driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
+    # Generate methane molecule
+    generate_mol_from_smiles("C")
+    driver.find_element(By.XPATH, "//*[text()='Selection']").click()
+    check_atoms("C")
+
+    check_step_status(1, StepState.CONFIGURED)
+    button_enabled("Confirm")
+    driver.find_element(By.XPATH, "//button[text()='Confirm']").click()
+
+    # Test that we have indeed proceeded to the next step
+    check_step_status(1, StepState.SUCCESS)
+    check_step_status(2, StepState.CONFIGURED)
+    check_step_status(3, StepState.INIT)
+
+    button_disabled("Confirm")
+    button_enabled("Submit")
+    # TODO: Not sure why this does not work
+    # submit = WebDriverWait(driver, 10).until(
+    #    EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+    # )
+
+
 def test_spectrum_app_init(selenium_driver, final_screenshot):
     driver = selenium_driver("spectrum_widget.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -152,11 +206,11 @@ def test_atmospec_steps(
     # Confirm structure and go to the next step
     button_enabled("Confirm")
     button_disabled("Submit")
-    confirm_structure = (
-        WebDriverWait(driver, 30)
-        .until(EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']")))
-        .click()
-    )
+    WebDriverWait(driver, 30).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Confirm']"))
+    ).click()
+
+    # Once the structure is confirmed, the button should be disabled
     button_disabled("Confirm")
 
     check_step_status(1, StepState.SUCCESS)
