@@ -47,6 +47,9 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         self.ground_state_settings = GroundStateSettings()
         self.code_settings = CodeSettings()
         self.resources_settings = ResourceSelectionWidget()
+
+        # We need to observe each widget for which the validation could fail.
+        self.code_settings.orca.observe(self._update_state, "value")
         components = [
             ipw.HBox(
                 [
@@ -65,6 +68,8 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         super().__init__(components=components)
 
     # TODO: More validations (molecule size etc)
+    # TODO: display an error message when there is an issue.
+    # See how "submission blockers" are handled in QeApp
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
         # ORCA code not selected.
@@ -103,10 +108,8 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         try:
             parameters = process.base.extras.get("builder_parameters")
             self._update_ui_from_parameters(OptimizationParameters(**parameters))
-        # TODO: Catch possible exceptions both from extras.get and conversion to OptimizationParameters
-        # (i.e if OptimizationParameters change, we need to be forgiving for backwards compatibility
         except AttributeError as e:
-            # extras do not exist, ignore this problem
+            # extras do not exist or are incompatible, ignore this problem
             pass
 
     def submit(self, _=None):
@@ -137,7 +140,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
     # TODO: Need to implement logic for handling more CPUs
     # and distribute them among conformers
-    def _build_orca_metadata(self, num_mpiprocs):
+    def _build_orca_metadata(self, num_mpiprocs: int):
         return {
             "options": {
                 "withmpi": False,
@@ -151,17 +154,12 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         }
 
     def _build_orca_params(self, params: OptimizationParameters) -> dict:
-        """A bit of indirection to decouple aiida-orca plugin
-        from this code"""
-
-        input_keywords = [params.basis, params.method, "Opt", "AnFreq"]
+        """Prepare dictionary of ORCA parameters, as required by aiida-orca plugin"""
         return {
             "charge": params.charge,
             "multiplicity": params.multiplicity,
             "input_blocks": {
                 "scf": {"convergence": "tight", "ConvForced": "true"},
             },
-            "input_keywords": input_keywords,
-            # TODO: Remove this when possible
-            "extra_input_keywords": [],
+            "input_keywords": [params.basis, params.method, "Opt", "AnFreq"],
         }
