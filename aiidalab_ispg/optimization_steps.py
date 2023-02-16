@@ -11,7 +11,7 @@ from aiida.orm import load_code
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
 
-from .input_widgets import MoleculeDefinitionWidget, GroundStateDefinitionWidget
+from .input_widgets import MoleculeSettings, GroundStateSettings
 from .widgets import ResourceSelectionWidget
 from .steps import CodeSettings, SubmitWorkChainStepBase
 
@@ -43,10 +43,10 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
     def __init__(self, **kwargs):
-        self.molecule_settings = MoleculeDefinitionWidget()
-        self.ground_state_settings = GroundStateDefinitionWidget()
-        self.codes_selector = CodeSettings()
-        self.resources_config = ResourceSelectionWidget()
+        self.molecule_settings = MoleculeSettings()
+        self.ground_state_settings = GroundStateSettings()
+        self.code_settings = CodeSettings()
+        self.resources_settings = ResourceSelectionWidget()
         components = [
             ipw.HBox(
                 [
@@ -56,8 +56,8 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
             ),
             ipw.HBox(
                 [
-                    self.codes_selector,
-                    self.resources_config,
+                    self.code_settings,
+                    self.resources_settings,
                 ]
             ),
         ]
@@ -68,7 +68,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
         # ORCA code not selected.
-        if self.codes_selector.orca.value is None:
+        if self.code_settings.orca.value is None:
             return False
         return True
 
@@ -117,9 +117,9 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         builder = ConformerOptimizationWorkChain.get_builder()
 
         builder.structure = self.input_structure
-        builder.code = load_code(self.codes_selector.orca.value)
+        builder.code = load_code(self.code_settings.orca.value)
 
-        num_mpiprocs = self.resources_config.num_mpi_tasks.value
+        num_mpiprocs = self.resources_settings.num_mpi_tasks.value
         builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)
         builder.orca.parameters = self._build_orca_params(parameters)
         if num_mpiprocs > 1:
