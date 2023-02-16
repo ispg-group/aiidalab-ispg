@@ -5,21 +5,22 @@ Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
-from pprint import pformat
-import re
-
-from copy import deepcopy
-
 import ipywidgets as ipw
 import numpy as np
+import re
 import traitlets
+
+from copy import deepcopy
+from pprint import pformat
 from traitlets import Union, Instance
+
+
 from aiida.common import MissingEntryPointError, NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import load_node, load_code
-
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory, WorkflowFactory
+
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ProcessMonitor,
@@ -187,8 +188,8 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
         self.submit()
 
     def submit(self):
-        """Must be overriden in the child class"""
-        raise ValueError("submit method not implemented")
+        """Submit workflow, implementation must be provided by the the child class"""
+        raise NotImplementedError
 
     def _get_state(self):
         # Process is already running.
@@ -206,8 +207,8 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
         self.state = self._get_state()
 
     def _validate_input_parameters(self) -> bool:
-        """Should be overriden by the child class"""
-        return True
+        """Must be provided by the child class"""
+        raise NotImplementedError
 
     @traitlets.observe("input_structure")
     def _observe_input_structure(self, change):
