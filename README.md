@@ -141,6 +141,6 @@ aiidalab-launch --help
 
 Re-install packages for development in the container
 ```sh
-aiidalab-launch exec -- pip install -U -e /home/aiida/apps/aiidalab-ispg/
-aiidalab-launch exec -- pip install -U -e /home/aiida/apps/aiidalab-ispg/workflows/
+aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/
+aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/workflows/
 ```
