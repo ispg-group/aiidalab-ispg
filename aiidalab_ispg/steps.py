@@ -5,24 +5,24 @@ Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
-from pprint import pformat
-import re
-
-from copy import deepcopy
-
 import ipywidgets as ipw
 import numpy as np
+import re
 import traitlets
+
+from copy import deepcopy
+from pprint import pformat
 from traitlets import Union, Instance
+
+
 from aiida.common import MissingEntryPointError, NotExistent, LinkType
 from aiida.engine import ProcessState, submit
 from aiida.orm import load_node, load_code
-
 from aiida.orm import WorkChainNode
 from aiida.plugins import DataFactory, WorkflowFactory
+
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
-    ComputationalResourcesWidget,
     ProcessMonitor,
     ProcessNodesTreeWidget,
     WizardAppWidgetStep,
@@ -30,8 +30,9 @@ from aiidalab_widgets_base import (
 
 import aiidalab_ispg.qeapp as qeapp
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
-from aiidalab_ispg.widgets import ResourceSelectionWidget
-from aiidalab_ispg.widgets import QMSelectionWidget, ExcitedStateMethod
+from .widgets import ResourceSelectionWidget
+from .widgets import QMSelectionWidget, ExcitedStateMethod
+from .input_widgets import CodeSettings
 
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
@@ -153,36 +154,90 @@ class WorkChainSettings(ipw.VBox):
         )
 
 
-class CodeSettings(ipw.VBox):
+class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
+    """Base class for workflow submission stesps"""
 
-    codes_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Codes</h4></div>"""
+    input_structure = traitlets.Union(
+        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+        allow_none=True,
     )
-    codes_help = ipw.HTML(
-        """<div style="line-height: 140%; padding-top: 0px; padding-bottom:
-        10px"> Select the code to use for running the calculations. The codes
-        on the local machine (localhost) are installed by default, but you can
-        configure new ones on potentially more powerful machines by clicking on
-        "Setup new code".</div>"""
-    )
+    process = traitlets.Instance(WorkChainNode, allow_none=True)
+    disabled = traitlets.Bool()
 
-    def __init__(self, **kwargs):
+    def __init__(self, components=None, **kwargs):
 
-        self.orca = ComputationalResourcesWidget(
-            default_calc_job_plugin="orca.orca",
-            description="Main ORCA program",
-        )
-        super().__init__(
-            children=[
-                self.codes_title,
-                self.codes_help,
-                self.orca,
-            ],
-            **kwargs,
+        self.submit_button = ipw.Button(
+            description="Submit",
+            tooltip="Submit the calculation with the selected parameters.",
+            icon="play",
+            button_style="success",
+            layout=ipw.Layout(width="auto", flex="1 1 auto"),
+            disabled=True,
         )
 
+        self.submit_button.on_click(self._on_submit_button_clicked)
 
+        children = [self.submit_button]
+        if components is not None:
+            children = components + children
+
+        super().__init__(children=children)
+
+    def _on_submit_button_clicked(self, _):
+        self.submit_button.disabled = True
+        self.submit()
+
+    def submit(self):
+        """Submit workflow, implementation must be provided by the the child class"""
+        raise NotImplementedError
+
+    def _get_state(self):
+        # Process is already running.
+        if self.process is not None:
+            return self.State.SUCCESS
+        # Input structure not specified.
+        if self.input_structure is None:
+            return self.State.INIT
+        # Structure ready, but input parameters are invalid
+        if not self._validate_input_parameters():
+            return self.State.READY
+        return self.State.CONFIGURED
+
+    def _update_state(self, _=None):
+        self.state = self._get_state()
+
+    def _validate_input_parameters(self) -> bool:
+        """Must be provided by the child class"""
+        raise NotImplementedError
+
+    @traitlets.observe("input_structure")
+    def _observe_input_structure(self, change):
+        self._update_state()
+
+    @traitlets.observe("state")
+    def _observe_state(self, change):
+        with self.hold_trait_notifications():
+            self.disabled = change["new"] not in (
+                self.State.READY,
+                self.State.CONFIGURED,
+            )
+            self.submit_button.disabled = change["new"] != self.State.CONFIGURED
+
+    @traitlets.observe("process")
+    def _observe_process(self, change):
+        self._update_state()
+
+    def can_reset(self):
+        "Do not allow reset while process is running."
+        return self.state is not self.State.ACTIVE
+
+    def reset(self):
+        with self.hold_trait_notifications():
+            self.process = None
+            self.input_structure = None
+
+
+# TODO: Subclass SubmitWorkChainStepBase
 class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
     """Step for submission of a bands workchain."""
 
@@ -233,16 +288,8 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
 
         self.submit_button.on_click(self._on_submit_button_clicked)
 
+        # TODO: I think this is not needed, since we have a default decorator on this traitlet
         self._update_builder_parameters()
-
-        self.builder_parameters_view = ipw.HTML(layout=ipw.Layout(width="auto"))
-        ipw.dlink(
-            (self, "builder_parameters"),
-            (self.builder_parameters_view, "value"),
-            transform=lambda p: '<pre style="line-height: 100%">'
-            + pformat(p, indent=2, width=200)
-            + "</pre>",
-        )
 
         super().__init__(
             children=[
@@ -562,7 +609,7 @@ class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
                 return params
 
         if params["orca_code"] is None:
-            print(f"WARNING: ORCA code has not been found locally")
+            print("WARNING: ORCA code has not been found locally")
         return params
 
 
@@ -758,7 +805,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.header.value = ""
             return
         process = load_node(self.process_uuid)
-        if bp := process.base.extras.get("builder_parameters", None):
+        if bp := process.base.extras.get("builder_parameters"):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",
