@@ -82,22 +82,18 @@ def test_conformer_generation_steps(
         EC.element_to_be_clickable((By.XPATH, "//*[text()='Selection']"))
     )
     selection.click()
-    # Select atoms and verify them
-    # TODO: Firefox seems to fail for atoms beyond the first one,
-    # so we just check the first one for now
-    # check_atoms("CHHHH")
-    check_atoms("C")
+    check_atoms("CHHHH")
 
     # Test different generation options
     driver.find_element(By.XPATH, "//option[@value='UFF']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv1']").click()
     generate_mol_from_smiles("N")
-    check_atoms("N")
+    check_atoms("NHHH")
 
     driver.find_element(By.XPATH, "//option[@value='MMFF94s']").click()
     driver.find_element(By.XPATH, "//option[@value='ETKDGv2']").click()
     generate_mol_from_smiles("O")
-    check_atoms("O")
+    check_atoms("OHH")
 
     # Switch to `Download` tab in StructureDataViewer
     driver.find_element(By.XPATH, "//*[text()='Download']").click()
@@ -142,7 +138,7 @@ def test_optimization_steps(
     # Generate methane molecule
     generate_mol_from_smiles("C")
     driver.find_element(By.XPATH, "//*[text()='Selection']").click()
-    check_atoms("C")
+    check_atoms("CHHHH")
 
     check_step_status(1, StepState.CONFIGURED)
     button_enabled("Confirm")
@@ -197,7 +193,7 @@ def test_atmospec_steps(
 
     # Generate methane molecule
     generate_mol_from_smiles("C")
-    check_atoms("C")
+    check_atoms("CHHHH")
     driver.get_screenshot_as_file(
         Path.joinpath(screenshot_dir, "atmospec-steps-mol-generated.png")
     )
