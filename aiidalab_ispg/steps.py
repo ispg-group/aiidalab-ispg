@@ -55,12 +55,6 @@ TrajectoryData = DataFactory("core.array.trajectory")
 Dict = DataFactory("core.dict")
 Bool = DataFactory("core.bool")
 
-# TODO: Make this configurable
-# Safe default for 8 core, 32Gb machine
-# TODO: Figure out how to make this work as a global keyword
-# https://github.com/pzarabadip/aiida-orca/issues/45
-MEMORY_PER_CPU = 3000  # Mb
-
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
     """Integrated widget for the selection of structures from different sources."""
@@ -423,7 +417,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             self.header.value = ""
             return
         process = load_node(self.process_uuid)
-        if bp := process.base.extras.get("builder_parameters"):
+        if bp := process.base.extras.get("builder_parameters", None):
             formula = re.sub(
                 r"([0-9]+)",
                 r"<sub>\1</sub>",

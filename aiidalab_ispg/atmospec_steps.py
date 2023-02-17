@@ -3,6 +3,7 @@
 import ipywidgets as ipw
 import traitlets
 
+from copy import deepcopy
 from dataclasses import dataclass
 
 from aiida.engine import submit
@@ -17,14 +18,20 @@ from .optimization_steps import OptimizationParameters
 from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
 
 try:
-    from aiidalab_atmospec_workchain.optimization import ConformerOptimizationWorkChain
+    from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+
+# TODO: Make this configurable
+# Safe default for 8 core, 32Gb machine
+# TODO: Figure out how to make this work as a global keyword
+# https://github.com/pzarabadip/aiida-orca/issues/45
+MEMORY_PER_CPU = 3000  # Mb
 
 
 @dataclass(frozen=True)
 class AtmospecParameters(OptimizationParameters):
-    geo_opt: str
+    geo_opt_type: str
     excited_method: ExcitedStateMethod
     nstates: int
     nwigner: int
@@ -38,8 +45,8 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     method="wB97X-D4",
     basis="def2-SVP",
     solvent="None",
-    geo_opt="NONE",
-    excited_method=ExcitedStateMethod.ADC2,
+    geo_opt_type="NONE",
+    excited_method=ExcitedStateMethod.TDA,
     nstates=3,
     nwigner=1,
     wigner_low_freq_thr=150.0,
@@ -73,25 +80,9 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             ipw.VBox(children=[self.codes_selector, self.resources_config]),
         ]
 
-        self.submit_button = ipw.Button(
-            description="Submit",
-            tooltip="Submit the calculation with the selected parameters.",
-            icon="play",
-            button_style="success",
-            layout=ipw.Layout(width="auto", flex="1 1 auto"),
-            disabled=True,
-        )
-
-        self.submit_button.on_click(self._on_submit_button_clicked)
-
         self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
 
-        super().__init__(
-            children=[
-                self.tab,
-                self.submit_button,
-            ]
-        )
+        super().__init__(components=[self.tab])
 
     # TODO: More validations (molecule size etc)
     # TODO: display an error message when there is an issue.
@@ -123,7 +114,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.qm_config.solvent.value = parameters.solvent
         self.qm_config.nwigner.value = parameters.nwigner
         self.qm_config.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
-        self.workchain_settings.geo_opt_type.value = parameters.geo_opt
+        self.workchain_settings.geo_opt_type.value = parameters.geo_opt_type
 
     def _get_parameters_from_ui(self) -> AtmospecParameters:
         """Prepare builder parameters from the UI input widgets"""
@@ -135,7 +126,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             # basis=self.ground_state_settings.basis.value,
             charge=self.workchain_settings.charge.value,
             multiplicity=self.workchain_settings.spin_mult.value,
-            geo_opt=self.workchain_settings.geo_opt_type.value,
+            geo_opt_type=self.workchain_settings.geo_opt_type.value,
             solvent=self.qm_config.solvent.value,
             method=self.qm_config.method.value,
             basis=self.qm_config.basis.value,
@@ -151,15 +142,16 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             process = change["new"]
             if process is not None:
                 self.input_structure = process.inputs.structure
-                parameters = process.base.extras.get("builder_parameters", None)
-                if parameters is not None:
-                    try:
-                        self._update_ui_from_parameters(
-                            AtmospecParameters(**parameters)
-                        )
-                    except AttributeError as e:
-                        # extras do not exist or are incompatible, ignore this problem
-                        pass
+                try:
+                    parameters = process.base.extras.get("builder_parameters")
+                    parameters["excited_method"] = ExcitedStateMethod(
+                        parameters["excited_method"]
+                    )
+                except (AttributeError, KeyError):
+                    # extras do not exist or are incompatible, ignore this problem
+                    pass
+                else:
+                    self._update_ui_from_parameters(AtmospecParameters(**parameters))
             self._update_state()
 
     # TODO: Need to implement logic for handling more CPUs
@@ -183,7 +175,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         # equilibrium solvation for ground state optimization,
         # and non-equilibrium solvation for single point excited state calculations.
         # This should be the default, but it would be better to be explicit.
-        input_keywords = ([params.basis],)
+        input_keywords = [params.basis]
         if params.solvent != "None":
             input_keywords.append(f"CPCM({params.solvent})")
         return {
@@ -198,7 +190,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
         mdci_params = deepcopy(orca_parameters)
         mdci_params["input_keywords"].append(mdci_method)
-        if mdci_method == ExcitedStateMethod.ADC2.value:
+        if mdci_method == ExcitedStateMethod.ADC2:
             # Basis for RI approximation, this will not work for all basis sets
             mdci_params["input_keywords"].append(f"{basis}/C")
 
@@ -208,7 +200,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         }
         # TODO: For efficiency reasons, in might not be necessary to calculated left-vectors
         # to obtain TDM, but we need to benchmark that first.
-        if mdci_method == ExcitedStateMethod.CCSD.value:
+        if mdci_method == ExcitedStateMethod.CCSD:
             mdci_params["input_blocks"]["mdci"]["doTDM"] = "true"
             mdci_params["input_blocks"]["mdci"]["doLeft"] = "true"
         return mdci_params
@@ -222,7 +214,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             "nroots": nroots,
             "maxcore": MEMORY_PER_CPU,
         }
-        if es_method == ExcitedStateMethod.TDDFT.value:
+        if es_method == ExcitedStateMethod.TDDFT:
             tddft_params["input_blocks"]["tddft"]["tda"] = "false"
         return tddft_params
 
@@ -248,33 +240,35 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.structure = self.input_structure
         base_orca_parameters = self.build_base_orca_params(bp)
         gs_opt_parameters = self._add_optimization_orca_params(
-            base_orca_parameters, basis=bp["basis"], gs_method=bp["method"]
+            base_orca_parameters, basis=bp.basis, gs_method=bp.method
         )
-        if bp["excited_method"] in (
-            ExcitedStateMethod.TDA.value,
-            ExcitedStateMethod.TDDFT.value,
+        if bp.excited_method in (
+            ExcitedStateMethod.TDA,
+            ExcitedStateMethod.TDDFT,
         ):
             es_parameters = self._add_tddft_orca_params(
                 base_orca_parameters,
-                es_method=bp["excited_method"],
-                functional=bp["method"],
-                nroots=bp["nstates"],
+                es_method=bp.excited_method,
+                functional=bp.method,
+                nroots=bp.nstates,
             )
-        elif bp["excited_method"] in (
-            ExcitedStateMethod.ADC2.value,
-            ExcitedStateMethod.CCSD.value,
+        elif bp.excited_method in (
+            ExcitedStateMethod.ADC2,
+            ExcitedStateMethod.CCSD,
         ):
             es_parameters = self._add_mdci_orca_params(
                 base_orca_parameters,
-                basis=bp["basis"],
-                mdci_method=bp["excited_method"],
-                nroots=bp["nstates"],
+                basis=bp.basis,
+                mdci_method=bp.excited_method,
+                nroots=bp.nstates,
             )
         else:
-            raise ValueError(f"Excited method {bp['excited_method']} not implemented")
+            raise NotImplementedError(
+                f"Excited method {bp.excited_method} not implemented"
+            )
 
-        builder.opt.orca.parameters = Dict(gs_opt_parameters)
-        builder.exc.orca.parameters = Dict(es_parameters)
+        builder.opt.orca.parameters = gs_opt_parameters
+        builder.exc.orca.parameters = es_parameters
 
         num_proc = self.resources_config.num_mpi_tasks.value
         if num_proc > 1:
@@ -284,13 +278,13 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             # We also paralelize EOM-CCSD as it is expensive and likely
             # used only for single point calculations.
             builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
-            if bp.excited_method == ExcitedStateMethod.CCSD.value:
+            if bp.excited_method == ExcitedStateMethod.CCSD:
                 builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
 
         metadata = self._build_orca_metadata(num_proc)
         builder.opt.orca.metadata = metadata
         builder.exc.orca.metadata = deepcopy(metadata)
-        if bp.excited_method != ExcitedStateMethod.CCSD.value:
+        if bp.excited_method != ExcitedStateMethod.CCSD:
             builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
             builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
@@ -311,5 +305,9 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         process = submit(builder)
         # NOTE: It is important to set_extra builder_parameters before we update the traitlet
-        process.base.extras.set("builder_parameters", vars(bp))
+        builder_parameters = vars(bp)
+        builder_parameters["excited_method"] = builder_parameters[
+            "excited_method"
+        ].value
+        process.base.extras.set("builder_parameters", builder_parameters)
         self.process = process
