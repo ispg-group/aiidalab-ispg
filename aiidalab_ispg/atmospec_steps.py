@@ -12,7 +12,7 @@ from aiida.orm import load_code
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
-from .steps import SubmitWorkChainStepBase, WorkChainSettings
+from .steps import SubmitWorkChainStepBase
 from .optimization_steps import OptimizationParameters
 from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
 from .utils import MEMORY_PER_CPU
@@ -43,8 +43,76 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     excited_method=ExcitedStateMethod.TDA,
     nstates=3,
     nwigner=1,
-    wigner_low_freq_thr=150.0,
+    wigner_low_freq_thr=100.0,
 )
+
+
+class WorkChainSettings(ipw.VBox):
+    structure_title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Molecular geometry</h4></div>"""
+    )
+    structure_help = ipw.HTML(
+        """<div style="line-height: 140%; padding-top: 0px; padding-bottom: 5px">
+        By default, the workflow will optimize the provided geometry.<br>
+        Select "Geometry as is" if this is not desired.</div>"""
+    )
+
+    electronic_structure_title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Electronic structure</h4></div>"""
+    )
+
+    button_style_on = "info"
+    button_style_off = "danger"
+
+    def __init__(self, **kwargs):
+        # Whether to optimize the molecule or not.
+        self.geo_opt_type = ipw.ToggleButtons(
+            options=[
+                ("Geometry as is", "NONE"),
+                ("Optimize geometry", "OPT"),
+            ],
+            value="OPT",
+        )
+
+        # TODO: Use Dropdown with Enum (Singlet, Doublet...)
+        self.spin_mult = ipw.BoundedIntText(
+            min=1,
+            max=1,
+            step=1,
+            description="Multiplicity",
+            disabled=True,
+            value=1,
+        )
+
+        self.charge = ipw.IntText(
+            description="Charge",
+            disabled=False,
+            value=0,
+        )
+
+        self.nstates = ipw.BoundedIntText(
+            description="Nstate",
+            tooltip="Number of excited states",
+            disabled=False,
+            value=3,
+            min=1,
+            max=50,
+        )
+
+        super().__init__(
+            children=[
+                self.structure_title,
+                self.structure_help,
+                self.geo_opt_type,
+                self.electronic_structure_title,
+                self.charge,
+                self.spin_mult,
+                self.nstates,
+            ],
+            **kwargs,
+        )
 
 
 class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):

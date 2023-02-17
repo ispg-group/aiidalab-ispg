@@ -1,25 +1,19 @@
-"""Widgets for the submission of basic ORCA calculation.
-Based on the original code from aiidalab_qe
+"""Common Steps for AiiDAlab workflows.
+   Code inspired by the QeApp.
 
 Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
-    * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
 import ipywidgets as ipw
 import numpy as np
 import re
 import traitlets
 
-from copy import deepcopy
-from pprint import pformat
-from traitlets import Union, Instance
-
-
-from aiida.common import MissingEntryPointError, NotExistent, LinkType
+from aiida.common import MissingEntryPointError, LinkType
 from aiida.engine import ProcessState, submit
-from aiida.orm import load_node, load_code
-from aiida.orm import WorkChainNode
-from aiida.plugins import DataFactory, WorkflowFactory
+from aiida.orm import load_node
+from aiida.orm import WorkChainNode, StructureData, TrajectoryData
+from aiida.plugins import WorkflowFactory
 
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
@@ -29,15 +23,15 @@ from aiidalab_widgets_base import (
 )
 
 import aiidalab_ispg.qeapp as qeapp
-from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
+
+from .parameters import DEFAULT_PARAMETERS
 from .widgets import ResourceSelectionWidget
 from .widgets import QMSelectionWidget, ExcitedStateMethod
-
+from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
 try:
     from aiidalab_atmospec_workchain import (
-        AtmospecWorkChain,
         OrcaWignerSpectrumWorkChain,
     )
 except ImportError:
@@ -48,22 +42,17 @@ try:
 except MissingEntryPointError:
     print("ERROR: Could not find aiida-orca plugin!")
 
-from aiidalab_ispg.spectrum import EnergyUnit, Spectrum, SpectrumWidget
-
-StructureData = DataFactory("core.structure")
-TrajectoryData = DataFactory("core.array.trajectory")
-Dict = DataFactory("core.dict")
-Bool = DataFactory("core.bool")
-
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    structure = Union(
-        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    structure = traitlets.Union(
+        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+        allow_none=True,
     )
-    confirmed_structure = Union(
-        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
+    confirmed_structure = traitlets.Union(
+        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+        allow_none=True,
     )
 
     @traitlets.observe("structure")
@@ -77,76 +66,8 @@ class StructureSelectionStep(qeapp.StructureSelectionStep):
             self._update_state()
 
 
-class WorkChainSettings(ipw.VBox):
-    structure_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Molecular geometry</h4></div>"""
-    )
-    structure_help = ipw.HTML(
-        """<div style="line-height: 140%; padding-top: 0px; padding-bottom: 5px">
-        By default, the workflow will optimize the provided geometry.<br>
-        Select "Geometry as is" if this is not desired.</div>"""
-    )
-
-    electronic_structure_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Electronic structure</h4></div>"""
-    )
-
-    button_style_on = "info"
-    button_style_off = "danger"
-
-    def __init__(self, **kwargs):
-        # Whether to optimize the molecule or not.
-        self.geo_opt_type = ipw.ToggleButtons(
-            options=[
-                ("Geometry as is", "NONE"),
-                ("Optimize geometry", "OPT"),
-            ],
-            value="OPT",
-        )
-
-        # TODO: Use Dropdown with Enum (Singlet, Doublet...)
-        self.spin_mult = ipw.BoundedIntText(
-            min=1,
-            max=1,
-            step=1,
-            description="Multiplicity",
-            disabled=True,
-            value=1,
-        )
-
-        self.charge = ipw.IntText(
-            description="Charge",
-            disabled=False,
-            value=0,
-        )
-
-        self.nstates = ipw.BoundedIntText(
-            description="Nstate",
-            tooltip="Number of excited states",
-            disabled=False,
-            value=3,
-            min=1,
-            max=50,
-        )
-
-        super().__init__(
-            children=[
-                self.structure_title,
-                self.structure_help,
-                self.geo_opt_type,
-                self.electronic_structure_title,
-                self.charge,
-                self.spin_mult,
-                self.nstates,
-            ],
-            **kwargs,
-        )
-
-
 class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
-    """Base class for workflow submission stesps"""
+    """Base class for workflow submission steps. Must be subclassed."""
 
     input_structure = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
@@ -228,6 +149,8 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
+    """Widget for displaying the whole workflow as it runs"""
+
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
@@ -288,6 +211,8 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
+    """Step for displaying UV/vis spectrum"""
+
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
