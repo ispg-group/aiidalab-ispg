@@ -11,9 +11,9 @@ from aiida.orm import load_code
 from aiida.plugins import DataFactory, WorkflowFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
 
-from .input_widgets import MoleculeSettings, GroundStateSettings
+from .input_widgets import CodeSettings, MoleculeSettings, GroundStateSettings
 from .widgets import ResourceSelectionWidget
-from .steps import CodeSettings, SubmitWorkChainStepBase
+from .steps import SubmitWorkChainStepBase
 
 try:
     from aiidalab_atmospec_workchain.optimization import ConformerOptimizationWorkChain
@@ -113,7 +113,6 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
             pass
 
     def submit(self, _=None):
-
         assert self.input_structure is not None
 
         parameters = self._get_parameters_from_ui()
@@ -155,11 +154,18 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
     def _build_orca_params(self, params: OptimizationParameters) -> dict:
         """Prepare dictionary of ORCA parameters, as required by aiida-orca plugin"""
+        # WARNING: Here we implicitly assume, that ORCA will automatically select
+        # equilibrium solvation for ground state optimization,
+        # and non-equilibrium solvation for single point excited state calculations.
+        # This should be the default, but it would be better to be explicit.
+        input_keywords = ([params.basis, params.method, "Opt", "AnFreq"],)
+        if params.solvent != "None":
+            input_keywords.append(f"CPCM({params.solvent})")
         return {
             "charge": params.charge,
             "multiplicity": params.multiplicity,
             "input_blocks": {
                 "scf": {"convergence": "tight", "ConvForced": "true"},
             },
-            "input_keywords": [params.basis, params.method, "Opt", "AnFreq"],
+            "input_keywords": input_keywords,
         }

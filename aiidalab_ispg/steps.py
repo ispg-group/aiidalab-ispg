@@ -32,7 +32,6 @@ import aiidalab_ispg.qeapp as qeapp
 from aiidalab_ispg.parameters import DEFAULT_PARAMETERS
 from .widgets import ResourceSelectionWidget
 from .widgets import QMSelectionWidget, ExcitedStateMethod
-from .input_widgets import CodeSettings
 
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
@@ -85,7 +84,6 @@ class StructureSelectionStep(qeapp.StructureSelectionStep):
 
 
 class WorkChainSettings(ipw.VBox):
-
     structure_title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
         <h4>Molecular geometry</h4></div>"""
@@ -105,7 +103,6 @@ class WorkChainSettings(ipw.VBox):
     button_style_off = "danger"
 
     def __init__(self, **kwargs):
-
         # Whether to optimize the molecule or not.
         self.geo_opt_type = ipw.ToggleButtons(
             options=[
@@ -165,7 +162,6 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
     disabled = traitlets.Bool()
 
     def __init__(self, components=None, **kwargs):
-
         self.submit_button = ipw.Button(
             description="Submit",
             tooltip="Submit the calculation with the selected parameters.",
@@ -237,384 +233,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             self.input_structure = None
 
 
-# TODO: Subclass SubmitWorkChainStepBase
-class SubmitAtmospecAppWorkChainStep(ipw.VBox, WizardAppWidgetStep):
-    """Step for submission of a bands workchain."""
-
-    input_structure = Union(
-        [Instance(StructureData), Instance(TrajectoryData)], allow_none=True
-    )
-    process = Instance(WorkChainNode, allow_none=True)
-    disabled = traitlets.Bool()
-    builder_parameters = traitlets.Dict()
-
-    def __init__(self, **kwargs):
-        self.message_area = ipw.Output()
-        self.workchain_settings = WorkChainSettings()
-        self.codes_selector = CodeSettings()
-        self.resources_config = ResourceSelectionWidget()
-        self.qm_config = QMSelectionWidget()
-
-        self.set_trait("builder_parameters", self._default_builder_parameters())
-        self._setup_builder_parameters_update()
-
-        self.codes_selector.orca.observe(self._update_state, "value")
-        self.codes_selector.orca.observe(self._set_num_mpi_tasks_to_default, "value")
-
-        self.tab = ipw.Tab(
-            children=[
-                self.workchain_settings,
-            ],
-            layout=ipw.Layout(min_height="250px"),
-        )
-
-        self.tab.set_title(0, "Workflow")
-        self.tab.set_title(1, "Advanced settings")
-        self.tab.set_title(2, "Codes & Resources")
-        self.tab.children = [
-            self.workchain_settings,
-            self.qm_config,
-            ipw.VBox(children=[self.codes_selector, self.resources_config]),
-        ]
-
-        self.submit_button = ipw.Button(
-            description="Submit",
-            tooltip="Submit the calculation with the selected parameters.",
-            icon="play",
-            button_style="success",
-            layout=ipw.Layout(width="auto", flex="1 1 auto"),
-            disabled=True,
-        )
-
-        self.submit_button.on_click(self._on_submit_button_clicked)
-
-        # TODO: I think this is not needed, since we have a default decorator on this traitlet
-        self._update_builder_parameters()
-
-        super().__init__(
-            children=[
-                self.message_area,
-                self.tab,
-                self.submit_button,
-            ]
-        )
-
-    def _get_state(self):
-
-        # Process is already running.
-        if self.process is not None:
-            return self.State.SUCCESS
-
-        # Input structure not specified.
-        if self.input_structure is None:
-            return self.State.INIT
-
-        # ORCA code not selected.
-        if self.codes_selector.orca.value is None:
-            return self.State.READY
-
-        return self.State.CONFIGURED
-
-    def _update_state(self, _=None):
-        self.state = self._get_state()
-
-    _ALERT_MESSAGE = """
-        <div class="alert alert-{alert_class} alert-dismissible">
-        <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
-        <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>
-        <strong>{message}</strong>
-        </div>"""
-
-    def _show_alert_message(self, message, alert_class="info"):
-        with self.message_area:
-            display(  # noqa
-                ipw.HTML(
-                    self._ALERT_MESSAGE.format(alert_class=alert_class, message=message)
-                )
-            )
-
-    def _set_num_mpi_tasks_to_default(self, _=None):
-        """Set the number of MPI tasks to a reasonable value for the selected structure."""
-        # DH: TODO: For now we simply set this to 1
-        self.resources_config.num_mpi_tasks.value = 1
-
-    @traitlets.observe("state")
-    def _observe_state(self, change):
-        with self.hold_trait_notifications():
-            self.disabled = change["new"] not in (
-                self.State.READY,
-                self.State.CONFIGURED,
-            )
-            self.submit_button.disabled = change["new"] != self.State.CONFIGURED
-
-    @traitlets.observe("input_structure")
-    def _observe_input_structure(self, change):
-        self.set_trait("builder_parameters", self._default_builder_parameters())
-        self._update_state()
-        self._set_num_mpi_tasks_to_default()
-
-    @traitlets.observe("process")
-    def _observe_process(self, change):
-        with self.hold_trait_notifications():
-            # process_node = change["new"]
-            # DH: Not sure why this is here, but I don't think
-            # it quite works for our current setup,
-            # so commenting out?
-            # if process_node is not None:
-            # self.input_structure = process_node.inputs.structure
-            # builder_parameters = process_node.base.extras.get("builder_parameters", None)
-            # if builder_parameters is not None:
-            #    self.set_trait("builder_parameters", builder_parameters)
-            self._update_state()
-
-    def _on_submit_button_clicked(self, _):
-        self.submit_button.disabled = True
-        self.submit()
-
-    def _setup_builder_parameters_update(self):
-        """Set up all ``observe`` calls to monitor changes in user inputs."""
-        update = self._update_builder_parameters  # alias for code conciseness
-        # Properties
-        self.workchain_settings.geo_opt_type.observe(update, ["value"])
-        self.workchain_settings.spin_mult.observe(update, ["value"])
-        self.workchain_settings.charge.observe(update, ["value"])
-        self.workchain_settings.nstates.observe(update, ["value"])
-        # Codes
-        self.codes_selector.orca.observe(update, ["value"])
-        # QM settings
-        self.qm_config.method.observe(update, ["value"])
-        self.qm_config.excited_method.observe(update, ["value"])
-        self.qm_config.basis.observe(update, ["value"])
-        self.qm_config.solvent.observe(update, ["value"])
-
-    @staticmethod
-    def _serialize_builder_parameters(parameters):
-        parameters = parameters.copy()  # create copy to not modify original dict
-        # Serialize Enum
-        parameters["excited_method"] = parameters["excited_method"].value
-        return parameters
-
-    @staticmethod
-    def _deserialize_builder_parameters(parameters):
-        parameters = parameters.copy()  # create copy to not modify original dict
-        parameters["excited_method"] = ExcitedStateMethod(parameters["excited_method"])
-        return parameters
-
-    def _update_builder_parameters(self, _=None):
-        self.set_trait(
-            "builder_parameters",
-            self._serialize_builder_parameters(
-                dict(  # noqa C408
-                    orca_code=self.codes_selector.orca.value,
-                    method=self.qm_config.method.value,
-                    excited_method=self.qm_config.excited_method.value,
-                    basis=self.qm_config.basis.value,
-                    solvent=self.qm_config.solvent.value,
-                    charge=self.workchain_settings.charge.value,
-                    nstates=self.workchain_settings.nstates.value,
-                    spin_mult=self.workchain_settings.spin_mult.value,
-                )
-            ),
-        )
-
-    @traitlets.observe("builder_parameters")
-    def _observe_builder_parameters(self, change):
-        bp = self._deserialize_builder_parameters(change["new"])
-
-        with self.hold_trait_notifications():
-            # Workchain settings
-            self.workchain_settings.spin_mult.value = bp["spin_mult"]
-            self.workchain_settings.charge.value = bp["charge"]
-            self.workchain_settings.nstates.value = bp["nstates"]
-            # Codes
-            self.codes_selector.orca.value = bp.get("orca_code")
-            # QM settings
-            self.qm_config.excited_method.value = bp["excited_method"]
-            self.qm_config.method.value = bp["method"]
-            self.qm_config.basis.value = bp["basis"]
-            self.qm_config.solvent.value = bp["solvent"]
-
-    def build_base_orca_params(self, builder_parameters):
-        """A bit of indirection to decouple aiida-orca plugin
-        from this code"""
-        bp = builder_parameters
-        input_keywords = [bp["basis"]]
-
-        # WARNING: Here we implicitly assume, that ORCA will automatically select
-        # equilibrium solvation for ground state optimization,
-        # and non-equilibrium solvation for single point excited state calculations.
-        # This should be the default, but it would be better to be explicit.
-        if bp["solvent"] != "None":
-            input_keywords.append(f"CPCM({bp['solvent']})")
-
-        return {
-            "charge": bp["charge"],
-            "multiplicity": bp["spin_mult"],
-            "input_blocks": {
-                "scf": {"convergence": "tight", "ConvForced": "true"},
-            },
-            "input_keywords": input_keywords,
-            "extra_input_keywords": [],
-        }
-
-    def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
-        mdci_params = deepcopy(orca_parameters)
-        mdci_params["input_keywords"].append(mdci_method)
-        if mdci_method == ExcitedStateMethod.ADC2.value:
-            # Basis for RI approximation, this will not work for all basis sets
-            mdci_params["input_keywords"].append(f"{basis}/C")
-
-        mdci_params["input_blocks"]["mdci"] = {
-            "nroots": nroots,
-            "maxcore": MEMORY_PER_CPU,
-        }
-        # TODO: For efficiency reasons, in might not be necessary to calculated left-vectors
-        # to obtain TDM, but we need to benchmark that first.
-        if mdci_method == ExcitedStateMethod.CCSD.value:
-            mdci_params["input_blocks"]["mdci"]["doTDM"] = "true"
-            mdci_params["input_blocks"]["mdci"]["doLeft"] = "true"
-        return mdci_params
-
-    def _add_tddft_orca_params(
-        self, base_orca_parameters, es_method, functional, nroots
-    ):
-        tddft_params = deepcopy(base_orca_parameters)
-        tddft_params["input_keywords"].append(functional)
-        tddft_params["input_blocks"]["tddft"] = {
-            "nroots": nroots,
-            "maxcore": MEMORY_PER_CPU,
-        }
-        if es_method == ExcitedStateMethod.TDDFT.value:
-            tddft_params["input_blocks"]["tddft"]["tda"] = "false"
-        return tddft_params
-
-    def _add_optimization_orca_params(self, base_orca_parameters, basis, gs_method):
-        opt_params = deepcopy(base_orca_parameters)
-        opt_params["input_keywords"].append(gs_method)
-        opt_params["input_keywords"].append("TightOpt")
-        opt_params["input_keywords"].append("AnFreq")
-        # For MP2, analytical frequencies are only available without Frozen Core
-        if gs_method.lower() in ("ri-mp2", "mp2"):
-            opt_params["input_keywords"].append("NoFrozenCore")
-            opt_params["input_keywords"].append(f"{basis}/C")
-            opt_params["input_blocks"]["mp2"] = {"maxcore": MEMORY_PER_CPU}
-        return opt_params
-
-    def submit(self, _=None):
-
-        assert self.input_structure is not None
-
-        bp = self.builder_parameters.copy()
-
-        builder = AtmospecWorkChain.get_builder()
-
-        builder.code = load_code(self.codes_selector.orca.value)
-        builder.structure = self.input_structure
-
-        base_orca_parameters = self.build_base_orca_params(bp)
-        gs_opt_parameters = self._add_optimization_orca_params(
-            base_orca_parameters, basis=bp["basis"], gs_method=bp["method"]
-        )
-        if bp["excited_method"] in (
-            ExcitedStateMethod.TDA.value,
-            ExcitedStateMethod.TDDFT.value,
-        ):
-            es_parameters = self._add_tddft_orca_params(
-                base_orca_parameters,
-                es_method=bp["excited_method"],
-                functional=bp["method"],
-                nroots=bp["nstates"],
-            )
-        elif bp["excited_method"] in (
-            ExcitedStateMethod.ADC2.value,
-            ExcitedStateMethod.CCSD.value,
-        ):
-            es_parameters = self._add_mdci_orca_params(
-                base_orca_parameters,
-                basis=bp["basis"],
-                mdci_method=bp["excited_method"],
-                nroots=bp["nstates"],
-            )
-        else:
-            raise ValueError(f"Excited method {bp['excited_method']} not implemented")
-
-        builder.opt.orca.parameters = Dict(gs_opt_parameters)
-        builder.exc.orca.parameters = Dict(es_parameters)
-
-        num_proc = self.resources_config.num_mpi_tasks.value
-        if num_proc > 1:
-            # NOTE: We only paralelize the optimizations job,
-            # because we suppose there will be lot's of TDDFT jobs in NEA,
-            # which can be trivially launched in parallel.
-            # We also paralelize EOM-CCSD as it is expensive and likely
-            # used only for single point calculations.
-            builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
-            if bp["excited_method"] == ExcitedStateMethod.CCSD.value:
-                builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
-
-        metadata = {
-            "options": {
-                "withmpi": False,
-                "resources": {
-                    "tot_num_mpiprocs": num_proc,
-                    "num_mpiprocs_per_machine": num_proc,
-                    "num_cores_per_mpiproc": 1,
-                    "num_machines": 1,
-                },
-            }
-        }
-        builder.opt.orca.metadata = metadata
-        builder.exc.orca.metadata = deepcopy(metadata)
-        if bp["excited_method"] != ExcitedStateMethod.CCSD.value:
-            builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
-            builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
-
-        # Clean the remote directory by default,
-        # we're copying back the main output file and gbw file anyway.
-        builder.exc.clean_workdir = Bool(True)
-        builder.opt.clean_workdir = Bool(True)
-
-        builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
-        builder.opt.orca.metadata.description = "ORCA geometry optimization"
-
-        if self.workchain_settings.geo_opt_type.value == "NONE":
-            builder.optimize = False
-
-        # Wigner will be sampled only when optimize == True
-        builder.nwigner = self.qm_config.nwigner.value
-        builder.wigner_low_freq_thr = self.qm_config.wigner_low_freq_thr.value
-
-        process = submit(builder)
-        process.base.extras.set("builder_parameters", self.builder_parameters.copy())
-        # NOTE: It is important to set_extra builder_parameters before we update the traitlet
-        self.process = process
-
-    def reset(self):
-        with self.hold_trait_notifications():
-            self.process = None
-            self.input_structure = None
-            self.builder_parameters = self._default_builder_parameters()
-
-    @traitlets.default("builder_parameters")
-    def _default_builder_parameters(self):
-        params = DEFAULT_PARAMETERS
-
-        params["orca_code"] = None
-        for code_label in ("orca@slurm", "orca@localhost"):
-            try:
-                params["orca_code"] = load_code(code_label).uuid
-            except (NotExistent, ValueError):
-                pass
-            else:
-                return params
-
-        if params["orca_code"] is None:
-            print("WARNING: ORCA code has not been found locally")
-        return params
-
-
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
-
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
@@ -675,7 +294,6 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
-
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
