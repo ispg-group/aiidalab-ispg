@@ -31,6 +31,18 @@ def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryDa
     return traj
 
 
+def extract_energies(**orca_output_parameters) -> Array:
+    """Extract gibbs energies and other useful stuff from the list
+       of ORCA output parameters.
+    Optionally, set additional data as Arrays.
+    """
+    gibbs_energies = [params["freeenergy"] for params in orca_output_parameters]
+    en = Array()
+    en.set_array("gibs_energy_au", gibs_energies)
+    en.set_extra("temperature", orca_output_parameters[0]["temperature"])
+    return en
+
+
 # TODO: For now this is just a plain optimization,
 # the "robust" part needs to be implemented
 class RobustOptimizationWorkChain(OrcaBaseWorkChain):
