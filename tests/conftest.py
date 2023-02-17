@@ -118,17 +118,21 @@ def check_atoms(selenium):
         The order of atom symbols must be the same as their indexes in the molecule
         """
         selection_box = selenium.find_element(
-            By.XPATH, "//label[text()='Selected atoms:']/following-sibling::input"
+            By.XPATH, "//label[text()='Select atoms:']/following-sibling::input"
         )
         apply_selection = WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//button[text()='Apply selection']"))
         )
+        clear_selection = WebDriverWait(selenium, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[text()='Clear selection']"))
+        )
         for i, atom in enumerate(atom_symbols):
+            clear_selection.click()
             selection_box.clear()
             selection_box.send_keys(str(i + 1))
             apply_selection.click()
             selenium.find_element(
-                By.XPATH, f"//div[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
+                By.XPATH, f"//p[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
             )
 
     return _select_atoms
