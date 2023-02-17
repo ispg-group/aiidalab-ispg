@@ -17,6 +17,11 @@ EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
 # Molar gas constant, Avogadro times Boltzmann
 R = 8.3144598
 
+# TODO: Make this configurable
+# Safe default for 8 core, 32Gb machine
+# TODO: Figure out how to make this work as a global keyword
+# https://github.com/pzarabadip/aiida-orca/issues/45
+MEMORY_PER_CPU = 3000  # Mb
 
 # TODO: Use numpy here? Measure the speed...
 # Energies expected in kJ / mole, Absolute temperature in Kelvins
