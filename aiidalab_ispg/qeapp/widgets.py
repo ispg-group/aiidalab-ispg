@@ -7,6 +7,7 @@ Authors:
 
 import base64
 import hashlib
+import re
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
@@ -14,6 +15,8 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 from aiida.orm import load_node, CalcJobNode
+from aiida.cmdline.utils.common import get_workchain_report
+from aiida.tools.query import formatting
 from aiidalab_widgets_base import register_viewer_widget
 from IPython.display import HTML, Javascript, display
 
@@ -352,9 +355,24 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         self.output_follower.calcjob_uuid = self.calcjob.uuid
         self.output_follower.observe(self._observe_output_follower_lineno, ["lineno"])
 
-        super().__init__(
-            [ipw.HTML(f"CalcJob: {self.calcjob}"), self.log_output], **kwargs
+        # Displaying reports only from the selected process,
+        # NOT from its descendants.
+        report = get_workchain_report(self.calcjob, "REPORT", max_depth=1)
+        filtered_report = re.sub(
+            r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
         )
+        header = f"""
+            Process: {calcjob.process_label},
+            State: {formatting.format_process_state(calcjob.process_state.value)},
+            PK: {calcjob.pk}, 
+            Started {formatting.format_relative_time(calcjob.ctime)},
+            Last modified {formatting.format_relative_time(calcjob.mtime)}
+        """
+        if filtered_report == "No log messages recorded for this entry":
+            header_and_report = ipw.HTML(header)
+        else:
+            header_and_report = ipw.HTML(f"{header}<br><pre>{filtered_report}</pre>")
+        super().__init__([header_and_report, self.log_output], **kwargs)
 
     def _observe_output_follower_lineno(self, _):
         with self.hold_trait_notifications():
