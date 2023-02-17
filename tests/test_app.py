@@ -151,10 +151,9 @@ def test_optimization_steps(
 
     button_disabled("Confirm")
     button_enabled("Submit")
-    # TODO: Not sure why this does not work
-    # submit = WebDriverWait(driver, 10).until(
-    #    EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
-    # )
+    submit = WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+    )
 
 
 def test_spectrum_app_init(selenium_driver, final_screenshot):
