@@ -13,6 +13,7 @@ from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
 from .steps import SubmitWorkChainStepBase, WorkChainSettings
+from .optimization_steps import OptimizationParameters
 from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
 
 try:
@@ -22,26 +23,26 @@ except ImportError:
 
 
 @dataclass(frozen=True)
-class AtmospecParameters(OptimizationParameter):
+class AtmospecParameters(OptimizationParameters):
     geo_opt: str
     excited_method: ExcitedStateMethod
-    nstate: int
+    nstates: int
     nwigner: int
     wigner_low_freq_thr: float
 
 
 # TODO: Production parameters
-DEFAULT_ATMOSPEC_PARAMETERS = OptimizationParameters(
+DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     charge=0,
     multiplicity=1,
     method="wB97X-D4",
     basis="def2-SVP",
     solvent="None",
-    get_opt="NONE",
+    geo_opt="NONE",
     excited_method=ExcitedStateMethod.ADC2,
-    nstate=3,
+    nstates=3,
     nwigner=1,
-    wigner_low_freq_thr=150.,
+    wigner_low_freq_thr=150.0,
 )
 
 
@@ -49,17 +50,12 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
     def __init__(self, **kwargs):
-        self.message_area = ipw.Output()
         self.workchain_settings = WorkChainSettings()
         self.codes_selector = CodeSettings()
         self.resources_config = ResourceSelectionWidget()
         self.qm_config = QMSelectionWidget()
 
-        self.set_trait("builder_parameters", self._default_builder_parameters())
-        self._setup_builder_parameters_update()
-
         self.codes_selector.orca.observe(self._update_state, "value")
-        self.codes_selector.orca.observe(self._set_num_mpi_tasks_to_default, "value")
 
         self.tab = ipw.Tab(
             children=[
@@ -92,7 +88,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         super().__init__(
             children=[
-                self.message_area,
                 self.tab,
                 self.submit_button,
             ]
@@ -104,7 +99,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
         # ORCA code not selected.
-        if self.code_settings.orca.value is None:
+        if self.codes_selector.orca.value is None:
             return False
         return True
 
@@ -114,11 +109,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         This function is called when we load an already finished workflow,
         and we want the input widgets to be updated accordingly
         """
-        #self.molecule_settings.charge.value = parameters.charge
-        #self.molecule_settings.multiplicity.value = parameters.multiplicity
-        #self.molecule_settings.solvent.value = parameters.solvent
-        #self.ground_state_settings.method.value = parameters.method
-        #self.ground_state_settings.basis.value = parameters.basis
+        # self.molecule_settings.charge.value = parameters.charge
+        # self.molecule_settings.multiplicity.value = parameters.multiplicity
+        # self.molecule_settings.solvent.value = parameters.solvent
+        # self.ground_state_settings.method.value = parameters.method
+        # self.ground_state_settings.basis.value = parameters.basis
         self.workchain_settings.spin_mult.value = parameters.multiplicity
         self.workchain_settings.charge.value = parameters.charge
         self.workchain_settings.nstates.value = parameters.nstates
@@ -132,12 +127,12 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
     def _get_parameters_from_ui(self) -> AtmospecParameters:
         """Prepare builder parameters from the UI input widgets"""
-        return AtomspecParameters(
-            #charge=self.molecule_settings.charge.value,
-            #multiplicity=self.molecule_settings.multiplicity.value,
-            #solvent=self.molecule_settings.solvent.value,
-            #method=self.ground_state_settings.method.value,
-            #basis=self.ground_state_settings.basis.value,
+        return AtmospecParameters(
+            # charge=self.molecule_settings.charge.value,
+            # multiplicity=self.molecule_settings.multiplicity.value,
+            # solvent=self.molecule_settings.solvent.value,
+            # method=self.ground_state_settings.method.value,
+            # basis=self.ground_state_settings.basis.value,
             charge=self.workchain_settings.charge.value,
             multiplicity=self.workchain_settings.spin_mult.value,
             geo_opt=self.workchain_settings.geo_opt_type.value,
@@ -146,7 +141,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             basis=self.qm_config.basis.value,
             nstates=self.workchain_settings.nstates.value,
             excited_method=self.qm_config.excited_method.value,
-            nwigner=self.qm_config.nwigner.value = parameters.nwigner,
+            nwigner=self.qm_config.nwigner.value,
             wigner_low_freq_thr=self.qm_config.wigner_low_freq_thr.value,
         )
 
@@ -181,40 +176,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 },
             }
         }
-
-    def _update_builder_parameters(self, _=None):
-        self.set_trait(
-            "builder_parameters",
-            self._serialize_builder_parameters(
-                dict(  # noqa C408
-                    orca_code=self.codes_selector.orca.value,
-                    method=self.qm_config.method.value,
-                    excited_method=self.qm_config.excited_method.value,
-                    basis=self.qm_config.basis.value,
-                    solvent=self.qm_config.solvent.value,
-                    charge=self.workchain_settings.charge.value,
-                    nstates=self.workchain_settings.nstates.value,
-                    spin_mult=self.workchain_settings.spin_mult.value,
-                )
-            ),
-        )
-
-    @traitlets.observe("builder_parameters")
-    def _observe_builder_parameters(self, change):
-        bp = self._deserialize_builder_parameters(change["new"])
-
-        with self.hold_trait_notifications():
-            # Workchain settings
-            self.workchain_settings.spin_mult.value = bp["spin_mult"]
-            self.workchain_settings.charge.value = bp["charge"]
-            self.workchain_settings.nstates.value = bp["nstates"]
-            # Codes
-            self.codes_selector.orca.value = bp.get("orca_code")
-            # QM settings
-            self.qm_config.excited_method.value = bp["excited_method"]
-            self.qm_config.method.value = bp["method"]
-            self.qm_config.basis.value = bp["basis"]
-            self.qm_config.solvent.value = bp["solvent"]
 
     def build_base_orca_params(self, params: AtmospecParameters) -> dict:
         """Prepare dictionary of ORCA parameters, as required by aiida-orca plugin"""
@@ -323,13 +284,13 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             # We also paralelize EOM-CCSD as it is expensive and likely
             # used only for single point calculations.
             builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
-            if bp["excited_method"] == ExcitedStateMethod.CCSD.value:
+            if bp.excited_method == ExcitedStateMethod.CCSD.value:
                 builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
 
         metadata = self._build_orca_metadata(num_proc)
         builder.opt.orca.metadata = metadata
         builder.exc.orca.metadata = deepcopy(metadata)
-        if bp["excited_method"] != ExcitedStateMethod.CCSD.value:
+        if bp.excited_method != ExcitedStateMethod.CCSD.value:
             builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
             builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
