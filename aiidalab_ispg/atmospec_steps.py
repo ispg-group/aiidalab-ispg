@@ -1,4 +1,4 @@
-"""Steps specific for the optimization workflow"""
+"""Steps specific for the ATMOSPEC workflow"""
 
 import ipywidgets as ipw
 import traitlets
@@ -9,24 +9,18 @@ from dataclasses import dataclass
 from aiida.engine import submit
 from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
 from aiida.orm import load_code
-from aiida.plugins import DataFactory
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
 from .steps import SubmitWorkChainStepBase, WorkChainSettings
 from .optimization_steps import OptimizationParameters
 from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
+from .utils import MEMORY_PER_CPU
 
 try:
     from aiidalab_atmospec_workchain import AtmospecWorkChain
 except ImportError:
     print("ERROR: Could not find aiidalab_atmospec_workchain module!")
-
-# TODO: Make this configurable
-# Safe default for 8 core, 32Gb machine
-# TODO: Figure out how to make this work as a global keyword
-# https://github.com/pzarabadip/aiida-orca/issues/45
-MEMORY_PER_CPU = 3000  # Mb
 
 
 @dataclass(frozen=True)
@@ -147,11 +141,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                     parameters["excited_method"] = ExcitedStateMethod(
                         parameters["excited_method"]
                     )
-                except (AttributeError, KeyError):
-                    # extras do not exist or are incompatible, ignore this problem
-                    pass
-                else:
                     self._update_ui_from_parameters(AtmospecParameters(**parameters))
+                except (AttributeError, KeyError, TypeError):
+                    # extras do not exist or are incompatible, ignore this problem
+                    # TODO: Maybe display warning?
+                    pass
             self._update_state()
 
     # TODO: Need to implement logic for handling more CPUs
@@ -224,6 +218,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         opt_params["input_keywords"].append("TightOpt")
         opt_params["input_keywords"].append("AnFreq")
         # For MP2, analytical frequencies are only available without Frozen Core
+        # TODO: Add this to optimization workflow
         if gs_method.lower() in ("ri-mp2", "mp2"):
             opt_params["input_keywords"].append("NoFrozenCore")
             opt_params["input_keywords"].append(f"{basis}/C")

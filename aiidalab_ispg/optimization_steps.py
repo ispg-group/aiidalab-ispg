@@ -14,6 +14,7 @@ from aiidalab_widgets_base import WizardAppWidgetStep
 from .input_widgets import CodeSettings, MoleculeSettings, GroundStateSettings
 from .widgets import ResourceSelectionWidget
 from .steps import SubmitWorkChainStepBase
+from .utils import MEMORY_PER_CPU
 
 try:
     from aiidalab_atmospec_workchain.optimization import ConformerOptimizationWorkChain
@@ -101,16 +102,20 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
     @traitlets.observe("process")
     def _observe_process(self, change):
-        self._update_state()
-        process = change["new"]
-        if process is None:
-            return
-        try:
-            parameters = process.base.extras.get("builder_parameters")
-            self._update_ui_from_parameters(OptimizationParameters(**parameters))
-        except AttributeError as e:
-            # extras do not exist or are incompatible, ignore this problem
-            pass
+        with self.hold_trait_notifications():
+            process = change["new"]
+            if process is not None:
+                self.input_structure = process.inputs.structure
+                try:
+                    parameters = process.base.extras.get("builder_parameters")
+                    self._update_ui_from_parameters(
+                        OptimizationParameters(**parameters)
+                    )
+                except (AttributeError, KeyError, TypeError):
+                    # extras do not exist or are incompatible, ignore this problem
+                    # TODO: Maybe display warning?
+                    pass
+            self._update_state()
 
     def submit(self, _=None):
         assert self.input_structure is not None
@@ -158,7 +163,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         # equilibrium solvation for ground state optimization,
         # and non-equilibrium solvation for single point excited state calculations.
         # This should be the default, but it would be better to be explicit.
-        input_keywords = ([params.basis, params.method, "Opt", "AnFreq"],)
+        input_keywords = [params.basis, params.method, "Opt", "AnFreq"]
         if params.solvent != "None":
             input_keywords.append(f"CPCM({params.solvent})")
         return {
