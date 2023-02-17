@@ -132,7 +132,7 @@ def check_atoms(selenium):
             selection_box.send_keys(str(i + 1))
             apply_selection.click()
             selenium.find_element(
-                By.XPATH, f"//p[contains(text(),'Id: {i+1}; Symbol: {atom};')]"
+                By.XPATH, f"//p[starts-with(text(),'Id: {i+1}; Symbol: {atom};')]"
             )
 
     return _select_atoms
