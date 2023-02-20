@@ -240,7 +240,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
         self._update_density_plot(plot_type=change["new"])
 
     def _update_density_plot(self, plot_type):
-        if self.conformer_transitions is None or self.disabled:
+        if self.conformer_transitions is None:
             return
         energies, osc_strengths = self._flatten_transitions()
         # TODO: Use Enum
@@ -798,7 +798,6 @@ class SpectrumWidget(ipw.VBox):
 
     def reset(self):
         with self.hold_trait_notifications():
-            self.analysis.reset()
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
