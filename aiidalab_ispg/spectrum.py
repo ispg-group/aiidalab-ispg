@@ -3,11 +3,19 @@
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
+from dataclasses import dataclass
 from enum import Enum, unique
+
 import ipywidgets as ipw
 import traitlets
+import scipy
 from scipy import constants
+import matplotlib
+import matplotlib.pyplot as mplt
+from matplotlib import rc
 import numpy as np
+
+matplotlib.rcParams["figure.dpi"] = 150
 
 from aiida.orm import load_node, QueryBuilder
 from aiida.plugins import DataFactory
@@ -178,9 +186,146 @@ class Spectrum:
         return x, y
 
 
+@dataclass
+class Density2D:
+    # https://stackoverflow.com/questions/60876995/how-to-declare-numpy-array-of-particular-type-as-type-in-dataclass
+    # TODO: Improve typing to include only 1D arrays if possible
+    xi: np.ndarray
+    yi: np.ndarray
+    zi: np.ndarray
+
+
+class SpectrumAnalysisWidget(ipw.VBox):
+
+    conformer_transitions = traitlets.List(
+        trait=traitlets.Dict, allow_none=True, default=None
+    )
+    # TODO: How to name this?
+    density = traitlets.Instance(Density2D, allow_none=True, default=None)
+
+    def __init__(self):
+        title = ipw.HTML("<h3>Spectrum analysis</h3>")
+        self.density_figure = ipw.Output()
+        self.density_toggle = ipw.ToggleButtons(
+            options=[
+                ("Scatterplot", "SCATTER"),
+                ("2D Density", "DENSITY"),
+            ],
+            value="SCATTER",
+        )
+        self.density_toggle.observe(self._observe_density_toggle, names="value")
+
+        self.density_tab = ipw.VBox([self.density_figure, self.density_toggle])
+        self.photolysis_tab = ipw.HTML("<p>Coming soon 🙂<p>")
+
+        components = [self.density_tab, self.photolysis_tab]
+
+        tab = ipw.Tab(children=components)
+        tab.set_title(1, "Photolysis constant")
+        tab.set_title(0, "Energy Density")
+        super().__init__(children=[title, tab])
+
+    @traitlets.observe("conformer_transitions")
+    def _observe_conformer_transitions(self, change):
+        if change["new"] is None or len(change["new"]) == 0:
+            return
+        self._update_density_plot()
+
+    def _observe_density_toggle(self, change):
+        if change["new"] == change["old"]:
+            return
+        self._update_density_plot()
+
+    def _update_density_plot(self):
+        energies, osc_strengths = self._flatten_transitions()
+        if self.density_toggle.value == "SCATTER":
+            self.plot_scatter(energies, osc_strengths)
+        elif self.density_toggle.value == "DENSITY":
+            self.plot_density(energies, osc_strengths)
+
+    def _flatten_transitions(self):
+        # TODO: Merge these comprehensions
+        energies = np.array(
+            [
+                transitions["energy"]
+                for conformer in self.conformer_transitions
+                for transitions in conformer["transitions"]
+            ]
+        )
+        osc_strengths = np.array(
+            [
+                transitions["osc_strength"]
+                for conformer in self.conformer_transitions
+                for transitions in conformer["transitions"]
+            ]
+        )
+        return energies, osc_strengths
+
+    # https://kapernikov.com/ipywidgets-with-matplotlib/
+    def plot_scatter(self, energies, osc_strengths):
+        self.density_figure.clear_output()
+        with self.density_figure:
+            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
+            # ax.set_title("Oscillator strength vs Excitation energy correlation", loc='left')
+            ax.set_xlabel("Excitation energy (eV)")
+            ax.set_ylabel("Oscillator strength (-)")
+            # TODO: Make this more inteligent
+            size = 15.0
+            if len(energies) > 100:
+                size = 1.0
+            ax.scatter(energies, osc_strengths, s=size, marker="o")
+
+    def plot_density(self, energies, osc_strengths):
+        MIN_SAMPLES = 2
+        colormap = mplt.cm.cividis_r
+
+        self.density_figure.clear_output()
+        with self.density_figure:
+            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
+            ax.set_title("2D Density", loc="center")
+            ax.set_xlabel("Excitation energy (eV)")
+            ax.set_ylabel("Oscillator strength (-)")
+
+            if len(energies) > MIN_SAMPLES:
+                if self.density is None:
+                    self.density = self.get_kde(energies, osc_strengths)
+                ax.pcolormesh(
+                    self.density.xi,
+                    self.density.yi,
+                    self.density.zi,
+                    shading="gouraud",
+                    cmap=colormap,
+                )
+                ax.contour(self.density.xi, self.density.yi, self.density.zi)
+            else:
+                ax.hist2d(energies, osc_strengths, bins=50, density=True, cmap=colormap)
+
+    @staticmethod
+    def get_kde(x, y, nbins=20):
+        """Evaluate a gaussian Kernel density estimate (KDE)
+        on a regular grid of nbins x nbins over data extents
+
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+        """
+        xy = np.vstack((x, y))
+        k = scipy.stats.gaussian_kde(xy)
+        xi, yi = np.mgrid[
+            x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
+        ]
+        zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+        return Density2D(xi, yi, zi.reshape(xi.shape))
+
+    def reset(self):
+        self.conformer_transitions = None
+        self.density = None
+        self.density_figure.clear_output()
+
+
 class SpectrumWidget(ipw.VBox):
 
-    conformer_transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
+    conformer_transitions = traitlets.List(
+        trait=traitlets.Dict, allow_none=True, default=None
+    )
     conformer_structures = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
@@ -290,6 +435,12 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "trajectory"),
         )
 
+        self.analysis = SpectrumAnalysisWidget()
+        ipw.dlink(
+            (self, "conformer_transitions"),
+            (self.analysis, "conformer_transitions"),
+        )
+
         super().__init__(
             [
                 self.debug_output,
@@ -307,6 +458,7 @@ class SpectrumWidget(ipw.VBox):
                         ),
                     ],
                 ),
+                self.analysis,
             ],
             **kwargs,
         )
@@ -622,6 +774,7 @@ class SpectrumWidget(ipw.VBox):
 
     def reset(self):
         with self.hold_trait_notifications():
+            self.analysis.reset()
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
