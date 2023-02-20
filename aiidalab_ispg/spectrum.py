@@ -200,8 +200,8 @@ class SpectrumAnalysisWidget(ipw.VBox):
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
-    # TODO: How to name this?
-    density = traitlets.Instance(Density2D, allow_none=True, default=None)
+    _density: Density2D = None
+    disabled = traitlets.Bool(default=True)
 
     def __init__(self):
         title = ipw.HTML("<h3>Spectrum analysis</h3>")
@@ -227,21 +227,29 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
+        self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
+            self.reset()
             return
-        self._update_density_plot()
+        print(f"toggle = self.density_toggle.value")
+        print(f"transitions = self.conformer_transitions")
+        self._update_density_plot(plot_type=self.density_toggle.value)
+        self.disabled = False
 
     def _observe_density_toggle(self, change):
-        if change["new"] == change["old"]:
-            return
-        self._update_density_plot()
+        self._update_density_plot(plot_type=change["new"])
 
-    def _update_density_plot(self):
+    def _update_density_plot(self, plot_type):
+        if self.conformer_transitions is None or self.disabled:
+            return
         energies, osc_strengths = self._flatten_transitions()
-        if self.density_toggle.value == "SCATTER":
+        # TODO: Use Enum
+        if plot_type == "SCATTER":
             self.plot_scatter(energies, osc_strengths)
-        elif self.density_toggle.value == "DENSITY":
+        elif plot_type == "DENSITY":
             self.plot_density(energies, osc_strengths)
+        else:
+            raise ValueError(f"Unexpected value for toggle: {plot_type}")
 
     def _flatten_transitions(self):
         # TODO: Merge these comprehensions
@@ -276,28 +284,32 @@ class SpectrumAnalysisWidget(ipw.VBox):
             ax.scatter(energies, osc_strengths, s=size, marker="o")
 
     def plot_density(self, energies, osc_strengths):
-        MIN_SAMPLES = 2
-        colormap = mplt.cm.cividis_r
+        MIN_SAMPLES = 10
+        colormap = mplt.cm.magma_r
 
         self.density_figure.clear_output()
         with self.density_figure:
             self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
-            ax.set_title("2D Density", loc="center")
             ax.set_xlabel("Excitation energy (eV)")
             ax.set_ylabel("Oscillator strength (-)")
 
             if len(energies) > MIN_SAMPLES:
-                if self.density is None:
-                    self.density = self.get_kde(energies, osc_strengths)
+                ax.set_title("2D Density", loc="center", size="small")
+                # Rudimentary caching, we do not want to recalculate this
+                # every time the user presses the toggle button.
+                if self._density is None:
+                    self._density = self.get_kde(energies, osc_strengths, nbins=35)
+                xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
                 ax.pcolormesh(
-                    self.density.xi,
-                    self.density.yi,
-                    self.density.zi,
+                    xi,
+                    yi,
+                    zi,
                     shading="gouraud",
                     cmap=colormap,
                 )
-                ax.contour(self.density.xi, self.density.yi, self.density.zi)
+                ax.contour(xi, yi, zi)
             else:
+                ax.set_title("2D Histogram", loc="center", size="small")
                 ax.hist2d(energies, osc_strengths, bins=50, density=True, cmap=colormap)
 
     @staticmethod
@@ -316,13 +328,23 @@ class SpectrumAnalysisWidget(ipw.VBox):
         return Density2D(xi, yi, zi.reshape(xi.shape))
 
     def reset(self):
-        self.conformer_transitions = None
-        self.density = None
+        self.disabled = True
+        self._density = None
         self.density_figure.clear_output()
+        self.density_toggle.value = "SCATTER"
+
+    @traitlets.observe("disabled")
+    def _observe_disabled(self, change):
+        disabled = change["new"]
+        if disabled:
+            self.density_toggle.disabled = True
+        else:
+            self.density_toggle.disabled = False
 
 
 class SpectrumWidget(ipw.VBox):
 
+    disabled = traitlets.Bool(default=True)
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
@@ -755,22 +777,24 @@ class SpectrumWidget(ipw.VBox):
         theory_line.visible = False
         return figure
 
-    def disable_controls(self):
-        self.download_btn.disabled = True
-        self.stick_toggle.disabled = True
-        self.conformer_toggle.disabled = True
-        self.energy_unit_selector.disabled = True
-        self.width_slider.disabled = True
-        self.kernel_selector.disabled = True
-
-    def enable_controls(self):
-        self.download_btn.disabled = False
-        self.stick_toggle.disabled = False
-        self.energy_unit_selector.disabled = False
-        self.width_slider.disabled = False
-        self.kernel_selector.disabled = False
-        if len(self.conformer_transitions) > 1:
-            self.conformer_toggle.disabled = False
+    @traitlets.observe("disabled")
+    def _observe_disabled(self, change):
+        disabled = change["new"]
+        if disabled:
+            self.download_btn.disabled = True
+            self.stick_toggle.disabled = True
+            self.conformer_toggle.disabled = True
+            self.energy_unit_selector.disabled = True
+            self.width_slider.disabled = True
+            self.kernel_selector.disabled = True
+        else:
+            self.download_btn.disabled = False
+            self.stick_toggle.disabled = False
+            self.energy_unit_selector.disabled = False
+            self.width_slider.disabled = False
+            self.kernel_selector.disabled = False
+            if len(self.conformer_transitions) > 1:
+                self.conformer_toggle.disabled = False
 
     def reset(self):
         with self.hold_trait_notifications():
@@ -780,7 +804,7 @@ class SpectrumWidget(ipw.VBox):
             self.smiles = None
             self.experimental_spectrum_uuid = None
 
-        self.disable_controls()
+        self.disabled = True
         self.clean_figure()
         self.debug_output.clear_output()
 
@@ -819,7 +843,7 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
-        self.disable_controls()
+        self.disabled = True
         self._hide_all_conformers()
         if change["new"] is None:
             return
@@ -828,7 +852,7 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.enable_controls()
+        self.disabled = False
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
