@@ -9,6 +9,7 @@ from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
 
 from .wigner import Wigner
+from .optimization import structures_to_trajectory
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -51,19 +52,6 @@ class ConcatInputsToList(WorkChain):
             for k in self.inputs.ns
         ]
         self.out("output", List(list=input_list).store())
-
-
-# TODO: Switch to variadic arguments (supported since AiiDA 2.3)
-@calcfunction
-def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
-    """Concatenate a list of StructureData to TrajectoryData
-    Optionally, set additional data as Arrays.
-    """
-    traj = TrajectoryData([structure for structure in structures.values()])
-    if arrays is not None:
-        for name in arrays.get_arraynames():
-            traj.set_array(name, arrays.get_array(name))
-    return traj
 
 
 @calcfunction
