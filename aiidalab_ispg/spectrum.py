@@ -199,7 +199,7 @@ class SpectrumWidget(ipw.VBox):
     experimental_spectrum_uuid = traitlets.Unicode(allow_none=True, default_value=None)
 
     # For now, we do not allow different intensity units
-    intensity_unit = "cm^2 per molecule"
+    intensity_unit = "cm² per molecule"
 
     THEORY_SPEC_LABEL = "theory"
     EXP_SPEC_LABEL = "experiment"
@@ -216,7 +216,7 @@ class SpectrumWidget(ipw.VBox):
             max=0.5,
             step=0.01,
             value=0.05,
-            description="Width / eV",
+            description="Width (eV)",
             continuous_update=True,
             disabled=True,
         )
@@ -600,8 +600,8 @@ class SpectrumWidget(ipw.VBox):
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value.value}"
-        f.yaxis.axis_label = f"Cross section / {self.intensity_unit}"
+        f.xaxis.axis_label = f"Energy ({self.energy_unit_selector.value.value})"
+        f.yaxis.axis_label = f"Cross section ({self.intensity_unit})"
 
         # Initialize line for theoretical spectrum.
         # NOTE: Hardly earned experience: For any lines added later, their updates
