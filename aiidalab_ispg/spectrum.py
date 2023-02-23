@@ -20,7 +20,8 @@ import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
 from .utils import AUtoEV
-from .spectrum_analysis import SpectrumAnalysisWidget
+
+# from .spectrum_analysis import SpectrumAnalysisWidget
 
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
@@ -295,11 +296,11 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "trajectory"),
         )
 
-        self.analysis = SpectrumAnalysisWidget()
-        ipw.dlink(
-            (self, "conformer_transitions"),
-            (self.analysis, "conformer_transitions"),
-        )
+        # self.analysis = SpectrumAnalysisWidget()
+        # ipw.dlink(
+        #    (self, "conformer_transitions"),
+        #    (self.analysis, "conformer_transitions"),
+        # )
 
         super().__init__(
             [
@@ -318,7 +319,7 @@ class SpectrumWidget(ipw.VBox):
                         ),
                     ],
                 ),
-                self.analysis,
+                # self.analysis,
             ],
             **kwargs,
         )
