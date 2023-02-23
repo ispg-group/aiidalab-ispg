@@ -4,6 +4,7 @@ Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 from enum import Enum, unique
+
 import ipywidgets as ipw
 import traitlets
 from scipy import constants
@@ -19,6 +20,8 @@ import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
 from .utils import AUtoEV
+
+# from .spectrum_analysis import SpectrumAnalysisWidget
 
 # https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
 output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
@@ -180,7 +183,10 @@ class Spectrum:
 
 class SpectrumWidget(ipw.VBox):
 
-    conformer_transitions = traitlets.List(trait=traitlets.Dict, allow_none=True)
+    disabled = traitlets.Bool(default=True)
+    conformer_transitions = traitlets.List(
+        trait=traitlets.Dict, allow_none=True, default=None
+    )
     conformer_structures = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
@@ -193,7 +199,7 @@ class SpectrumWidget(ipw.VBox):
     experimental_spectrum_uuid = traitlets.Unicode(allow_none=True, default_value=None)
 
     # For now, we do not allow different intensity units
-    intensity_unit = "cm^2 per molecule"
+    intensity_unit = "cm² per molecule"
 
     THEORY_SPEC_LABEL = "theory"
     EXP_SPEC_LABEL = "experiment"
@@ -210,7 +216,7 @@ class SpectrumWidget(ipw.VBox):
             max=0.5,
             step=0.01,
             value=0.05,
-            description="Width / eV",
+            description="Width (eV)",
             continuous_update=True,
             disabled=True,
         )
@@ -290,6 +296,12 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "trajectory"),
         )
 
+        # self.analysis = SpectrumAnalysisWidget()
+        # ipw.dlink(
+        #    (self, "conformer_transitions"),
+        #    (self.analysis, "conformer_transitions"),
+        # )
+
         super().__init__(
             [
                 self.debug_output,
@@ -307,6 +319,7 @@ class SpectrumWidget(ipw.VBox):
                         ),
                     ],
                 ),
+                # self.analysis,
             ],
             **kwargs,
         )
@@ -587,8 +600,8 @@ class SpectrumWidget(ipw.VBox):
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = f"Energy / {self.energy_unit_selector.value.value}"
-        f.yaxis.axis_label = f"Cross section / {self.intensity_unit}"
+        f.xaxis.axis_label = f"Energy ({self.energy_unit_selector.value.value})"
+        f.yaxis.axis_label = f"Cross section ({self.intensity_unit})"
 
         # Initialize line for theoretical spectrum.
         # NOTE: Hardly earned experience: For any lines added later, their updates
@@ -603,22 +616,24 @@ class SpectrumWidget(ipw.VBox):
         theory_line.visible = False
         return figure
 
-    def disable_controls(self):
-        self.download_btn.disabled = True
-        self.stick_toggle.disabled = True
-        self.conformer_toggle.disabled = True
-        self.energy_unit_selector.disabled = True
-        self.width_slider.disabled = True
-        self.kernel_selector.disabled = True
-
-    def enable_controls(self):
-        self.download_btn.disabled = False
-        self.stick_toggle.disabled = False
-        self.energy_unit_selector.disabled = False
-        self.width_slider.disabled = False
-        self.kernel_selector.disabled = False
-        if len(self.conformer_transitions) > 1:
-            self.conformer_toggle.disabled = False
+    @traitlets.observe("disabled")
+    def _observe_disabled(self, change):
+        disabled = change["new"]
+        if disabled:
+            self.download_btn.disabled = True
+            self.stick_toggle.disabled = True
+            self.conformer_toggle.disabled = True
+            self.energy_unit_selector.disabled = True
+            self.width_slider.disabled = True
+            self.kernel_selector.disabled = True
+        else:
+            self.download_btn.disabled = False
+            self.stick_toggle.disabled = False
+            self.energy_unit_selector.disabled = False
+            self.width_slider.disabled = False
+            self.kernel_selector.disabled = False
+            if len(self.conformer_transitions) > 1:
+                self.conformer_toggle.disabled = False
 
     def reset(self):
         with self.hold_trait_notifications():
@@ -627,7 +642,7 @@ class SpectrumWidget(ipw.VBox):
             self.smiles = None
             self.experimental_spectrum_uuid = None
 
-        self.disable_controls()
+        self.disabled = True
         self.clean_figure()
         self.debug_output.clear_output()
 
@@ -666,7 +681,7 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
-        self.disable_controls()
+        self.disabled = True
         self._hide_all_conformers()
         if change["new"] is None:
             return
@@ -675,7 +690,7 @@ class SpectrumWidget(ipw.VBox):
             kernel=self.kernel_selector.value,
             energy_unit=self.energy_unit_selector.value,
         )
-        self.enable_controls()
+        self.disabled = False
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
