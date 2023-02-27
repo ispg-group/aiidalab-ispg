@@ -245,6 +245,8 @@ class CalcJobOutputFollower(traitlets.HasTraits):
     output = traitlets.List(trait=traitlets.Unicode)
     lineno = traitlets.Int()
 
+    _EOF = None
+
     def __init__(self, **kwargs):
         self._output_queue = Queue()
 
@@ -291,9 +293,14 @@ class CalcJobOutputFollower(traitlets.HasTraits):
 
     def _fetch_output(self, calcjob):
         assert isinstance(calcjob, CalcJobNode)
+        try:
+            self.filename = calcjob.base.attributes.get("output_filename")
+        except AttributeError:
+            # TODO: Verify that AttributeError is the correct exception here
+            return []
+
         if "retrieved" in calcjob.outputs:
             try:
-                self.filename = calcjob.base.attributes.get("output_filename")
                 with calcjob.outputs.retrieved.base.repository.open(self.filename) as f:
                     return f.read().splitlines()
             except OSError:
@@ -301,17 +308,13 @@ class CalcJobOutputFollower(traitlets.HasTraits):
 
         elif "remote_folder" in calcjob.outputs:
             try:
-                fn_out = calcjob.base.attributes.get("output_filename")
-                self.filename = fn_out
                 with NamedTemporaryFile() as tmpfile:
-                    calcjob.outputs.remote_folder.getfile(fn_out, tmpfile.name)
+                    calcjob.outputs.remote_folder.getfile(self.filename, tmpfile.name)
                     return tmpfile.read().decode().splitlines()
             except OSError:
                 return []
         else:
             return []
-
-    _EOF = None
 
     def _push_output(self, calcjob_uuid, delay=0.2):
         """Push new log lines onto the queue."""
@@ -345,6 +348,18 @@ class CalcJobOutputFollower(traitlets.HasTraits):
                 self._output_queue.task_done()
 
 
+def get_filtered_process_report(process) -> str:
+    """Get a sligtly prettier process report"""
+
+    # Get reports only from the selected process,
+    # NOT from its descendants.
+    report = get_workchain_report(process, "REPORT", max_depth=1)
+    filtered_report = re.sub(
+        r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
+    )
+    return filtered_report
+
+
 @register_viewer_widget("process.calculation.calcjob.CalcJobNode.")
 class CalcJobNodeViewerWidget(ipw.VBox):
     def __init__(self, calcjob, **kwargs):
@@ -355,12 +370,7 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         self.output_follower.calcjob_uuid = self.calcjob.uuid
         self.output_follower.observe(self._observe_output_follower_lineno, ["lineno"])
 
-        # Displaying reports only from the selected process,
-        # NOT from its descendants.
-        report = get_workchain_report(self.calcjob, "REPORT", max_depth=1)
-        filtered_report = re.sub(
-            r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
-        )
+        filtered_report = get_filtered_process_report(self.calcjob)
         header = f"""
             Process: {calcjob.process_label},
             State: {formatting.format_process_state(calcjob.process_state.value)},
@@ -368,6 +378,9 @@ class CalcJobNodeViewerWidget(ipw.VBox):
             Started {formatting.format_relative_time(calcjob.ctime)},
             Last modified {formatting.format_relative_time(calcjob.mtime)}
         """
+
+        # TODO: Only display the report when the CalcJob finished with an error
+        # or exception.
         if filtered_report == "No log messages recorded for this entry":
             header_and_report = ipw.HTML(header)
         else:
