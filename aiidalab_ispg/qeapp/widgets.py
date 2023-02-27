@@ -348,12 +348,25 @@ class CalcJobOutputFollower(traitlets.HasTraits):
                 self._output_queue.task_done()
 
 
-def get_filtered_process_report(process) -> str:
+# TODO: Perhaps we should just use the ProcessReportWidget from
+# aiidalab_widgets_base.process, and modify it to make it nicer.
+def get_filtered_process_report(
+    process, levelname: str = "REPORT", max_depth: int = 1
+) -> str:
     """Get a sligtly prettier process report"""
+    if process is None:
+        return
 
-    # Get reports only from the selected process,
-    # NOT from its descendants.
-    report = get_workchain_report(process, "REPORT", max_depth=1)
+    # Copy pasted from ProcessReportWidget
+    if isinstance(process, CalcJobNode):
+        report = get_calcjob_report(process)
+    elif isinstance(process, WorkChainNode):
+        report = get_workchain_report(
+            process, levelname, self.indent_size, max_depth=max_depth
+        )
+    elif isinstance(process, (CalcFunctionNode, WorkFunctionNode)):
+        report = get_process_function_report(process)
+
     filtered_report = re.sub(
         r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
     )

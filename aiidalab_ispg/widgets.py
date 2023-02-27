@@ -74,6 +74,9 @@ class WorkChainSelector(qeapp.WorkChainSelector):
     FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
 
     def __init__(self, workchain_label, **kwargs):
+        # TODO: Allow multiple workchain labels for filtering.
+        # For example, if we rename the process_label of a workchain,
+        # and want backwards compatibility.
         self.workchain_label = workchain_label
         super().__init__(**kwargs)
 
