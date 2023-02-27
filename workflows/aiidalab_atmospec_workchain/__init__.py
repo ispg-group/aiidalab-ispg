@@ -60,10 +60,14 @@ def pick_wigner_structure(wigner_structures, index):
 
 
 @calcfunction
-def add_orca_wf_guess(orca_params: Dict) -> Dict:
+def add_orca_wf_guess(
+    orca_params: Dict, additional_input_keywords: List = None
+) -> Dict:
     params = orca_params.get_dict()
     params["input_keywords"].append("MOREAD")
     params["input_blocks"]["scf"]["moinp"] = '"aiida_old.gbw"'
+    if additional_input_keywords is not None:
+        params["input_keywords"] += additional_input_keywords.get_list()
     return Dict(params)
 
 
@@ -225,7 +229,11 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         ) as handler:
             gbw_file = SinglefileData(handler)
         inputs.orca.file = {"gbw": gbw_file}
-        inputs.orca.parameters = add_orca_wf_guess(inputs.orca.parameters)
+        # Minimize the size of the output file
+        keywords = List(["MINIPRINT"]).store()
+        inputs.orca.parameters = add_orca_wf_guess(
+            inputs.orca.parameters, additional_input_keywords=keywords
+        )
         for i in self.ctx.wigner_structures.get_stepids():
             inputs.orca.structure = pick_wigner_structure(
                 self.ctx.wigner_structures, Int(i)
