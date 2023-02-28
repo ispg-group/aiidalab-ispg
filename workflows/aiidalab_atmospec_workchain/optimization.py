@@ -1,5 +1,7 @@
 # AiiDA workflows dealing with optimization of molecules.
 
+import math
+
 from aiida.engine import WorkChain, calcfunction
 from aiida.engine import (
     append_,
@@ -17,6 +19,11 @@ Code = DataFactory("core.code.installed")
 
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
+AUtoEV = 27.2114386245
+AUtoKCAL = 627.04
+KCALtoKJ = 4.183
+AUtoKJ = AUtoKCAL * KCALtoKJ
+EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
 
 # TODO: Switch to variadic arguments (supported since AiiDA 2.3)
 @calcfunction
@@ -31,15 +38,41 @@ def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryDa
     return traj
 
 
-def extract_energies(**orca_output_parameters) -> Array:
-    """Extract gibbs energies and other useful stuff from the list
-       of ORCA output parameters.
-    Optionally, set additional data as Arrays.
+# NOTE: Should this be a calcfunction? But we cannot call calcfunction within calcfunction,
+# we'd need to create a workfunction.
+def calc_boltzmann_weights(energies: list, T: float):
+    # Molar gas constant, Avogadro times Boltzmann
+    R = 8.3144598
+    RT = R * T
+    E0 = min(energies)
+    weights = [math.exp(-(1000 * (E - E0)) / RT) for E in energies]
+    Q = sum(weights)
+    return np.array([weight / Q for weight in weights])
+
+
+@calcfunction
+def extract_trajectory_arrays(**orca_output_parameters) -> Array:
+    """Extract Gibbs energies and other useful stuff from the list
+    of ORCA output parameter dictionaries.
+
+    Return Array node, which will be appended to TrajectoryData node.
     """
     gibbs_energies = [params["freeenergy"] for params in orca_output_parameters]
+    temperature = orca_output_parameters[0]["temperature"]
+    en0 = min(gibbs_energies)
+    relative_gibbs_energies_ev = [AUtoEV * (en - en0) for en in gibbs_energies]
+    # TODO: Verify units
+    boltzmann_weights = calc_boltzmann_weights(gibbs_energies, temperature)
     en = Array()
-    en.set_array("gibs_energy_au", gibs_energies)
+    en.set_array("gibbs_energies_au", gibbs_energies)
+    en.set_array("relative_gibbs_energies_ev", relative_gibbs_energies_ev)
+    en.set_array("boltzmann_weights", boltzmann_weights)
     en.set_extra("temperature", orca_output_parameters[0]["temperature"])
+
+    # For the TrajectoryData viewer compatibility
+    en.set_array("energies", relative_gibbs_energies_ev)
+    # TODO: Use kJ per mole
+    en.set_extra("energy_units", "eV")
     return en
 
 
@@ -153,11 +186,19 @@ class ConformerOptimizationWorkChain(WorkChain):
         # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if isinstance(self.inputs.structure, StructureData):
             relaxed_structures = {"struct_0": self.ctx.confs.outputs.relaxed_structure}
+            orca_output_params = {
+                "output_params_0": self.ctx.confs.outputs.output_parameters
+            }
         else:
             relaxed_structures = {
                 f"struct_{i}": wc.outputs.relaxed_structure
                 for i, wc in enumerate(self.ctx.confs)
             }
-        # TODO: We should preserve the stepids from the input TrajectoryData
-        trajectory = structures_to_trajectory(**relaxed_structures)
+            # TODO: Verify everything is done in the same order
+            orca_output_params = {
+                f"output_params_{i}": wc.outputs.output_parameters
+                for i, wc in enumerate(self.ctx.confs)
+            }
+        array_data = extract_trajectory_arrays(**orca_output_params)
+        trajectory = structures_to_trajectory(arrays=array_data, **relaxed_structures)
         self.out("relaxed_structures", trajectory)
