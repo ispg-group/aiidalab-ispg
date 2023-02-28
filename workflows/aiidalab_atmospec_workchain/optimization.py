@@ -1,8 +1,13 @@
 # AiiDA workflows dealing with optimization of molecules.
 
 from aiida.engine import WorkChain, calcfunction
-from aiida.engine import append_, ToContext
-
+from aiida.engine import (
+    append_,
+    ToContext,
+    ExitCode,
+    ProcessHandlerReport,
+    process_handler,
+)
 from aiida.plugins import WorkflowFactory, DataFactory
 
 StructureData = DataFactory("core.structure")
@@ -46,7 +51,26 @@ class RobustOptimizationWorkChain(OrcaBaseWorkChain):
             "optimization encountered unspecified error",
         )
 
-    # TODO: Add a handler for exit code 0 which will check for imaginary frequencies
+    # TODO: For now we simply exit if imaginary frequencies are detected
+    # NOTE: aiida-quantumespresso examples
+    # https://github.com/aiidateam/aiida-quantumespresso/blob/main/src/aiida_quantumespresso/workflows/pw/base.py
+    @process_handler(exit_codes=ExitCode(0), priority=600)
+    def handle_imaginary_frequencies(self, calculation):
+        """Check successfull optimization for imaginary frequencies."""
+        frequencies = calculation.outputs.output_parameters["vibfreqs"]
+        vibrational_displacements = calculation.outputs.output_parameters["vibdisps"]
+        n_imag_freq = len(list(filter(lambda x: x <= 0, frequencies)))
+        # TODO: Check that nfreq is 3N-6 or 3N-5!
+        if n_imag_freq > 0:
+            self.report(
+                f"Found {n_imag_freq} imaginary normal mode(s). Aborting the optimization."
+            )
+            self.report(f"All frequencies (cm^-1): {frequencies}")
+            # TODO: Displace optimized geometry along the imaginary normal modes.
+            # self.ctx.inputs.orca.structure = self.distort_structure(self.ctx.outputs.relaxed_structure, frequencies, vibrational_displacements)
+            # Note: By default there are maximum 5 restarts in the BaseRestartWorkChain, which seems reasonable
+            # return ProcessHandlerReport(True)
+            return ProcessHandlerReport(True, self.exit_codes.ERROR_OPTIMIZATION_FAILED)
 
 
 class ConformerOptimizationWorkChain(WorkChain):
