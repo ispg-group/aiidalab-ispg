@@ -28,7 +28,7 @@ def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryDa
 
 # TODO: For now this is just a plain optimization,
 # the "robust" part needs to be implemented
-class RobustOptimizationWorkChain(WorkChain):
+class RobustOptimizationWorkChain(OrcaBaseWorkChain):
     """Molecular geometry optimization WorkChain that automatically
     detects imaginary frequencies and restarts the optimization
     until a true minimum is found.
@@ -40,42 +40,13 @@ class RobustOptimizationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-
-        spec.expose_inputs(OrcaBaseWorkChain, exclude=["orca.structure", "orca.code"])
-        spec.input("structure", valid_type=StructureData)
-        spec.input("code", valid_type=Code)
-
-        spec.outline(
-            cls.optimize,
-            cls.inspect_optimization,
-            cls.results,
-        )
-
-        spec.expose_outputs(OrcaBaseWorkChain)
-
         spec.exit_code(
             401,
             "ERROR_OPTIMIZATION_FAILED",
             "optimization encountered unspecified error",
         )
 
-    def optimize(self):
-        """Optimize molecular geometry"""
-        inputs = self.exposed_inputs(OrcaBaseWorkChain, agglomerate=False)
-        inputs.orca.structure = self.inputs.structure
-        inputs.orca.code = self.inputs.code
-
-        calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_opt.label = "robust-optimization"
-        return ToContext(calc_opt=calc_opt)
-
-    def inspect_optimization(self):
-        """Check whether optimization succeeded"""
-        if not self.ctx.calc_opt.is_finished_ok:
-            return self.exit_codes.ERROR_OPTIMIZATION_FAILED
-
-    def results(self):
-        self.out_many(self.exposed_outputs(self.ctx.calc_opt, OrcaBaseWorkChain))
+    # TODO: Add a handler for exit code 0 which will check for imaginary frequencies
 
 
 class ConformerOptimizationWorkChain(WorkChain):
@@ -91,7 +62,7 @@ class ConformerOptimizationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.expose_inputs(RobustOptimizationWorkChain, exclude=["structure"])
+        spec.expose_inputs(RobustOptimizationWorkChain, exclude=["orca.structure"])
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
 
         spec.output(
@@ -116,13 +87,13 @@ class ConformerOptimizationWorkChain(WorkChain):
         # TODO: Test this!
         if isinstance(self.inputs.structure, StructureData):
             self.report("Launching Optimization for 1 conformer")
-            inputs.structure = self.inputs.structure
+            inputs.orca.structure = self.inputs.structure
             return ToContext(confs=self.submit(RobustOptimizationWorkChain, **inputs))
 
         nconf = len(self.inputs.structure.get_stepids())
         self.report(f"Launching optimization for {nconf} conformers")
         for conf_id in self.inputs.structure.get_stepids():
-            inputs.structure = self.inputs.structure.get_step_structure(conf_id)
+            inputs.orca.structure = self.inputs.structure.get_step_structure(conf_id)
             workflow = self.submit(RobustOptimizationWorkChain, **inputs)
             workflow.label = f"optimize-conformer-{conf_id}"
             self.to_context(confs=append_(workflow))

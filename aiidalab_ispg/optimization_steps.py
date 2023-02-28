@@ -124,7 +124,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         builder = ConformerOptimizationWorkChain.get_builder()
 
         builder.structure = self.input_structure
-        builder.code = load_code(self.code_settings.orca.value)
+        builder.orca.code = load_code(self.code_settings.orca.value)
 
         num_mpiprocs = self.resources_settings.num_mpi_tasks.value
         builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)
