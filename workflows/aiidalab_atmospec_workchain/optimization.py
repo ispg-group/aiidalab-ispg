@@ -69,8 +69,10 @@ class RobustOptimizationWorkChain(OrcaBaseWorkChain):
             # TODO: Displace optimized geometry along the imaginary normal modes.
             # self.ctx.inputs.orca.structure = self.distort_structure(self.ctx.outputs.relaxed_structure, frequencies, vibrational_displacements)
             # Note: By default there are maximum 5 restarts in the BaseRestartWorkChain, which seems reasonable
-            # return ProcessHandlerReport(True)
-            return ProcessHandlerReport(True, self.exit_codes.ERROR_OPTIMIZATION_FAILED)
+            # return ProcessHandlerReport(do_break=True)
+            return ProcessHandlerReport(
+                do_break=True, exit_code=self.exit_codes.ERROR_OPTIMIZATION_FAILED
+            )
 
 
 class ConformerOptimizationWorkChain(WorkChain):
