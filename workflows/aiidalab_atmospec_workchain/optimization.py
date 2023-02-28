@@ -1,8 +1,13 @@
 # AiiDA workflows dealing with optimization of molecules.
 
 from aiida.engine import WorkChain, calcfunction
-from aiida.engine import append_, ToContext
-
+from aiida.engine import (
+    append_,
+    ToContext,
+    ExitCode,
+    ProcessHandlerReport,
+    process_handler,
+)
 from aiida.plugins import WorkflowFactory, DataFactory
 
 StructureData = DataFactory("core.structure")
@@ -28,7 +33,7 @@ def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryDa
 
 # TODO: For now this is just a plain optimization,
 # the "robust" part needs to be implemented
-class RobustOptimizationWorkChain(WorkChain):
+class RobustOptimizationWorkChain(OrcaBaseWorkChain):
     """Molecular geometry optimization WorkChain that automatically
     detects imaginary frequencies and restarts the optimization
     until a true minimum is found.
@@ -40,42 +45,34 @@ class RobustOptimizationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-
-        spec.expose_inputs(OrcaBaseWorkChain, exclude=["orca.structure", "orca.code"])
-        spec.input("structure", valid_type=StructureData)
-        spec.input("code", valid_type=Code)
-
-        spec.outline(
-            cls.optimize,
-            cls.inspect_optimization,
-            cls.results,
-        )
-
-        spec.expose_outputs(OrcaBaseWorkChain)
-
         spec.exit_code(
             401,
             "ERROR_OPTIMIZATION_FAILED",
             "optimization encountered unspecified error",
         )
 
-    def optimize(self):
-        """Optimize molecular geometry"""
-        inputs = self.exposed_inputs(OrcaBaseWorkChain, agglomerate=False)
-        inputs.orca.structure = self.inputs.structure
-        inputs.orca.code = self.inputs.code
-
-        calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_opt.label = "robust-optimization"
-        return ToContext(calc_opt=calc_opt)
-
-    def inspect_optimization(self):
-        """Check whether optimization succeeded"""
-        if not self.ctx.calc_opt.is_finished_ok:
-            return self.exit_codes.ERROR_OPTIMIZATION_FAILED
-
-    def results(self):
-        self.out_many(self.exposed_outputs(self.ctx.calc_opt, OrcaBaseWorkChain))
+    # TODO: For now we simply exit if imaginary frequencies are detected
+    # NOTE: aiida-quantumespresso examples
+    # https://github.com/aiidateam/aiida-quantumespresso/blob/main/src/aiida_quantumespresso/workflows/pw/base.py
+    @process_handler(exit_codes=ExitCode(0), priority=600)
+    def handle_imaginary_frequencies(self, calculation):
+        """Check successfull optimization for imaginary frequencies."""
+        frequencies = calculation.outputs.output_parameters["vibfreqs"]
+        vibrational_displacements = calculation.outputs.output_parameters["vibdisps"]
+        n_imag_freq = len(list(filter(lambda x: x <= 0, frequencies)))
+        # TODO: Check that nfreq is 3N-6 or 3N-5!
+        if n_imag_freq > 0:
+            self.report(
+                f"Found {n_imag_freq} imaginary normal mode(s). Aborting the optimization."
+            )
+            self.report(f"All frequencies (cm^-1): {frequencies}")
+            # TODO: Displace optimized geometry along the imaginary normal modes.
+            # self.ctx.inputs.orca.structure = self.distort_structure(self.ctx.outputs.relaxed_structure, frequencies, vibrational_displacements)
+            # Note: By default there are maximum 5 restarts in the BaseRestartWorkChain, which seems reasonable
+            # return ProcessHandlerReport(do_break=True)
+            return ProcessHandlerReport(
+                do_break=True, exit_code=self.exit_codes.ERROR_OPTIMIZATION_FAILED
+            )
 
 
 class ConformerOptimizationWorkChain(WorkChain):
@@ -91,7 +88,7 @@ class ConformerOptimizationWorkChain(WorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
-        spec.expose_inputs(RobustOptimizationWorkChain, exclude=["structure"])
+        spec.expose_inputs(RobustOptimizationWorkChain, exclude=["orca.structure"])
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
 
         spec.output(
@@ -116,13 +113,13 @@ class ConformerOptimizationWorkChain(WorkChain):
         # TODO: Test this!
         if isinstance(self.inputs.structure, StructureData):
             self.report("Launching Optimization for 1 conformer")
-            inputs.structure = self.inputs.structure
+            inputs.orca.structure = self.inputs.structure
             return ToContext(confs=self.submit(RobustOptimizationWorkChain, **inputs))
 
         nconf = len(self.inputs.structure.get_stepids())
         self.report(f"Launching optimization for {nconf} conformers")
         for conf_id in self.inputs.structure.get_stepids():
-            inputs.structure = self.inputs.structure.get_step_structure(conf_id)
+            inputs.orca.structure = self.inputs.structure.get_step_structure(conf_id)
             workflow = self.submit(RobustOptimizationWorkChain, **inputs)
             workflow.label = f"optimize-conformer-{conf_id}"
             self.to_context(confs=append_(workflow))
