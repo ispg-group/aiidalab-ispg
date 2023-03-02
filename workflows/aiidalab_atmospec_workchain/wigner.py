@@ -64,7 +64,10 @@ class Wigner:
         Epot = 0.0
 
         for mode in self.modes:  # for each uncoupled harmonatomlist oscillator
-            random_Q, random_P = self._sample_unit_mode()
+            # TODO: Pass in the proper sigma directly
+            sigma = math.sqrt(0.5)
+            random_Q = random.gauss(mu=0.0, sigma=sigma)
+            random_P = random.gauss(mu=0.0, sigma=sigma)
             # now transform the dimensionless coordinate into a real one
             # paper says, that freq_factor is sqrt(2*PI*freq)
             # QM programs directly give angular frequency (2*PI is not needed)
@@ -87,24 +90,6 @@ class Wigner:
         sample = self.ase_molecule.copy()
         sample.set_positions(positions / ANG_TO_BOHR)
         return sample
-
-    # TODO: Get rid of these shenanigans and use random.gauss()
-    def _sample_unit_mode(self):
-        while True:
-            # get random Q and P in the interval [-5,+5]
-            # this interval is good for vibrational ground state
-            # should be increased for higher states
-            random_Q = self.rnd.random() * 10.0 - 5.0
-            random_P = self.rnd.random() * 10.0 - 5.0
-            # calculate probability for this set of P and Q with Wigner distr.
-            probability = self.wigner(random_Q, random_P)
-            if probability[0] > 1.0 or probability[0] < 0.0:
-                raise ValueError(
-                    "Wrong probability %f detected in _sample_initial_condition()!"
-                    % (probability[0])
-                )
-            elif probability[0] > self.rnd.random():
-                return random_Q, random_P
 
     def _convert_orca_normal_modes(self, modes, masses):
         """apply transformations to normal modes"""
@@ -132,14 +117,3 @@ class Wigner:
             converted_modes.append(converted_mode)
 
         return converted_modes
-
-    # TODO: Remove this. This doesn't make sense,
-    # since the Q and P probabilities are independent!
-    @staticmethod
-    def wigner(Q, P):
-        """This function calculates the Wigner distribution for
-        a single one-dimensional harmonic oscillator.
-        Q contains the dimensionless coordinate of the
-        oscillator and P contains the corresponding momentum.
-        The function returns a probability for this set of parameters."""
-        return (math.exp(-(Q**2)) * math.exp(-(P**2)), 0.0)
