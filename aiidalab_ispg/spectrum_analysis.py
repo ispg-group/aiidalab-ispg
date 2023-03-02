@@ -95,12 +95,6 @@ class DensityPlotWidget(ipw.VBox):
         f.yaxis.axis_label = f"Oscillator strength (-)"
         return figure
 
-    def reset(self):
-        self.disabled = True
-        self._density = None
-        self.density_figure.clear_output()
-        self.density_toggle.value = "SCATTER"
-
     def _observe_density_toggle(self, change):
         self._update_density_plot(plot_type=change["new"])
 
@@ -136,35 +130,13 @@ class DensityPlotWidget(ipw.VBox):
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
+        print("hallo from density widget")
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
         self._update_density_plot(plot_type=self.density_toggle.value)
         self.disabled = False
-
-    @traitlets.observe("disabled")
-    def _observe_disabled(self, change):
-        disabled = change["new"]
-        if disabled:
-            self.density_toggle.disabled = True
-        else:
-            self.density_toggle.disabled = False
-
-    @staticmethod
-    def get_kde(x, y, nbins=20):
-        """Evaluate a gaussian kernel density estimate (KDE)
-        on a regular grid of nbins x nbins over data extents
-
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-        """
-        xy = np.vstack((x, y))
-        k = scipy.stats.gaussian_kde(xy)
-        xi, yi = np.mgrid[
-            x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
-        ]
-        zi = k(np.vstack([xi.flatten(), yi.flatten()]))
-        return Density2D(xi, yi, zi.reshape(xi.shape))
 
     def plot_density(self, energies, osc_strengths):
         MIN_SAMPLES = 10
@@ -194,3 +166,32 @@ class DensityPlotWidget(ipw.VBox):
             else:
                 ax.set_title("2D Histogram", loc="center", size="small")
                 ax.hist2d(energies, osc_strengths, bins=50, density=True, cmap=colormap)
+
+    @staticmethod
+    def get_kde(x, y, nbins=20):
+        """Evaluate a gaussian kernel density estimate (KDE)
+        on a regular grid of nbins x nbins over data extents
+
+        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+        """
+        xy = np.vstack((x, y))
+        k = scipy.stats.gaussian_kde(xy)
+        xi, yi = np.mgrid[
+            x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
+        ]
+        zi = k(np.vstack([xi.flatten(), yi.flatten()]))
+        return Density2D(xi, yi, zi.reshape(xi.shape))
+
+    @traitlets.observe("disabled")
+    def _observe_disabled(self, change):
+        disabled = change["new"]
+        if disabled:
+            self.density_toggle.disabled = True
+        else:
+            self.density_toggle.disabled = False
+
+    def reset(self):
+        self.disabled = True
+        self._density = None
+        self.density_figure.clear_output()
+        self.density_toggle.value = "SCATTER"
