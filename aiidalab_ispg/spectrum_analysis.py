@@ -95,6 +95,16 @@ class DensityPlotWidget(ipw.VBox):
         f.yaxis.axis_label = f"Oscillator strength (-)"
         return figure
 
+    @traitlets.observe("conformer_transitions")
+    def _observe_conformer_transitions(self, change):
+        print("hallo from density widget")
+        self.disabled = True
+        if change["new"] is None or len(change["new"]) == 0:
+            self.reset()
+            return
+        self._update_density_plot(plot_type=self.density_toggle.value)
+        self.disabled = False
+
     def _observe_density_toggle(self, change):
         self._update_density_plot(plot_type=change["new"])
 
@@ -128,15 +138,18 @@ class DensityPlotWidget(ipw.VBox):
         )
         return energies, osc_strengths
 
-    @traitlets.observe("conformer_transitions")
-    def _observe_conformer_transitions(self, change):
-        print("hallo from density widget")
-        self.disabled = True
-        if change["new"] is None or len(change["new"]) == 0:
-            self.reset()
-            return
-        self._update_density_plot(plot_type=self.density_toggle.value)
-        self.disabled = False
+    # https://kapernikov.com/ipywidgets-with-matplotlib/
+    def plot_scatter(self, energies, osc_strengths):
+        self.density_figure.clear_output()
+        with self.density_figure:
+            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
+            ax.set_xlabel("Excitation energy (eV)")
+            ax.set_ylabel("Oscillator strength (-)")
+            # TODO: Make this more inteligent
+            size = 10.0
+            if len(energies) > 100:
+                size = 1.0
+            ax.scatter(energies, osc_strengths, s=size, marker="o")
 
     def plot_density(self, energies, osc_strengths):
         MIN_SAMPLES = 10
