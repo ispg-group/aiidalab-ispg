@@ -195,6 +195,12 @@ class DensityPlotWidget(ipw.VBox):
         zi = k(np.vstack([xi.flatten(), yi.flatten()]))
         return Density2D(xi, yi, zi.reshape(xi.shape))
 
+    def reset(self):
+        self.disabled = True
+        self._density = None
+        self.density_figure.clear_output()
+        self.density_toggle.value = "SCATTER"
+
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):
         disabled = change["new"]
@@ -202,9 +208,3 @@ class DensityPlotWidget(ipw.VBox):
             self.density_toggle.disabled = True
         else:
             self.density_toggle.disabled = False
-
-    def reset(self):
-        self.disabled = True
-        self._density = None
-        self.density_figure.clear_output()
-        self.density_toggle.value = "SCATTER"
