@@ -72,8 +72,7 @@ class DensityPlotWidget(ipw.VBox):
     _density: Density2D = None
     disabled = traitlets.Bool(default=True)
 
-    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
-    _BOKEH_TOOLS = "save"
+    _BOKEH_LABEL = "energy-osc"
 
     def __init__(self):
         self.density_toggle = ipw.ToggleButtons(
@@ -85,7 +84,14 @@ class DensityPlotWidget(ipw.VBox):
         )
         self.density_toggle.observe(self._observe_density_toggle, names="value")
 
-        self.figure = self._init_figure(tools=self._BOKEH_TOOLS)
+        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
+        bokeh_tools = "save"
+        figure_size = {
+            "sizing_mode": "stretch_width",
+            "height": 400,
+            "max_width": 400,
+        }
+        self.figure = self._init_figure(tools=bokeh_tools, **figure_size)
         self.figure.layout = ipw.Layout(overflow="initial")
 
         super().__init__(children=[self.density_toggle, self.figure])
@@ -142,16 +148,14 @@ class DensityPlotWidget(ipw.VBox):
 
     def plot_scatter(self, energies, osc_strengths):
         """Update existing scatter plot or create a new one."""
-        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
-        SCATTER_LABEL = "energy-osc-scatter"
-        label = SCATTER_LABEL
-        self.figure.remove_renderer(label, update=False)
-        source = ColumnDataSource(dict(x=energies, y=osc_strengths))
-        glyph = Scatter(x="x", y="y", marker="square")
-        self.figure.get_figure().add_glyph(source, glyph)
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=False)
+        f = self.figure.get_figure()
+        f.circle(energies, osc_strengths, fill_color="black", size=5)
         self.figure.update()
 
     def plot_density(self, energies, osc_strengths):
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=False)
+        self.figure.update()
         return
         MIN_SAMPLES = 10
         colormap = mplt.cm.magma_r
@@ -199,7 +203,6 @@ class DensityPlotWidget(ipw.VBox):
     def reset(self):
         self.disabled = True
         self._density = None
-        # self.density_figure.clear_output()
         self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")
