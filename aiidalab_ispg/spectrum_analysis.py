@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from enum import Enum, unique
 
 import bokeh.plotting as plt
+import bokeh.palettes
 from bokeh.models import ColumnDataSource, Scatter
 
 import ipywidgets as ipw
@@ -51,11 +52,11 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
         self.photolysis_tab = ipw.HTML("<p>Coming soon 🙂<p>")
 
-        tab_components = [self.density_tab, self.photolysis_tab]
+        tab_components = [self.photolysis_tab, self.density_tab]
 
         tab = ipw.Tab(children=tab_components)
-        tab.set_title(1, "Photolysis constant")
-        tab.set_title(0, "Energy Density")
+        tab.set_title(0, "Photolysis constant")
+        tab.set_title(1, "Energy Density")
         super().__init__(children=[title, tab])
 
     def reset(self):
@@ -116,11 +117,10 @@ class DensityPlotWidget(ipw.VBox):
     def _observe_density_toggle(self, change):
         self._update_density_plot(plot_type=change["new"])
 
-    def _update_density_plot(self, plot_type):
+    def _update_density_plot(self, plot_type: str):
         if self.conformer_transitions is None:
             return
         energies, osc_strengths = self._flatten_transitions()
-        # TODO: Use Enum
         if plot_type == "SCATTER":
             self.plot_scatter(energies, osc_strengths)
         elif plot_type == "DENSITY":
@@ -148,43 +148,44 @@ class DensityPlotWidget(ipw.VBox):
 
     def plot_scatter(self, energies, osc_strengths):
         """Update existing scatter plot or create a new one."""
-        self.figure.remove_renderer(self._BOKEH_LABEL, update=False)
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         f = self.figure.get_figure()
-        f.circle(energies, osc_strengths, fill_color="black", size=5)
+        f.x_range.range_padding = f.y_range.range_padding = 0.1
+        f.circle(
+            energies, osc_strengths, name=self._BOKEH_LABEL, fill_color="black", size=5
+        )
         self.figure.update()
 
     def plot_density(self, energies, osc_strengths):
-        self.figure.remove_renderer(self._BOKEH_LABEL, update=False)
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
+        # TODO: Don't do any density estimation for small number of samples,
+        # Instead just do a 2D histogram.
+        nbins = 40
+        if self._density is None:
+            self._density = self.get_kde(energies, osc_strengths, nbins=nbins)
+
+        xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
+        f = self.figure.get_figure()
+        f.x_range.range_padding = f.y_range.range_padding = 0
+        dw = max(energies) - min(energies)
+        dh = max(osc_strengths) - min(osc_strengths)
+        f.image(
+            image=[zi.transpose()],
+            x=min(xi[0]),
+            y=min(yi[0]),
+            dw=dw,
+            dh=dh,
+            name=self._BOKEH_LABEL,
+            palette=bokeh.palettes.mpl["Magma"][256][::-1],
+            level="image",
+        )
+        f.grid.grid_line_width = 0.5
         self.figure.update()
-        return
-        MIN_SAMPLES = 10
-        colormap = mplt.cm.magma_r
 
-        self.density_figure.clear_output()
-        with self.density_figure:
-            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
-            ax.set_xlabel("Excitation energy (eV)")
-            ax.set_ylabel("Oscillator strength (-)")
-
-            if len(energies) > MIN_SAMPLES:
-                ax.set_title("2D Density", loc="center", size="small")
-                # Rudimentary caching, we do not want to recalculate this
-                # every time the user presses the toggle button.
-                if self._density is None:
-                    self._density = self.get_kde(energies, osc_strengths, nbins=35)
-                xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
-                ax.pcolormesh(
-                    xi,
-                    yi,
-                    zi,
-                    shading="gouraud",
-                    cmap=colormap,
-                )
-                ax.contour(xi, yi, zi)
-            else:
-                ax.set_title("2D Histogram", loc="center", size="small")
-                ax.hist2d(energies, osc_strengths, bins=50, density=True, cmap=colormap)
-
+    # TODO: The rule-of-thumb approach to estimating the bandwidths can fail miserably,
+    # see for example formaldehyde with three states.
+    # We could provide a user with a scaling factor to adjust...
+    # Crucially, we should not attempt to do this if we do not have enough data.
     @staticmethod
     def get_kde(x, y, nbins=20):
         """Evaluate a gaussian kernel density estimate (KDE)
@@ -201,9 +202,13 @@ class DensityPlotWidget(ipw.VBox):
         return Density2D(xi, yi, zi.reshape(xi.shape))
 
     def reset(self):
-        self.disabled = True
-        self._density = None
-        self.density_toggle.value = "SCATTER"
+        with self.hold_trait_notifications():
+            self.disabled = True
+            self._density = None
+            # TODO: Implement this method
+            # self.figure.remove_all_renderers()
+            self.figure.remove_renderer(self._BOKEH_LABEL)
+            self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):
