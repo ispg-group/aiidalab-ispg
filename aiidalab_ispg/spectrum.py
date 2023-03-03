@@ -238,7 +238,15 @@ class SpectrumWidget(ipw.VBox):
 
         self.debug_output = ipw.Output()
 
-        self.figure = self._init_figure(tools=self._TOOLS, tooltips=self._TOOLTIPS)
+        # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
+        figure_size = {
+            "sizing_mode": "fixed",
+            "height": 500,
+            "width": 500,
+        }
+        self.figure = self._init_figure(
+            tools=self._TOOLS, tooltips=self._TOOLTIPS, **figure_size
+        )
         self.figure.layout = ipw.Layout(overflow="initial")
 
         self.download_btn = ipw.Button(
