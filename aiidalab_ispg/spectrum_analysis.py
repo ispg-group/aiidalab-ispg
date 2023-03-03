@@ -8,18 +8,15 @@ from dataclasses import dataclass
 from enum import Enum, unique
 
 import bokeh.plotting as plt
+from bokeh.models import ColumnDataSource, Scatter
+
 import ipywidgets as ipw
 import traitlets
 import scipy
 from scipy import constants
-import matplotlib
-import matplotlib.pyplot as mplt
-from matplotlib import rc
 import numpy as np
 
 from .utils import BokehFigureContext
-
-matplotlib.rcParams["figure.dpi"] = 150
 
 
 @dataclass
@@ -75,8 +72,10 @@ class DensityPlotWidget(ipw.VBox):
     _density: Density2D = None
     disabled = traitlets.Bool(default=True)
 
+    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
+    _BOKEH_TOOLS = "save"
+
     def __init__(self):
-        self.density_figure = ipw.Output()
         self.density_toggle = ipw.ToggleButtons(
             options=[
                 ("Scatterplot", "SCATTER"),
@@ -85,7 +84,11 @@ class DensityPlotWidget(ipw.VBox):
             value="SCATTER",
         )
         self.density_toggle.observe(self._observe_density_toggle, names="value")
-        super().__init__(children=[self.density_toggle, self.density_figure])
+
+        self.figure = self._init_figure(tools=self._BOKEH_TOOLS)
+        self.figure.layout = ipw.Layout(overflow="initial")
+
+        super().__init__(children=[self.density_toggle, self.figure])
 
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
@@ -97,7 +100,6 @@ class DensityPlotWidget(ipw.VBox):
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
-        print("hallo from density widget")
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
@@ -138,20 +140,19 @@ class DensityPlotWidget(ipw.VBox):
         )
         return energies, osc_strengths
 
-    # https://kapernikov.com/ipywidgets-with-matplotlib/
     def plot_scatter(self, energies, osc_strengths):
-        self.density_figure.clear_output()
-        with self.density_figure:
-            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
-            ax.set_xlabel("Excitation energy (eV)")
-            ax.set_ylabel("Oscillator strength (-)")
-            # TODO: Make this more inteligent
-            size = 10.0
-            if len(energies) > 100:
-                size = 1.0
-            ax.scatter(energies, osc_strengths, s=size, marker="o")
+        """Update existing scatter plot or create a new one."""
+        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
+        SCATTER_LABEL = "energy-osc-scatter"
+        label = SCATTER_LABEL
+        self.figure.remove_renderer(label, update=False)
+        source = ColumnDataSource(dict(x=energies, y=osc_strengths))
+        glyph = Scatter(x="x", y="y", marker="square")
+        self.figure.get_figure().add_glyph(source, glyph)
+        self.figure.update()
 
     def plot_density(self, energies, osc_strengths):
+        return
         MIN_SAMPLES = 10
         colormap = mplt.cm.magma_r
 
@@ -198,7 +199,7 @@ class DensityPlotWidget(ipw.VBox):
     def reset(self):
         self.disabled = True
         self._density = None
-        self.density_figure.clear_output()
+        # self.density_figure.clear_output()
         self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")

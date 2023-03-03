@@ -89,3 +89,12 @@ class BokehFigureContext(ipw.Output):
     def update(self):
         if self._handle is not None:
             push_notebook(handle=self._handle)
+
+    def remove_renderer(self, label: str, update=True):
+        f = self.get_figure()
+        renderer = f.select_one({"name": label})
+        if renderer is None:
+            return
+        f.renderers.remove(renderer)
+        if update:
+            self.update()
