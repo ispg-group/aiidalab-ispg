@@ -617,6 +617,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_structures = None
             self.smiles = None
             self.experimental_spectrum_uuid = None
+            self.analysis.reset()
 
         self.disabled = True
         self.clean_figure()

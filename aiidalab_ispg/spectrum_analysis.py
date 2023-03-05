@@ -60,7 +60,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
         super().__init__(children=[title, tab])
 
     def reset(self):
-        with self.hold_trait_notifications:
+        with self.hold_trait_notifications():
             self.disabled = True
             self.density_tab.reset()
 
