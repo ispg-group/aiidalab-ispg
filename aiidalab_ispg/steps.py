@@ -216,23 +216,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
-        # Setup process monitor
-        # TODO: Instead of setting another process monitor here,
-        # we should just observe the process traitlet, and only set it
-        # when the process is_finished_ok.
-        # This also makes debugging extremely tedious
-        self.process_monitor = ProcessMonitor(
-            timeout=0.5,
-            callbacks=[
-                self._show_spectrum,
-                self._update_state,
-            ],
-        )
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
-
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
-
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
@@ -390,5 +375,22 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if change["new"] == change["old"]:
             return
         self.spectrum.reset()
-        self._update_state()
         self._update_header()
+        self._update_state()
+        process_uuid = change["new"]
+        if process_uuid is None:
+            return
+        process = load_node(change["new"])
+        if process.is_sealed:
+            self._show_spectrum()
+            self._update_state()
+        else:
+            # TODO: Remove previous monitor
+            self.process_monitor = ProcessMonitor(
+                timeout=0.5,
+                callbacks=[
+                    self._show_spectrum,
+                    self._update_state,
+                ],
+            )
+            ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
