@@ -165,7 +165,6 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         )
         self.process_status = ipw.VBox(children=[self.process_tree, self.node_view])
 
-        # Setup process monitor, but do not automatically link it to the process_uuid
         self.process_monitor = ProcessMonitor(
             timeout=1.0,
             callbacks=[
@@ -174,6 +173,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
             ],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
+
         super().__init__([self.process_status], **kwargs)
 
     def can_reset(self):
@@ -386,6 +386,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.spectrum.reset()
         self._update_header()
 
+        # Setup process monitor only for running processes,
+        # This aids debugging when developing the SpectrumWidget,
+        # because ProcessMonitorWidget swallows all exceptions coming from _show_spectrum().
         if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
             self.process_monitor.value = self.process_uuid
         else:
