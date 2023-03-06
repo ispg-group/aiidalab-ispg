@@ -13,18 +13,13 @@ import numpy as np
 from aiida.orm import load_node, QueryBuilder
 from aiida.plugins import DataFactory
 
-# https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
-# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
-from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
-from .utils import AUtoEV
+from .utils import AUtoEV, BokehFigureContext
 
-# from .spectrum_analysis import SpectrumAnalysisWidget
+from .spectrum_analysis import SpectrumAnalysisWidget
 
-# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
-output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("core.array.xy")
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -41,33 +36,6 @@ class EnergyUnit(Enum):
 class BroadeningKernel(Enum):
     GAUSS = "gaussian"
     LORENTZ = "lorentzian"
-
-
-# This code was provided by a good soul on GitHub.
-# https://github.com/bokeh/bokeh/issues/7023#issuecomment-839825139
-class BokehFigureContext(ipw.Output):
-    """Helper class for rendering Bokeh figures inside ipywidgets"""
-
-    def __init__(self, fig):
-        super().__init__()
-        self._figure = fig
-        self._handle = None
-        self.on_displayed(lambda x: x.set_handle())
-
-    def set_handle(self):
-        self.clear_output()
-        with self:
-            self._handle = show(self._figure, notebook_handle=True)
-
-    def get_handle(self):
-        return self._handle
-
-    def get_figure(self):
-        return self._figure
-
-    def update(self):
-        if self._handle is not None:
-            push_notebook(handle=self._handle)
 
 
 class Spectrum:
@@ -270,7 +238,15 @@ class SpectrumWidget(ipw.VBox):
 
         self.debug_output = ipw.Output()
 
-        self.figure = self._init_figure(tools=self._TOOLS, tooltips=self._TOOLTIPS)
+        # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
+        figure_size = {
+            "sizing_mode": "fixed",
+            "height": 500,
+            "width": 500,
+        }
+        self.figure = self._init_figure(
+            tools=self._TOOLS, tooltips=self._TOOLTIPS, **figure_size
+        )
         self.figure.layout = ipw.Layout(overflow="initial")
 
         self.download_btn = ipw.Button(
@@ -296,11 +272,11 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "trajectory"),
         )
 
-        # self.analysis = SpectrumAnalysisWidget()
-        # ipw.dlink(
-        #    (self, "conformer_transitions"),
-        #    (self.analysis, "conformer_transitions"),
-        # )
+        self.analysis = SpectrumAnalysisWidget()
+        ipw.dlink(
+            (self, "conformer_transitions"),
+            (self.analysis, "conformer_transitions"),
+        )
 
         super().__init__(
             [
@@ -319,7 +295,7 @@ class SpectrumWidget(ipw.VBox):
                         ),
                     ],
                 ),
-                # self.analysis,
+                self.analysis,
             ],
             **kwargs,
         )
@@ -641,6 +617,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_structures = None
             self.smiles = None
             self.experimental_spectrum_uuid = None
+            self.analysis.reset()
 
         self.disabled = True
         self.clean_figure()

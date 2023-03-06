@@ -7,16 +7,17 @@ Authors:
 from dataclasses import dataclass
 from enum import Enum, unique
 
+import bokeh.plotting as plt
+import bokeh.palettes
+from bokeh.models import ColumnDataSource, Scatter
+
 import ipywidgets as ipw
 import traitlets
 import scipy
 from scipy import constants
-import matplotlib
-import matplotlib.pyplot as mplt
-from matplotlib import rc
 import numpy as np
 
-matplotlib.rcParams["figure.dpi"] = 150
+from .utils import BokehFigureContext
 
 
 @dataclass
@@ -33,13 +34,48 @@ class SpectrumAnalysisWidget(ipw.VBox):
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
-    _density: Density2D = None
     disabled = traitlets.Bool(default=True)
 
     def __init__(self):
         # TODO: Split the different analyses into their own widgets
         title = ipw.HTML("<h3>Spectrum analysis</h3>")
-        self.density_figure = ipw.Output()
+
+        self.density_tab = DensityPlotWidget()
+        ipw.dlink(
+            (self, "conformer_transitions"),
+            (self.density_tab, "conformer_transitions"),
+        )
+        ipw.dlink(
+            (self, "disabled"),
+            (self.density_tab, "disabled"),
+        )
+
+        self.photolysis_tab = ipw.HTML("<p>Coming soon 🙂<p>")
+
+        tab_components = [self.photolysis_tab, self.density_tab]
+
+        tab = ipw.Tab(children=tab_components)
+        tab.set_title(0, "Photolysis constant")
+        tab.set_title(1, "Energy Density")
+        super().__init__(children=[title, tab])
+
+    def reset(self):
+        with self.hold_trait_notifications():
+            self.disabled = True
+            self.density_tab.reset()
+
+
+class DensityPlotWidget(ipw.VBox):
+
+    conformer_transitions = traitlets.List(
+        trait=traitlets.Dict, allow_none=True, default=None
+    )
+    _density: Density2D = None
+    disabled = traitlets.Bool(default=True)
+
+    _BOKEH_LABEL = "energy-osc"
+
+    def __init__(self):
         self.density_toggle = ipw.ToggleButtons(
             options=[
                 ("Scatterplot", "SCATTER"),
@@ -49,15 +85,25 @@ class SpectrumAnalysisWidget(ipw.VBox):
         )
         self.density_toggle.observe(self._observe_density_toggle, names="value")
 
-        self.density_tab = ipw.VBox([self.density_toggle, self.density_figure])
-        self.photolysis_tab = ipw.HTML("<p>Coming soon 🙂<p>")
+        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
+        bokeh_tools = "save"
+        figure_size = {
+            "sizing_mode": "stretch_width",
+            "height": 400,
+            "max_width": 400,
+        }
+        self.figure = self._init_figure(tools=bokeh_tools, **figure_size)
+        self.figure.layout = ipw.Layout(overflow="initial")
 
-        components = [self.density_tab, self.photolysis_tab]
+        super().__init__(children=[self.density_toggle, self.figure])
 
-        tab = ipw.Tab(children=components)
-        tab.set_title(1, "Photolysis constant")
-        tab.set_title(0, "Energy Density")
-        super().__init__(children=[title, tab])
+    def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
+        """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
+        figure = BokehFigureContext(plt.figure(*args, **kwargs))
+        f = figure.get_figure()
+        f.xaxis.axis_label = f"Excitation Energy (eV)"
+        f.yaxis.axis_label = f"Oscillator strength (-)"
+        return figure
 
     @traitlets.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
@@ -71,11 +117,10 @@ class SpectrumAnalysisWidget(ipw.VBox):
     def _observe_density_toggle(self, change):
         self._update_density_plot(plot_type=change["new"])
 
-    def _update_density_plot(self, plot_type):
+    def _update_density_plot(self, plot_type: str):
         if self.conformer_transitions is None:
             return
         energies, osc_strengths = self._flatten_transitions()
-        # TODO: Use Enum
         if plot_type == "SCATTER":
             self.plot_scatter(energies, osc_strengths)
         elif plot_type == "DENSITY":
@@ -101,48 +146,46 @@ class SpectrumAnalysisWidget(ipw.VBox):
         )
         return energies, osc_strengths
 
-    # https://kapernikov.com/ipywidgets-with-matplotlib/
     def plot_scatter(self, energies, osc_strengths):
-        self.density_figure.clear_output()
-        with self.density_figure:
-            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
-            ax.set_xlabel("Excitation energy (eV)")
-            ax.set_ylabel("Oscillator strength (-)")
-            # TODO: Make this more inteligent
-            size = 10.0
-            if len(energies) > 100:
-                size = 1.0
-            ax.scatter(energies, osc_strengths, s=size, marker="o")
+        """Update existing scatter plot or create a new one."""
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
+        f = self.figure.get_figure()
+        f.x_range.range_padding = f.y_range.range_padding = 0.1
+        f.circle(
+            energies, osc_strengths, name=self._BOKEH_LABEL, fill_color="black", size=5
+        )
+        self.figure.update()
 
     def plot_density(self, energies, osc_strengths):
-        MIN_SAMPLES = 10
-        colormap = mplt.cm.magma_r
+        self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
+        # TODO: Don't do any density estimation for small number of samples,
+        # Instead just do a 2D histogram.
+        nbins = 40
+        if self._density is None:
+            self._density = self.get_kde(energies, osc_strengths, nbins=nbins)
 
-        self.density_figure.clear_output()
-        with self.density_figure:
-            self.fig, ax = mplt.subplots(constrained_layout=True, figsize=(3, 3))
-            ax.set_xlabel("Excitation energy (eV)")
-            ax.set_ylabel("Oscillator strength (-)")
+        xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
+        f = self.figure.get_figure()
+        f.x_range.range_padding = f.y_range.range_padding = 0
+        dw = max(energies) - min(energies)
+        dh = max(osc_strengths) - min(osc_strengths)
+        f.image(
+            image=[zi.transpose()],
+            x=min(xi[0]),
+            y=min(yi[0]),
+            dw=dw,
+            dh=dh,
+            name=self._BOKEH_LABEL,
+            palette=bokeh.palettes.mpl["Magma"][256][::-1],
+            level="image",
+        )
+        f.grid.grid_line_width = 0.5
+        self.figure.update()
 
-            if len(energies) > MIN_SAMPLES:
-                ax.set_title("2D Density", loc="center", size="small")
-                # Rudimentary caching, we do not want to recalculate this
-                # every time the user presses the toggle button.
-                if self._density is None:
-                    self._density = self.get_kde(energies, osc_strengths, nbins=35)
-                xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
-                ax.pcolormesh(
-                    xi,
-                    yi,
-                    zi,
-                    shading="gouraud",
-                    cmap=colormap,
-                )
-                ax.contour(xi, yi, zi)
-            else:
-                ax.set_title("2D Histogram", loc="center", size="small")
-                ax.hist2d(energies, osc_strengths, bins=50, density=True, cmap=colormap)
-
+    # TODO: The rule-of-thumb approach to estimating the bandwidths can fail miserably,
+    # see for example formaldehyde with three states.
+    # We could provide a user with a scaling factor to adjust...
+    # Crucially, we should not attempt to do this if we do not have enough data.
     @staticmethod
     def get_kde(x, y, nbins=20):
         """Evaluate a gaussian kernel density estimate (KDE)
@@ -159,10 +202,13 @@ class SpectrumAnalysisWidget(ipw.VBox):
         return Density2D(xi, yi, zi.reshape(xi.shape))
 
     def reset(self):
-        self.disabled = True
-        self._density = None
-        self.density_figure.clear_output()
-        self.density_toggle.value = "SCATTER"
+        with self.hold_trait_notifications():
+            self.disabled = True
+            self._density = None
+            # TODO: Implement this method
+            # self.figure.remove_all_renderers()
+            self.figure.remove_renderer(self._BOKEH_LABEL)
+            self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):

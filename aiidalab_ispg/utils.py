@@ -1,5 +1,14 @@
 import math
+
+import ipywidgets as ipw
 from aiida.plugins import DataFactory
+
+# https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
+# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
+from bokeh.io import push_notebook, show, output_notebook
+
+# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
+output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -53,3 +62,39 @@ def argsort(seq):
     """Returns a list of indeces that sort the array"""
     # http://stackoverflow.com/questions/3071415/efficient-method-to-calculate-the-rank-vector-of-a-list-in-python
     return sorted(range(len(seq)), key=seq.__getitem__)
+
+
+# This code was provided by a good soul on GitHub.
+# https://github.com/bokeh/bokeh/issues/7023#issuecomment-839825139
+class BokehFigureContext(ipw.Output):
+    """Helper class for rendering Bokeh figures inside ipywidgets"""
+
+    def __init__(self, fig):
+        super().__init__()
+        self._figure = fig
+        self._handle = None
+        self.on_displayed(lambda x: x.set_handle())
+
+    def set_handle(self):
+        self.clear_output()
+        with self:
+            self._handle = show(self._figure, notebook_handle=True)
+
+    def get_handle(self):
+        return self._handle
+
+    def get_figure(self):
+        return self._figure
+
+    def update(self):
+        if self._handle is not None:
+            push_notebook(handle=self._handle)
+
+    def remove_renderer(self, label: str, update=True):
+        f = self.get_figure()
+        renderer = f.select_one({"name": label})
+        if renderer is None:
+            return
+        f.renderers.remove(renderer)
+        if update:
+            self.update()
