@@ -165,7 +165,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         )
         self.process_status = ipw.VBox(children=[self.process_tree, self.node_view])
 
-        # Setup process monitor
+        # Setup process monitor, but do not automatically link it to the process_uuid
         self.process_monitor = ProcessMonitor(
             timeout=1.0,
             callbacks=[
@@ -173,8 +173,6 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
                 self._update_state,
             ],
         )
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
-
         super().__init__([self.process_status], **kwargs)
 
     def can_reset(self):
@@ -207,6 +205,9 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
+        # Do not start monitor for finished processes
+        if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
+            self.process_monitor.value = self.process_uuid
         self._update_state()
 
 
@@ -223,10 +224,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # to ProcessMonitor. We do that manually only for running processes.
         self.process_monitor = ProcessMonitor(
             timeout=1.0,
-            callbacks=[
-                self._show_spectrum,
-                self._update_state,
-            ],
+            callbacks=[self._update_state],
+            on_sealed=(self._show_spectrum,),
         )
         super().__init__([self.header, self.spectrum], **kwargs)
 
@@ -252,6 +251,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _show_spectrum(self):
         if self.process_uuid is None:
             return
+
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
             return
@@ -384,18 +384,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
-        process_uuid = change["new"]
 
         self.spectrum.reset()
         self._update_header()
-        self._update_state()
 
-        if process_uuid is None:
-            self.process_monitor.value = None
-            return
-
-        process = load_node(change["new"])
-        if process.is_sealed:
-            self._show_spectrum()
+        if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
+            self.process_monitor.value = self.process_uuid
         else:
-            self.process_monitor.value = process_uuid
+            self._show_spectrum()
+        self._update_state()
