@@ -173,6 +173,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
                 self._update_state,
             ],
         )
+        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
         super().__init__([self.process_status], **kwargs)
 
     def can_reset(self):
@@ -205,9 +206,6 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
-        # Do not start monitor for finished processes
-        if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
-            self.process_monitor.value = self.process_uuid
         self._update_state()
 
 
