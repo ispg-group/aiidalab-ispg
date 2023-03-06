@@ -165,9 +165,8 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         )
         self.process_status = ipw.VBox(children=[self.process_tree, self.node_view])
 
-        # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.5,
+            timeout=1.0,
             callbacks=[
                 self.process_tree.update,
                 self._update_state,
@@ -216,23 +215,16 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
-        # Setup process monitor
-        # TODO: Instead of setting another process monitor here,
-        # we should just observe the process traitlet, and only set it
-        # when the process is_finished_ok.
-        # This also makes debugging extremely tedious
-        self.process_monitor = ProcessMonitor(
-            timeout=0.5,
-            callbacks=[
-                self._show_spectrum,
-                self._update_state,
-            ],
-        )
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
-
+        # NOTE: We purposefully do NOT link the process_uuid trait
+        # to ProcessMonitor. We do that manually only for running processes.
+        self.process_monitor = ProcessMonitor(
+            timeout=1.0,
+            callbacks=[self._update_state],
+            on_sealed=(self._show_spectrum,),
+        )
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
@@ -257,6 +249,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _show_spectrum(self):
         if self.process_uuid is None:
             return
+
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
             return
@@ -389,6 +382,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
+
         self.spectrum.reset()
-        self._update_state()
         self._update_header()
+
+        # Setup process monitor only for running processes,
+        # This aids debugging when developing the SpectrumWidget,
+        # because ProcessMonitorWidget swallows all exceptions coming from _show_spectrum().
+        if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
+            self.process_monitor.value = self.process_uuid
+        else:
+            self._show_spectrum()
+        self._update_state()
