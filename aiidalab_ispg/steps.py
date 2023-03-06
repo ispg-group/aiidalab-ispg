@@ -167,7 +167,7 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
         # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.5,
+            timeout=1.0,
             callbacks=[
                 self.process_tree.update,
                 self._update_state,
@@ -218,6 +218,16 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def __init__(self, **kwargs):
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
+
+        # NOTE: We purposefully do NOT link the process_uuid trait
+        # to ProcessMonitor. We do that manually only for running processes.
+        self.process_monitor = ProcessMonitor(
+            timeout=1.0,
+            callbacks=[
+                self._show_spectrum,
+                self._update_state,
+            ],
+        )
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
@@ -374,23 +384,18 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
+        process_uuid = change["new"]
+
         self.spectrum.reset()
         self._update_header()
         self._update_state()
-        process_uuid = change["new"]
+
         if process_uuid is None:
+            self.process_monitor.value = None
             return
+
         process = load_node(change["new"])
         if process.is_sealed:
             self._show_spectrum()
-            self._update_state()
         else:
-            # TODO: Remove previous monitor
-            self.process_monitor = ProcessMonitor(
-                timeout=0.5,
-                callbacks=[
-                    self._show_spectrum,
-                    self._update_state,
-                ],
-            )
-            ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
+            self.process_monitor.value = process_uuid
