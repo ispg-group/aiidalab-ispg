@@ -38,7 +38,6 @@ class SpectrumAnalysisWidget(ipw.VBox):
     disabled = traitlets.Bool(default=True)
 
     def __init__(self):
-        # TODO: Split the different analyses into their own widgets
         title = ipw.HTML("<h3>Spectrum analysis</h3>")
 
         self.density_tab = DensityPlotWidget()
@@ -215,9 +214,7 @@ class DensityPlotWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.disabled = True
             self._density = None
-            # TODO: Implement this method
-            # self.figure.remove_all_renderers()
-            self.figure.remove_renderer(self._BOKEH_LABEL)
+            self.figure.clean()
             self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")

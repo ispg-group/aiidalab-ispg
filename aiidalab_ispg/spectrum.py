@@ -584,14 +584,6 @@ class SpectrumWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    def clean_figure(self):
-        f = self.figure.get_figure()
-        labels = [r.name for r in f.renderers]
-        for label in labels:
-            # self.hide_line(label)
-            self.remove_line(label, update=False)
-        self.figure.update()
-
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
@@ -640,7 +632,7 @@ class SpectrumWidget(ipw.VBox):
             self.analysis.reset()
 
         self.disabled = True
-        self.clean_figure()
+        self.figure.clean()
         self.debug_output.clear_output()
 
     @traitlets.validate("conformer_transitions")
@@ -695,8 +687,11 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("experimental_spectrum_uuid")
     def _observe_experimental_spectrum_uuid(self, change):
-        if change["new"] == change["old"] or change["new"] is None:
+        if change["new"] == change["old"]:
             return
+        if change["new"] is None:
+            self.remove_line(self.EXP_SPEC_LABEL)
+
         self.plot_experimental_spectrum(
             spectrum_node=load_node(change["new"]),
             energy_unit=self.energy_unit_selector.value,
@@ -705,8 +700,9 @@ class SpectrumWidget(ipw.VBox):
     def find_experimental_spectrum_by_smiles(self, smiles: str):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
+
+        self.set_trait("experimental_spectrum_uuid", None)
         if smiles is None or smiles == "":
-            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         qb = QueryBuilder()
@@ -714,9 +710,7 @@ class SpectrumWidget(ipw.VBox):
         # Or should we differentiate from other possible Xy nodes
         # by looking at attributes or extras? Maybe label?
         qb.append(XyData, filters={"extras.smiles": smiles})
-
         if qb.count() == 0:
-            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         # TODO: For now let's just assume we have one
