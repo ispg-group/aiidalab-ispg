@@ -691,7 +691,7 @@ class SpectrumWidget(ipw.VBox):
             return
         if change["new"] is None:
             self.remove_line(self.EXP_SPEC_LABEL)
-
+            return
         self.plot_experimental_spectrum(
             spectrum_node=load_node(change["new"]),
             energy_unit=self.energy_unit_selector.value,

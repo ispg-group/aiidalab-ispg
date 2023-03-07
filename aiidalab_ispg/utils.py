@@ -100,8 +100,8 @@ class BokehFigureContext(ipw.Output):
             self.update()
 
     def clean(self):
-        f = self.figure.get_figure()
+        f = self.get_figure()
         labels = [r.name for r in f.renderers]
         for label in labels:
-            self.remove_line(label, update=False)
+            self.remove_renderer(label, update=False)
         self.update()
