@@ -30,6 +30,7 @@ class Density2D:
 
 
 class SpectrumAnalysisWidget(ipw.VBox):
+    """A container class for organizing various analysis widgets"""
 
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
@@ -66,13 +67,16 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
 
 class DensityPlotWidget(ipw.VBox):
+    """A widget for analyzing the correlation between excitation energies
+    and oscillator strenghts, seen either as a scatter plot or a 2D density map
+    """
 
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
-    _density: Density2D = None
     disabled = traitlets.Bool(default=True)
 
+    _density: Density2D = None
     _BOKEH_LABEL = "energy-osc"
 
     def __init__(self):
@@ -129,7 +133,9 @@ class DensityPlotWidget(ipw.VBox):
             raise ValueError(f"Unexpected value for toggle: {plot_type}")
 
     def _flatten_transitions(self):
-        # TODO: Merge these comprehensions
+        # Flatten transitions for all conformers.
+        # In the future, we might want to plot individual conformers
+        # separately in the scatter plot.
         energies = np.array(
             [
                 transitions["energy"]

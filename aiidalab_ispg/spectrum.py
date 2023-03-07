@@ -17,7 +17,6 @@ import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
 from .utils import AUtoEV, BokehFigureContext
-
 from .spectrum_analysis import SpectrumAnalysisWidget
 
 XyData = DataFactory("core.array.xy")
@@ -39,6 +38,16 @@ class BroadeningKernel(Enum):
 
 
 class Spectrum:
+    """NEA spectrum class
+
+    This is where the spectrum is actually calculated.
+    Constructor gets a set of excitations, characterized by excitation energy
+    and oscillator strenghts.
+
+    The spectrum is then calculated using the self.get_spectrum(),
+    by specifying the type of broadening and broadening parameter.
+    """
+
     COEFF = (
         constants.pi
         * 8.478354e-30**2  # AUtoCm
@@ -85,7 +94,11 @@ class Spectrum:
         }
         return unit_factors[unit]
 
-    def calc_lorentzian_spectrum(self, x, y, tau: float):
+    def _calc_lorentzian_spectrum(self, x, y, tau: float):
+        """Calculate NEA spectrum broadened with a Lorentzian function:
+
+        https://en.wikipedia.org/wiki/Cauchy_distribution#Probability_density_function
+        """
         normalization_factor = tau / 2 / constants.pi / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
@@ -93,7 +106,11 @@ class Spectrum:
             prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
-    def calc_gauss_spectrum(self, x, y, sigma: float):
+    def _calc_gauss_spectrum(self, x, y, sigma: float):
+        """Calculate NEA spectrum broadened with a Gaussian function
+
+        https://en.wikipedia.org/wiki/Normal_distribution
+        """
         normalization_factor = 1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
@@ -116,9 +133,9 @@ class Spectrum:
         y = np.zeros(len(x))
 
         if kernel is BroadeningKernel.GAUSS:
-            self.calc_gauss_spectrum(x, y, width)
+            self._calc_gauss_spectrum(x, y, width)
         elif kernel is BroadeningKernel.LORENTZ:
-            self.calc_lorentzian_spectrum(x, y, width)
+            self._calc_lorentzian_spectrum(x, y, width)
         else:
             raise ValueError(f"Invalid broadening kernel {kernel}")
 
@@ -159,12 +176,16 @@ class SpectrumWidget(ipw.VBox):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
+    selected_conformer_id = traitlets.Int(
+        allow_none=True, default_value=None, read_only=True
+    )
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
     smiles = traitlets.Unicode(allow_none=True, default_value=None)
-    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True, default_value=None)
+    experimental_spectrum_uuid = traitlets.Unicode(
+        allow_none=True, default_value=None, read_only=True
+    )
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm² per molecule"
@@ -472,6 +493,8 @@ class SpectrumWidget(ipw.VBox):
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
         x_stick = []
         y_stick = []
+        # Iterate over conformers, the total spectrum is a sum of
+        # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
             spec = Spectrum(conformer["transitions"], conformer["nsample"])
             x, y, xs, ys = spec.get_spectrum(
@@ -484,6 +507,7 @@ class SpectrumWidget(ipw.VBox):
             x_stick = np.concatenate((x_stick, xs))
             y_stick = np.concatenate((y_stick, ys))
 
+            # Plot spectrum of an individual conformer
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
@@ -671,9 +695,18 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
-        self._find_experimental_spectrum(change["new"])
+        self.find_experimental_spectrum_by_smiles(change["new"])
 
-    def _find_experimental_spectrum(self, smiles: str):
+    @traitlets.observe("experimental_spectrum_uuid")
+    def _observe_experimental_spectrum_uuid(self, change):
+        if change["new"] == change["old"] or change["new"] is None:
+            return
+        self.plot_experimental_spectrum(
+            spectrum_node=load_node(change["new"]),
+            energy_unit=self.energy_unit_selector.value,
+        )
+
+    def find_experimental_spectrum_by_smiles(self, smiles: str):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
         if smiles is None or smiles == "":
@@ -694,13 +727,9 @@ class SpectrumWidget(ipw.VBox):
         # canonical experimental spectrum per compound.
         # for spectrum in qb.iterall():
         experimental_spectrum_node = qb.first()[0]
-        self.experimental_spectrum_uuid = experimental_spectrum_node.uuid
-        self._plot_experimental_spectrum(
-            spectrum_node=experimental_spectrum_node,
-            energy_unit=self.energy_unit_selector.value,
-        )
+        self.set_trait("experimental_spectrum_uuid", experimental_spectrum_node.uuid)
 
-    def _plot_experimental_spectrum(
+    def plot_experimental_spectrum(
         self, spectrum_node: XyData, energy_unit: EnergyUnit
     ):
         """Render experimental spectrum that was loaded to AiiDA database manually
