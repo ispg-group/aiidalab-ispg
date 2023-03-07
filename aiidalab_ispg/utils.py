@@ -98,3 +98,10 @@ class BokehFigureContext(ipw.Output):
         f.renderers.remove(renderer)
         if update:
             self.update()
+
+    def clean(self):
+        f = self.get_figure()
+        labels = [r.name for r in f.renderers]
+        for label in labels:
+            self.remove_renderer(label, update=False)
+        self.update()

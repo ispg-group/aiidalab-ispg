@@ -30,6 +30,7 @@ class Density2D:
 
 
 class SpectrumAnalysisWidget(ipw.VBox):
+    """A container class for organizing various analysis widgets"""
 
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
@@ -37,7 +38,6 @@ class SpectrumAnalysisWidget(ipw.VBox):
     disabled = traitlets.Bool(default=True)
 
     def __init__(self):
-        # TODO: Split the different analyses into their own widgets
         title = ipw.HTML("<h3>Spectrum analysis</h3>")
 
         self.density_tab = DensityPlotWidget()
@@ -66,13 +66,16 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
 
 class DensityPlotWidget(ipw.VBox):
+    """A widget for analyzing the correlation between excitation energies
+    and oscillator strenghts, seen either as a scatter plot or a 2D density map
+    """
 
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
-    _density: Density2D = None
     disabled = traitlets.Bool(default=True)
 
+    _density: Density2D = None
     _BOKEH_LABEL = "energy-osc"
 
     def __init__(self):
@@ -129,7 +132,9 @@ class DensityPlotWidget(ipw.VBox):
             raise ValueError(f"Unexpected value for toggle: {plot_type}")
 
     def _flatten_transitions(self):
-        # TODO: Merge these comprehensions
+        # Flatten transitions for all conformers.
+        # In the future, we might want to plot individual conformers
+        # separately in the scatter plot.
         energies = np.array(
             [
                 transitions["energy"]
@@ -160,6 +165,9 @@ class DensityPlotWidget(ipw.VBox):
         self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         # TODO: Don't do any density estimation for small number of samples,
         # Instead just do a 2D histogram.
+        min_nsample = 3
+        if len(energies) < min_nsample:
+            return
         nbins = 40
         if self._density is None:
             self._density = self.get_kde(energies, osc_strengths, nbins=nbins)
@@ -194,6 +202,7 @@ class DensityPlotWidget(ipw.VBox):
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
         """
         xy = np.vstack((x, y))
+        # TODO: This call may raise LinAlgError if the matrix is singular!
         k = scipy.stats.gaussian_kde(xy)
         xi, yi = np.mgrid[
             x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
@@ -205,9 +214,7 @@ class DensityPlotWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.disabled = True
             self._density = None
-            # TODO: Implement this method
-            # self.figure.remove_all_renderers()
-            self.figure.remove_renderer(self._BOKEH_LABEL)
+            self.figure.clean()
             self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")
