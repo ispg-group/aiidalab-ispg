@@ -176,9 +176,7 @@ class SpectrumWidget(ipw.VBox):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    selected_conformer_id = traitlets.Int(
-        allow_none=True, default_value=None, read_only=True
-    )
+    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
@@ -442,9 +440,7 @@ class SpectrumWidget(ipw.VBox):
         )
         if self.experimental_spectrum_uuid:
             node = load_node(self.experimental_spectrum_uuid)
-            self._plot_experimental_spectrum(
-                spectrum_node=node, energy_unit=energy_unit
-            )
+            self.plot_experimental_spectrum(spectrum_node=node, energy_unit=energy_unit)
 
     def _unhighlight_conformer(self):
         self.remove_line("conformer_selected")
@@ -640,7 +636,7 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
-            self.experimental_spectrum_uuid = None
+            self.set_trait("experimental_spectrum_uuid", None)
             self.analysis.reset()
 
         self.disabled = True

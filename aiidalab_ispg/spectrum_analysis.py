@@ -166,6 +166,9 @@ class DensityPlotWidget(ipw.VBox):
         self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         # TODO: Don't do any density estimation for small number of samples,
         # Instead just do a 2D histogram.
+        min_nsample = 3
+        if len(energies) < min_nsample:
+            return
         nbins = 40
         if self._density is None:
             self._density = self.get_kde(energies, osc_strengths, nbins=nbins)
@@ -200,6 +203,7 @@ class DensityPlotWidget(ipw.VBox):
         https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
         """
         xy = np.vstack((x, y))
+        # TODO: This call may raise LinAlgError if the matrix is singular!
         k = scipy.stats.gaussian_kde(xy)
         xi, yi = np.mgrid[
             x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
