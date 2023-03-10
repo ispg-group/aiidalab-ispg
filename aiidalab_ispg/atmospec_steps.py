@@ -398,7 +398,7 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
     def __init__(self, **kwargs):
         self._progress_bar = ipw.IntProgress(
-            style={"description_width": "initial"},
+            style={"description_width": "initial", "padding": "10px"},
             description="Workflow progress:",
             value=0,
             min=0,
@@ -408,7 +408,14 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
         )
 
         self._status_text = ipw.HTML()
-        super().__init__([self._progress_bar, self._status_text], **kwargs)
+        super().__init__(
+            children=[self._progress_bar, self._status_text],
+            # This looks slightly better to me, but the indicator would move around
+            # based on the status message.
+            # layout=ipw.Layout(justify_content="space-around"),
+            # layout=ipw.Layout(justify_content="space-between"),
+            **kwargs,
+        )
 
     @traitlets.observe("status")
     def _observe_status(self, change):

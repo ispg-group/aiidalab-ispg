@@ -162,7 +162,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             button_style="",  # 'success', 'info', 'warning', 'danger' or ''
             tooltip="Display workflow tree with detailed results",
             icon="folder",
-            layout=ipw.Layout(width="50%", height="auto"),
+            layout=ipw.Layout(width="auto", height="auto"),
         )
         self.tree_toggle.observe(self._observe_tree_toggle, names="value")
 
@@ -184,9 +184,12 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
-        components = [self.tree_toggle, self.process_tree, self.node_view]
         if progress_bar is not None:
-            components = [progress_bar] + components
+            workflow_state = ipw.VBox([progress_bar, self.tree_toggle])
+        else:
+            workflow_state = ipw.VBox([self.tree_toggle])
+        workflow_state.layout.width = "52%"
+        components = [workflow_state, self.process_tree, self.node_view]
         if children is not None:
             components = components + children
 
