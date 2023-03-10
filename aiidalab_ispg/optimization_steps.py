@@ -263,10 +263,8 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
             (self.node_view, "node"),
             transform=lambda nodes: nodes[0] if nodes else None,
         )
-        self.message_area = ipw.HTML()
         self.process_status = ipw.VBox(
             children=[
-                self.message_area,
                 self.progress_bar,
                 self.tree_toggle,
                 self.process_tree,
@@ -282,7 +280,7 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
         )
         self.relaxed_structures = ipw.Output()
 
-        self.results = ipw.VBox([title, self.message_area, self.relaxed_structures])
+        self.results = ipw.VBox([title, self.relaxed_structures])
         self.results.layout.visibility = "hidden"
 
         self.process_monitor = ProcessMonitor(
@@ -319,12 +317,10 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
             with self.relaxed_structures:
                 clear_output()
                 display(conformer_viewer)
-            self.message_area.value = None
         else:
             with self.relaxed_structures:
                 clear_output()
             self.results.layout.visibility = "hidden"
-            self.message_area.value = "<strong>ERROR: Workflow failed!</strong>"
 
     def can_reset(self):
         "Do not allow reset while process is running."

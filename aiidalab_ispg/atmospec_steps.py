@@ -12,7 +12,7 @@ from aiida.orm import load_code
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
-from .steps import SubmitWorkChainStepBase
+from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
 from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
 from .utils import MEMORY_PER_CPU
@@ -374,3 +374,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         ].value
         process.base.extras.set("builder_parameters", builder_parameters)
         self.process = process
+
+
+class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
+    pass
