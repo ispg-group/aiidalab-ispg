@@ -148,14 +148,23 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             self.input_structure = None
 
 
-class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
+class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     """Widget for displaying the whole workflow as it runs"""
 
     process_uuid = traitlets.Unicode(allow_none=True)
 
-    def __init__(self, **kwargs):
+    def __init__(self, progress_bar=None, children=None, **kwargs):
         self.process_tree = ProcessNodesTreeWidget()
-        ipw.dlink((self, "process_uuid"), (self.process_tree, "value"))
+        self.tree_toggle = ipw.ToggleButton(
+            value=False,
+            description="Show workflow details",
+            disabled=True,
+            button_style="",  # 'success', 'info', 'warning', 'danger' or ''
+            tooltip="Display workflow tree with detailed results",
+            icon="folder",
+            layout=ipw.Layout(width="auto", height="auto"),
+        )
+        self.tree_toggle.observe(self._observe_tree_toggle, names="value")
 
         self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
@@ -163,19 +172,28 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
             (self.node_view, "node"),
             transform=lambda nodes: nodes[0] if nodes else None,
         )
-        self.process_status = ipw.VBox(children=[self.process_tree, self.node_view])
 
-        # Setup process monitor
         self.process_monitor = ProcessMonitor(
-            timeout=0.5,
+            timeout=1.0,
             callbacks=[
                 self.process_tree.update,
-                self._update_state,
+                self._update_step_state,
+                self._update_workflow_state,
             ],
+            on_sealed=[self._display_results],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
-        super().__init__([self.process_status], **kwargs)
+        if progress_bar is not None:
+            workflow_state = ipw.VBox([progress_bar, self.tree_toggle])
+        else:
+            workflow_state = ipw.VBox([self.tree_toggle])
+        workflow_state.layout.width = "52%"
+        components = [workflow_state, self.process_tree, self.node_view]
+        if children is not None:
+            components = components + children
+
+        super().__init__(children=components, **kwargs)
 
     def can_reset(self):
         "Do not allow reset while process is running."
@@ -183,13 +201,14 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
 
     def reset(self):
         self.process_uuid = None
+        self.process_tree.value = None
 
-    def _update_state(self):
-        if self.process_uuid is None:
+    def _update_step_state(self, process_uuid):
+        if process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process = load_node(self.process_uuid)
+        process = load_node(process_uuid)
         process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
@@ -205,9 +224,42 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
+    def _update_workflow_state(self, process_uuid):
+        """To be implemented by child workflows
+        to power the workflow-specific progress bar
+        """
+        pass
+
+    def _display_results(self, process_uuid):
+        """Optional function to be called when the process is finished"""
+        pass
+
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
-        self._update_state()
+        process_uuid = change["new"]
+        if process_uuid is None:
+            self.tree_toggle.disabled = True
+        else:
+            self.tree_toggle.disabled = False
+        self._update_step_state(process_uuid)
+        self._update_workflow_state(process_uuid)
+
+    def _observe_tree_toggle(self, change):
+        if change["new"] == change["old"]:
+            return
+        show_tree = change["new"]
+        if show_tree:
+            # TODO: Spawn a new thread for this so we do not block
+            # UI interaction. Also display a spinner while the tree is loading
+            # (perhaps best implemented in AWB, not here)
+            self.tree_toggle.icon = "spinner"
+            self.process_tree.value = self.process_uuid
+            self.tree_toggle.icon = "folder-open"
+        else:
+            # TODO: Should we assign None or not?
+            # For large workflows, this might not be best
+            self.process_tree.value = None
+            self.tree_toggle.icon = "folder"
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
@@ -216,23 +268,16 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, **kwargs):
-        # Setup process monitor
-        # TODO: Instead of setting another process monitor here,
-        # we should just observe the process traitlet, and only set it
-        # when the process is_finished_ok.
-        # This also makes debugging extremely tedious
-        self.process_monitor = ProcessMonitor(
-            timeout=0.5,
-            callbacks=[
-                self._show_spectrum,
-                self._update_state,
-            ],
-        )
         self.header = ipw.HTML()
         self.spectrum = SpectrumWidget()
 
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
-
+        # NOTE: We purposefully do NOT link the process_uuid trait
+        # to ProcessMonitor. We do that manually only for running processes.
+        self.process_monitor = ProcessMonitor(
+            timeout=1.0,
+            callbacks=[self._update_state],
+            on_sealed=(self._show_spectrum,),
+        )
         super().__init__([self.header, self.spectrum], **kwargs)
 
     def reset(self):
@@ -257,6 +302,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _show_spectrum(self):
         if self.process_uuid is None:
             return
+
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
             return
@@ -389,6 +435,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         if change["new"] == change["old"]:
             return
+
         self.spectrum.reset()
-        self._update_state()
         self._update_header()
+
+        # Setup process monitor only for running processes,
+        # This aids debugging when developing the SpectrumWidget,
+        # because ProcessMonitorWidget swallows all exceptions coming from _show_spectrum().
+        if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
+            self.process_monitor.value = self.process_uuid
+        else:
+            self._show_spectrum()
+        self._update_state()

@@ -2,10 +2,12 @@ from .conformers import ConformerSmilesWidget
 from .widgets import TrajectoryDataViewer, WorkChainSelector
 from .steps import (
     StructureSelectionStep,
-    ViewAtmospecAppWorkChainStatusAndResultsStep,
     ViewSpectrumStep,
 )
-from .atmospec_steps import SubmitAtmospecAppWorkChainStep
+from .atmospec_steps import (
+    SubmitAtmospecAppWorkChainStep,
+    ViewAtmospecAppWorkChainStatusAndResultsStep,
+)
 
 __all__ = [
     "ConformerSmilesWidget",

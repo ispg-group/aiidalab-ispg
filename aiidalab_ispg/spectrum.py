@@ -13,18 +13,12 @@ import numpy as np
 from aiida.orm import load_node, QueryBuilder
 from aiida.plugins import DataFactory
 
-# https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
-# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
-from bokeh.io import push_notebook, show, output_notebook
 import bokeh.plotting as plt
 
 from .widgets import TrajectoryDataViewer
-from .utils import AUtoEV
+from .utils import AUtoEV, BokehFigureContext
+from .spectrum_analysis import SpectrumAnalysisWidget
 
-# from .spectrum_analysis import SpectrumAnalysisWidget
-
-# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
-output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 XyData = DataFactory("core.array.xy")
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -43,34 +37,17 @@ class BroadeningKernel(Enum):
     LORENTZ = "lorentzian"
 
 
-# This code was provided by a good soul on GitHub.
-# https://github.com/bokeh/bokeh/issues/7023#issuecomment-839825139
-class BokehFigureContext(ipw.Output):
-    """Helper class for rendering Bokeh figures inside ipywidgets"""
-
-    def __init__(self, fig):
-        super().__init__()
-        self._figure = fig
-        self._handle = None
-        self.on_displayed(lambda x: x.set_handle())
-
-    def set_handle(self):
-        self.clear_output()
-        with self:
-            self._handle = show(self._figure, notebook_handle=True)
-
-    def get_handle(self):
-        return self._handle
-
-    def get_figure(self):
-        return self._figure
-
-    def update(self):
-        if self._handle is not None:
-            push_notebook(handle=self._handle)
-
-
 class Spectrum:
+    """NEA spectrum class
+
+    This is where the spectrum is actually calculated.
+    Constructor gets a set of excitations, characterized by excitation energy
+    and oscillator strenghts.
+
+    The spectrum is then calculated using the self.get_spectrum(),
+    by specifying the type of broadening and broadening parameter.
+    """
+
     COEFF = (
         constants.pi
         * 8.478354e-30**2  # AUtoCm
@@ -117,7 +94,11 @@ class Spectrum:
         }
         return unit_factors[unit]
 
-    def calc_lorentzian_spectrum(self, x, y, tau: float):
+    def _calc_lorentzian_spectrum(self, x, y, tau: float):
+        """Calculate NEA spectrum broadened with a Lorentzian function:
+
+        https://en.wikipedia.org/wiki/Cauchy_distribution#Probability_density_function
+        """
         normalization_factor = tau / 2 / constants.pi / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
@@ -125,7 +106,11 @@ class Spectrum:
             prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
-    def calc_gauss_spectrum(self, x, y, sigma: float):
+    def _calc_gauss_spectrum(self, x, y, sigma: float):
+        """Calculate NEA spectrum broadened with a Gaussian function
+
+        https://en.wikipedia.org/wiki/Normal_distribution
+        """
         normalization_factor = 1 / np.sqrt(2 * constants.pi) / sigma / self.nsample
         for exc_energy, osc_strength in zip(
             self.excitation_energies, self.osc_strengths
@@ -148,9 +133,9 @@ class Spectrum:
         y = np.zeros(len(x))
 
         if kernel is BroadeningKernel.GAUSS:
-            self.calc_gauss_spectrum(x, y, width)
+            self._calc_gauss_spectrum(x, y, width)
         elif kernel is BroadeningKernel.LORENTZ:
-            self.calc_lorentzian_spectrum(x, y, width)
+            self._calc_lorentzian_spectrum(x, y, width)
         else:
             raise ValueError(f"Invalid broadening kernel {kernel}")
 
@@ -196,7 +181,9 @@ class SpectrumWidget(ipw.VBox):
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
     smiles = traitlets.Unicode(allow_none=True, default_value=None)
-    experimental_spectrum_uuid = traitlets.Unicode(allow_none=True, default_value=None)
+    experimental_spectrum_uuid = traitlets.Unicode(
+        allow_none=True, default_value=None, read_only=True
+    )
 
     # For now, we do not allow different intensity units
     intensity_unit = "cm² per molecule"
@@ -270,7 +257,15 @@ class SpectrumWidget(ipw.VBox):
 
         self.debug_output = ipw.Output()
 
-        self.figure = self._init_figure(tools=self._TOOLS, tooltips=self._TOOLTIPS)
+        # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
+        figure_size = {
+            "sizing_mode": "fixed",
+            "height": 500,
+            "width": 500,
+        }
+        self.figure = self._init_figure(
+            tools=self._TOOLS, tooltips=self._TOOLTIPS, **figure_size
+        )
         self.figure.layout = ipw.Layout(overflow="initial")
 
         self.download_btn = ipw.Button(
@@ -296,11 +291,11 @@ class SpectrumWidget(ipw.VBox):
             (self.conformer_viewer, "trajectory"),
         )
 
-        # self.analysis = SpectrumAnalysisWidget()
-        # ipw.dlink(
-        #    (self, "conformer_transitions"),
-        #    (self.analysis, "conformer_transitions"),
-        # )
+        self.analysis = SpectrumAnalysisWidget()
+        ipw.dlink(
+            (self, "conformer_transitions"),
+            (self.analysis, "conformer_transitions"),
+        )
 
         super().__init__(
             [
@@ -319,7 +314,7 @@ class SpectrumWidget(ipw.VBox):
                         ),
                     ],
                 ),
-                # self.analysis,
+                self.analysis,
             ],
             **kwargs,
         )
@@ -445,9 +440,7 @@ class SpectrumWidget(ipw.VBox):
         )
         if self.experimental_spectrum_uuid:
             node = load_node(self.experimental_spectrum_uuid)
-            self._plot_experimental_spectrum(
-                spectrum_node=node, energy_unit=energy_unit
-            )
+            self.plot_experimental_spectrum(spectrum_node=node, energy_unit=energy_unit)
 
     def _unhighlight_conformer(self):
         self.remove_line("conformer_selected")
@@ -496,6 +489,8 @@ class SpectrumWidget(ipw.VBox):
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
         x_stick = []
         y_stick = []
+        # Iterate over conformers, the total spectrum is a sum of
+        # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
             spec = Spectrum(conformer["transitions"], conformer["nsample"])
             x, y, xs, ys = spec.get_spectrum(
@@ -508,6 +503,7 @@ class SpectrumWidget(ipw.VBox):
             x_stick = np.concatenate((x_stick, xs))
             y_stick = np.concatenate((y_stick, ys))
 
+            # Plot spectrum of an individual conformer
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
@@ -588,14 +584,6 @@ class SpectrumWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    def clean_figure(self):
-        f = self.figure.get_figure()
-        labels = [r.name for r in f.renderers]
-        for label in labels:
-            # self.hide_line(label)
-            self.remove_line(label, update=False)
-        self.figure.update()
-
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
@@ -640,10 +628,11 @@ class SpectrumWidget(ipw.VBox):
             self.conformer_transitions = None
             self.conformer_structures = None
             self.smiles = None
-            self.experimental_spectrum_uuid = None
+            self.set_trait("experimental_spectrum_uuid", None)
+            self.analysis.reset()
 
         self.disabled = True
-        self.clean_figure()
+        self.figure.clean()
         self.debug_output.clear_output()
 
     @traitlets.validate("conformer_transitions")
@@ -694,13 +683,26 @@ class SpectrumWidget(ipw.VBox):
 
     @traitlets.observe("smiles")
     def _observe_smiles(self, change):
-        self._find_experimental_spectrum(change["new"])
+        self.find_experimental_spectrum_by_smiles(change["new"])
 
-    def _find_experimental_spectrum(self, smiles: str):
+    @traitlets.observe("experimental_spectrum_uuid")
+    def _observe_experimental_spectrum_uuid(self, change):
+        if change["new"] == change["old"]:
+            return
+        if change["new"] is None:
+            self.remove_line(self.EXP_SPEC_LABEL)
+            return
+        self.plot_experimental_spectrum(
+            spectrum_node=load_node(change["new"]),
+            energy_unit=self.energy_unit_selector.value,
+        )
+
+    def find_experimental_spectrum_by_smiles(self, smiles: str):
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
+
+        self.set_trait("experimental_spectrum_uuid", None)
         if smiles is None or smiles == "":
-            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         qb = QueryBuilder()
@@ -708,22 +710,16 @@ class SpectrumWidget(ipw.VBox):
         # Or should we differentiate from other possible Xy nodes
         # by looking at attributes or extras? Maybe label?
         qb.append(XyData, filters={"extras.smiles": smiles})
-
         if qb.count() == 0:
-            self.remove_line(self.EXP_SPEC_LABEL)
             return
 
         # TODO: For now let's just assume we have one
         # canonical experimental spectrum per compound.
         # for spectrum in qb.iterall():
         experimental_spectrum_node = qb.first()[0]
-        self.experimental_spectrum_uuid = experimental_spectrum_node.uuid
-        self._plot_experimental_spectrum(
-            spectrum_node=experimental_spectrum_node,
-            energy_unit=self.energy_unit_selector.value,
-        )
+        self.set_trait("experimental_spectrum_uuid", experimental_spectrum_node.uuid)
 
-    def _plot_experimental_spectrum(
+    def plot_experimental_spectrum(
         self, spectrum_node: XyData, energy_unit: EnergyUnit
     ):
         """Render experimental spectrum that was loaded to AiiDA database manually
