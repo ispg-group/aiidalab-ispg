@@ -159,7 +159,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             value=False,
             description="Show workflow details",
             disabled=True,
-            button_style="info",  # 'success', 'info', 'warning', 'danger' or ''
+            button_style="",  # 'success', 'info', 'warning', 'danger' or ''
             tooltip="Display workflow tree with detailed results",
             icon="folder",
             layout=ipw.Layout(width="50%", height="auto"),
@@ -234,7 +234,6 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):
         process_uuid = change["new"]
-        # TODO: Link this with dlink and lambda function
         if process_uuid is None:
             self.tree_toggle.disabled = True
         else:
@@ -250,11 +249,14 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             # TODO: Spawn a new thread for this so we do not block
             # UI interaction. Also display a spinner while the tree is loading
             # (perhaps best implemented in AWB, not here)
+            self.tree_toggle.icon = "spinner"
             self.process_tree.value = self.process_uuid
+            self.tree_toggle.icon = "folder-open"
         else:
             # TODO: Should we assign None or not?
             # For large workflows, this might not be best
             self.process_tree.value = None
+            self.tree_toggle.icon = "folder"
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):

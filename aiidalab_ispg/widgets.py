@@ -616,12 +616,17 @@ class TrajectoryManagerWidget(StructureManagerWidget):
             self.structure = None
 
 
+# A common spinning icon
+_default_spinner_style = "color:blue;"
+spinner = f"""<i class="fa fa-spinner fa-pulse" style={_default_spinner_style}></i>"""
+
+
 class Spinner(ipw.HTML):
     """Widget that shows a simple spinner if enabled."""
 
     enabled = traitlets.Bool()
 
-    def __init__(self, spinner_style=None):
+    def __init__(self, spinner_style=_default_spinner_style):
         self.spinner_style = f' style="{spinner_style}"' if spinner_style else ""
         super().__init__()
 

@@ -19,7 +19,7 @@ from aiidalab_widgets_base import (
 )
 
 from .input_widgets import CodeSettings, MoleculeSettings, GroundStateSettings
-from .widgets import ResourceSelectionWidget, TrajectoryDataViewer
+from .widgets import ResourceSelectionWidget, TrajectoryDataViewer, spinner
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .utils import MEMORY_PER_CPU
 
@@ -191,7 +191,7 @@ class OptimizationWorkflowStatus(enum.Enum):
 
 
 class OptimizationWorkflowProgressWidget(ipw.HBox):
-    """Widget to nicely represent the order status."""
+    """Widget for user friendly representation of the workflow status."""
 
     status = traitlets.Instance(OptimizationWorkflowStatus, allow_none=True)
 
@@ -215,7 +215,7 @@ class OptimizationWorkflowProgressWidget(ipw.HBox):
             if change["new"]:
                 self._status_text.value = {
                     OptimizationWorkflowStatus.INIT: "Workflow started",
-                    OptimizationWorkflowStatus.IN_PROGRESS: "Optimizing conformers...🔃",
+                    OptimizationWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
                     OptimizationWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
                     OptimizationWorkflowStatus.FAILED: "Workflow failed! 😧",
                 }.get(change["new"], change["new"].name)
@@ -257,6 +257,8 @@ class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
             progress_bar=self.progress_bar, children=[self.results], **kwargs
         )
 
+    # TODO: This approach seems to be unreliable.
+    # It might be better if to create a separate WizzardStep to display the final results
     def _display_results(self, process_uuid):
         process = load_node(process_uuid)
         if process.is_finished_ok:

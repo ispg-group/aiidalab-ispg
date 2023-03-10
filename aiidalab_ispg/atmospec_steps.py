@@ -15,7 +15,12 @@ from aiidalab_widgets_base import WizardAppWidgetStep
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
-from .widgets import ResourceSelectionWidget, QMSelectionWidget, ExcitedStateMethod
+from .widgets import (
+    ResourceSelectionWidget,
+    QMSelectionWidget,
+    ExcitedStateMethod,
+    spinner,
+)
 from .utils import MEMORY_PER_CPU
 
 try:
@@ -387,7 +392,7 @@ class AtmospecWorkflowStatus(enum.Enum):
 
 
 class AtmospecWorkflowProgressWidget(ipw.HBox):
-    """Widget to nicely represent the order status."""
+    """Widget for user friendly representation of the workflow status."""
 
     status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
@@ -411,7 +416,7 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
             if change["new"]:
                 self._status_text.value = {
                     AtmospecWorkflowStatus.INIT: "Workflow started",
-                    AtmospecWorkflowStatus.IN_PROGRESS: "Optimizing conformers...🔃",
+                    AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
                     AtmospecWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
                     AtmospecWorkflowStatus.FAILED: "Workflow failed! 😧",
                 }.get(change["new"], change["new"].name)
