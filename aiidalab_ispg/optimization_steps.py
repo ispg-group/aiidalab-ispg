@@ -234,7 +234,6 @@ class OptimizationWorkflowProgressWidget(ipw.HBox):
 class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
     """Widget for displaying the whole workflow as it runs"""
 
-    process_uuid = traitlets.Unicode(allow_none=True)
     workflow_status = traitlets.Instance(OptimizationWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):

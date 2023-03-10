@@ -247,6 +247,9 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             return
         show_tree = change["new"]
         if show_tree:
+            # TODO: Spawn a new thread for this so we do not block
+            # UI interaction. Also display a spinner while the tree is loading
+            # (perhaps best implemented in AWB, not here)
             self.process_tree.value = self.process_uuid
         else:
             # TODO: Should we assign None or not?

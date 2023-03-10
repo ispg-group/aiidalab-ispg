@@ -1,14 +1,15 @@
 """Steps specific for the ATMOSPEC workflow"""
 
+from copy import deepcopy
+from dataclasses import dataclass
+import enum
+
 import ipywidgets as ipw
 import traitlets
 
-from copy import deepcopy
-from dataclasses import dataclass
-
-from aiida.engine import submit
+from aiida.engine import submit, ProcessState
 from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
-from aiida.orm import load_code
+from aiida.orm import load_code, load_node
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
@@ -376,5 +377,85 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.process = process
 
 
+# TODO: Disambiguate between optimizing conformers,
+# computing single point spectra and Wigner spectra
+class AtmospecWorkflowStatus(enum.Enum):
+    INIT = 0
+    IN_PROGRESS = 1
+    FINISHED = 2
+    FAILED = 3
+
+
+class AtmospecWorkflowProgressWidget(ipw.HBox):
+    """Widget to nicely represent the order status."""
+
+    status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
+
+    def __init__(self, **kwargs):
+        self._progress_bar = ipw.IntProgress(
+            style={"description_width": "initial"},
+            description="Workflow progress:",
+            value=0,
+            min=0,
+            max=2,
+            disabled=False,
+            orientations="horizontal",
+        )
+
+        self._status_text = ipw.HTML()
+        super().__init__([self._progress_bar, self._status_text], **kwargs)
+
+    @traitlets.observe("status")
+    def _observe_status(self, change):
+        with self.hold_trait_notifications():
+            if change["new"]:
+                self._status_text.value = {
+                    AtmospecWorkflowStatus.INIT: "Workflow started",
+                    AtmospecWorkflowStatus.IN_PROGRESS: "Optimizing conformers...🔃",
+                    AtmospecWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
+                    AtmospecWorkflowStatus.FAILED: "Workflow failed! 😧",
+                }.get(change["new"], change["new"].name)
+
+                self._progress_bar.value = change["new"].value
+                self._progress_bar.bar_style = {
+                    AtmospecWorkflowStatus.FINISHED: "success",
+                    AtmospecWorkflowStatus.FAILED: "danger",
+                }.get(change["new"], "info")
+            else:
+                self._status_text.value = ""
+                self._progress_bar.value = 0
+                self._progress_bar.bar_style = "info"
+
+
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
-    pass
+
+    workflow_status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
+
+    def __init__(self, **kwargs):
+        self.progress_bar = AtmospecWorkflowProgressWidget()
+        ipw.dlink(
+            (self, "workflow_status"),
+            (self.progress_bar, "status"),
+        )
+        super().__init__(progress_bar=self.progress_bar, **kwargs)
+
+    def _update_workflow_state(self, process_uuid):
+        if process_uuid is None:
+            self.workflow_status = None
+            return
+
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
+        if process_state in (
+            ProcessState.CREATED,
+            ProcessState.RUNNING,
+            ProcessState.WAITING,
+        ):
+            self.workflow_status = AtmospecWorkflowStatus.IN_PROGRESS
+        elif (
+            process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
+            or process.is_failed
+        ):
+            self.workflow_status = AtmospecWorkflowStatus.FAILED
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
+            self.workflow_status = AtmospecWorkflowStatus.FINISHED
