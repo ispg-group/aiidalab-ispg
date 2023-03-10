@@ -153,7 +153,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
     process_uuid = traitlets.Unicode(allow_none=True)
 
-    def __init__(self, **kwargs):
+    def __init__(self, progress_bar=None, children=None, **kwargs):
         self.process_tree = ProcessNodesTreeWidget()
         self.tree_toggle = ipw.ToggleButton(
             value=False,
@@ -180,12 +180,17 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
                 self._update_step_state,
                 self._update_workflow_state,
             ],
+            on_sealed=[self._display_results],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
-        super().__init__(
-            [self.tree_toggle, self.process_tree, self.node_view], **kwargs
-        )
+        components = [self.tree_toggle, self.process_tree, self.node_view]
+        if progress_bar is not None:
+            components = [progress_bar] + components
+        if children is not None:
+            components = components + children
+
+        super().__init__(children=components, **kwargs)
 
     def can_reset(self):
         "Do not allow reset while process is running."
@@ -220,6 +225,10 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         """To be implemented by child workflows
         to power the workflow-specific progress bar
         """
+        pass
+
+    def _display_results(self, process_uuid):
+        """Optional function to be called when the process is finished"""
         pass
 
     @traitlets.observe("process_uuid")

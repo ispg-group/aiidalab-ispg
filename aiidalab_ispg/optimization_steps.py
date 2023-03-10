@@ -20,7 +20,7 @@ from aiidalab_widgets_base import (
 
 from .input_widgets import CodeSettings, MoleculeSettings, GroundStateSettings
 from .widgets import ResourceSelectionWidget, TrajectoryDataViewer
-from .steps import SubmitWorkChainStepBase
+from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .utils import MEMORY_PER_CPU
 
 try:
@@ -231,46 +231,17 @@ class OptimizationWorkflowProgressWidget(ipw.HBox):
                 self._progress_bar.bar_style = "info"
 
 
-class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
+class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
     """Widget for displaying the whole workflow as it runs"""
 
     process_uuid = traitlets.Unicode(allow_none=True)
     workflow_status = traitlets.Instance(OptimizationWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):
-        self.process_tree = ProcessNodesTreeWidget()
-
-        self.tree_toggle = ipw.ToggleButton(
-            value=False,
-            description="Show workflow details",
-            disabled=True,
-            button_style="info",  # 'success', 'info', 'warning', 'danger' or ''
-            tooltip="Display workflow tree with detailed results",
-            icon="folder",
-            layout=ipw.Layout(width="50%", height="auto"),
-        )
-        self.tree_toggle.observe(self._observe_tree_toggle, names="value")
-
         self.progress_bar = OptimizationWorkflowProgressWidget()
         ipw.dlink(
             (self, "workflow_status"),
             (self.progress_bar, "status"),
-        )
-
-        self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
-        ipw.dlink(
-            (self.process_tree, "selected_nodes"),
-            (self.node_view, "node"),
-            transform=lambda nodes: nodes[0] if nodes else None,
-        )
-        self.process_status = ipw.VBox(
-            children=[
-                self.progress_bar,
-                self.tree_toggle,
-                self.process_tree,
-                self.node_view,
-            ],
-            layout=ipw.Layout(justify_content="center"),
         )
 
         title = ipw.HTML(
@@ -283,28 +254,9 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
         self.results = ipw.VBox([title, self.relaxed_structures])
         self.results.layout.visibility = "hidden"
 
-        self.process_monitor = ProcessMonitor(
-            timeout=1.0,
-            callbacks=[
-                self.process_tree.update,
-                self._update_state,
-            ],
-            on_sealed=[self._display_results],
+        super().__init__(
+            progress_bar=self.progress_bar, children=[self.results], **kwargs
         )
-        ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
-
-        super().__init__([self.process_status, self.results], **kwargs)
-
-    def _observe_tree_toggle(self, change):
-        if change["new"] == change["old"]:
-            return
-        show_tree = change["new"]
-        if show_tree:
-            self.process_tree.value = self.process_uuid
-        else:
-            # TODO: Should we assign None or not?
-            # For large workflows, this might not be best
-            self.process_tree.value = None
 
     def _display_results(self, process_uuid):
         process = load_node(process_uuid)
@@ -322,19 +274,13 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
                 clear_output()
             self.results.layout.visibility = "hidden"
 
-    def can_reset(self):
-        "Do not allow reset while process is running."
-        return self.state is not self.State.ACTIVE
-
     def reset(self):
-        self.process_uuid = None
+        super().reset()
         with self.relaxed_structures:
             clear_output()
-        self.process_tree.value = None
 
-    def _update_state(self):
-        if self.process_uuid is None:
-            self.state = self.State.INIT
+    def _update_workflow_state(self, process_uuid):
+        if process_uuid is None:
             self.workflow_status = None
             return
 
@@ -345,22 +291,11 @@ class ViewOptimizationStatusAndResultsStep(ipw.VBox, WizardAppWidgetStep):
             ProcessState.RUNNING,
             ProcessState.WAITING,
         ):
-            self.state = self.State.ACTIVE
             self.workflow_status = OptimizationWorkflowStatus.IN_PROGRESS
         elif (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
             or process.is_failed
         ):
-            self.state = self.State.FAIL
             self.workflow_status = OptimizationWorkflowStatus.FAILED
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
-            self.state = self.State.SUCCESS
             self.workflow_status = OptimizationWorkflowStatus.FINISHED
-
-    @traitlets.observe("process_uuid")
-    def _observe_process(self, change):
-        if self.process_uuid is None:
-            self.tree_toggle.disabled = True
-        else:
-            self.tree_toggle.disabled = False
-        self._update_state()
