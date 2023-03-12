@@ -26,7 +26,7 @@ import aiidalab_ispg.qeapp as qeapp
 
 from .parameters import DEFAULT_PARAMETERS
 from .widgets import ResourceSelectionWidget
-from .widgets import QMSelectionWidget, ExcitedStateMethod
+from .widgets import QMSelectionWidget, ExcitedStateMethod, spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
@@ -307,6 +307,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if not process.is_finished_ok:
             return
 
+        self.spectrum.debug_output.value = ""
+        self.spectrum.debug_output.value = f"Loading...{spinner}"
+
         # Number of Wigner geometries per conformer
         nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
 
@@ -382,6 +385,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             if "boltzmann_weights" in structures.get_arraynames():
                 structures.delete_array("boltzmann_weights")
             self.spectrum.conformer_structures = structures
+
+        # Spectrum loaded! Clear the "Loading..." text.
+        self.spectrum.debug_output.value = ""
 
     def _update_header(self):
         if self.process_uuid is None:
