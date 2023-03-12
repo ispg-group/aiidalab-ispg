@@ -156,9 +156,9 @@ def test_optimization_steps(
     check_step_status(3, StepState.INIT)
 
     button_disabled("Confirm")
-    button_enabled("Submit")
+    button_disabled("Submit")
     submit = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+        EC.visibility_of_element_located((By.XPATH, "//button[text()='Submit']"))
     )
 
 
@@ -219,8 +219,9 @@ def test_atmospec_steps(
     check_step_status(3, StepState.INIT)
     check_step_status(4, StepState.INIT)
 
-    # Make sure the submit button is visible and enabled
+    # Make sure the submit button is visible. It should not be clickable since
+    # ORCA is not installed.
     submit = WebDriverWait(driver, 10).until(
-        EC.element_to_be_clickable((By.XPATH, "//button[text()='Submit']"))
+        EC.visibility_of_element_located((By.XPATH, "//button[text()='Submit']"))
     )
-    button_enabled("Submit")
+    button_disabled("Submit")
