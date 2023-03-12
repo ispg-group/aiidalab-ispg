@@ -4,11 +4,19 @@
 # based on the assumption that the codes are accessible locally.
 
 # This needs to match the path where you mounted the code!
-# Perhaps we could autodetermine this via find?
-ORCA_PATH=/opt/orca
+# TODO: Perhaps we could autodetermine this via find?
+if [[ -z ${ORCA_PATH-} ]]; then
+  ORCA_PATH=/opt/orca
+fi
+if [[ ! -d "${ORCA_PATH}" || ! -f "${ORCA_PATH}"/orca ]];then
+  echo "WARNING: Could not find ORCA installation at \"${ORCA_PATH}\", you will need to create a code node on a remote computer."
+  exit 0
+fi
+
 
 # We append LD_LIBRARY path since we install OpenMPI
 # via conda in ATMOSPEC Docker image
+# TODO: Detect when OpenMPI is not installed, and (somehow) disable running on multiple CPUs, because that will fail.
 OPENMPI_LIB=/opt/conda/lib
 
 function create_orca_code() {
@@ -20,6 +28,8 @@ function create_orca_code() {
     verdi code list -Y $computer -d $calcjob -P full_label | \
     grep -q "$full_label" || (\
         echo "Creating code node $full_label" && \
+        # NOTE: We need to add ORCA_PATH to LD_LIBRARY_PATH as well
+        # to support dynamically linked orca binaries.
         verdi code create core.code.installed \
             --non-interactive \
             --label ${code} \
@@ -27,7 +37,7 @@ function create_orca_code() {
             --default-calc-job-plugin ${calcjob} \
             --computer ${computer} \
             --filepath-executable ${ORCA_PATH}/orca \
-            --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=${OPENMPI_LIB}:\$LD_LIBRARY_PATH" \
+            --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=${ORCA_PATH}:${OPENMPI_LIB}:\$LD_LIBRARY_PATH" \
     )
 }
 
