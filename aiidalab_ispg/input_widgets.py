@@ -272,8 +272,9 @@ class WignerSamplingSettings(ipw.VBox):
             step=1,
             min=0,
             max=10000,
-            description="Low-frequency threshold",
-            title="Normal modes below this frequency will be ignored",
+            description="Low-frequency cutoff (cm⁻¹)",
+            # NOTE: Tooltip does not show up
+            tooltip="Normal modes below this frequency will be ignored",
             style=style,
             layout=layout,
         )
