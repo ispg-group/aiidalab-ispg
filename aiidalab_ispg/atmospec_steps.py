@@ -84,27 +84,30 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         self.codes_selector.orca.observe(self._update_state, "value")
 
-        flex_layout = ipw.Layout(justify_content="space-between")
-
-        components = [
-            ipw.HBox(
-                [
-                    ipw.VBox(
-                        [self.geometry_settings, self.molecule_settings],
-                        layout=flex_layout,
-                    ),
-                    ipw.VBox([self.ground_state_settings, self.excited_state_settings]),
-                    self.wigner_settings,
-                ],
-                layout=flex_layout,
-            ),
-            # ipw.HTML("<hr>"),
-            ipw.HBox(children=[self.codes_selector, self.resources_settings]),
-        ]
-
+        # Set defaults
         self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
 
-        super().__init__(components=components)
+        settings = [
+            self.geometry_settings,
+            self.ground_state_settings,
+            self.wigner_settings,
+            self.molecule_settings,
+            self.excited_state_settings,
+        ]
+        grid_layout = ipw.Layout(
+            width="100%",
+            grid_gap="0% 3%",
+            grid_template_rows="auto auto",
+            grid_template_columns="31% 31% 31%",
+        )
+
+        super().__init__(
+            components=[
+                ipw.GridBox(children=settings, layout=grid_layout),
+                ipw.HTML("<hr>"),
+                ipw.HBox([self.codes_selector, self.resources_settings]),
+            ]
+        )
 
     # TODO: More validations (molecule size etc)
     # TODO: Prevent submission if solvent is selected with EOM-CCSD or ADC2

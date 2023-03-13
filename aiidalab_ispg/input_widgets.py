@@ -78,6 +78,7 @@ class MoleculeSettings(ipw.VBox):
 
     def __init__(self, **kwargs):
         style = {"description_width": "initial"}
+        layout = ipw.Layout(max_width="250px")
 
         self.multiplicity = ipw.BoundedIntText(
             min=1,
@@ -85,12 +86,16 @@ class MoleculeSettings(ipw.VBox):
             step=1,
             description="Multiplicity",
             value=self._DEFAULT_MULTIPLICITY,
+            style=style,
+            layout=layout,
         )
 
         self.charge = ipw.IntText(
             description="Charge",
             disabled=False,
             value=self._DEFAULT_CHARGE,
+            style=style,
+            layout=layout,
         )
 
         self.solvent = ipw.Dropdown(
@@ -99,6 +104,7 @@ class MoleculeSettings(ipw.VBox):
             description="PCM solvent",
             disabled=False,
             style=style,
+            layout=layout,
         )
 
         super().__init__(
@@ -178,6 +184,7 @@ class ExcitedStateSettings(ipw.VBox):
             value=True,
             description="Use ground state basis set and functional",
             indent=False,
+            layout=layout,
         )
         self.ground_state_sync.observe(self._observe_gs_sync, "value")
 
@@ -248,14 +255,16 @@ class WignerSamplingSettings(ipw.VBox):
 
     def __init__(self):
         style = {"description_width": "initial"}
+        layout = ipw.Layout(max_width="250px")
 
         self.nwigner = ipw.BoundedIntText(
             value=self._NSAMPLES_DEFAULT,
             step=1,
             min=0,
             max=1000,
-            style=style,
             description="Number of Wigner samples",
+            style=style,
+            layout=layout,
         )
 
         self.wigner_low_freq_thr = ipw.BoundedFloatText(
@@ -263,9 +272,10 @@ class WignerSamplingSettings(ipw.VBox):
             step=1,
             min=0,
             max=10000,
-            style=style,
             description="Low-frequency threshold",
             title="Normal modes below this frequency will be ignored",
+            style=style,
+            layout=layout,
         )
 
         super().__init__([self.title, self.nwigner, self.wigner_low_freq_thr])
