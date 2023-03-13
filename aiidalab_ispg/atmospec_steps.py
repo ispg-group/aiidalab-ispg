@@ -69,14 +69,18 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         self.ground_state_settings = GroundStateSettings()
         self.ground_state_settings.method.observe(self._observe_gs_method, "value")
+        self.ground_state_settings.basis.observe(self._observe_gs_basis, "value")
         self.ground_state_settings.method.continuous_update = False
-        self.ground_state_settings.basis.continuous_update = False
 
         self.excited_state_settings = ExcitedStateSettings()
+        self.excited_state_settings.ground_state_sync.observe(
+            self._observe_gs_sync, "value"
+        )
+
         self.wigner_settings = WignerSamplingSettings()
 
         self.codes_selector = CodeSettings()
-        self.resources_config = ResourceSelectionWidget()
+        self.resources_settings = ResourceSelectionWidget()
 
         self.codes_selector.orca.observe(self._update_state, "value")
 
@@ -94,8 +98,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 ],
                 layout=flex_layout,
             ),
-            ipw.HTML("<hr>"),
-            ipw.HBox(children=[self.codes_selector, self.resources_config]),
+            # ipw.HTML("<hr>"),
+            ipw.HBox(children=[self.codes_selector, self.resources_settings]),
         ]
 
         self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
@@ -120,11 +124,28 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         else:
             self.wigner_settings.disabled = True
 
+    def _observe_gs_sync(self, change):
+        if change["new"]:
+            self.excited_state_settings.basis.value = (
+                self.ground_state_settings.basis.value
+            )
+            gs_method = self.ground_state_settings.method.value
+            if gs_method.lower() not in ("ri-mp2", "mp2"):
+                self.excited_state_settings.tddft_functional.value = gs_method
+
     def _observe_gs_method(self, change):
         """Update TDDFT functional if ground state functional is changed"""
         gs_method = change["new"]
-        if gs_method is not None and gs_method.lower() not in ("ri-mp2", "mp2"):
+        if gs_method is not None and (
+            self.excited_state_settings.ground_state_sync.value
+            and gs_method.lower() not in ("ri-mp2", "mp2")
+        ):
             self.excited_state_settings.tddft_functional.value = gs_method
+
+    def _observe_gs_basis(self, change):
+        """Update TDDFT functional if ground state functional is changed"""
+        if self.excited_state_settings.ground_state_sync.value:
+            self.excited_state_settings.basis.value = change["new"]
 
     def _update_ui_from_parameters(self, parameters: AtmospecParameters) -> None:
         """Update UI widgets according to builder parameters.
@@ -216,7 +237,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
     def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
         mdci_params = deepcopy(orca_parameters)
-        mdci_params["input_keywords"].append(mdci_method)
+        mdci_params["input_keywords"].append(mdci_method.value)
         if mdci_method == ExcitedStateMethod.ADC2:
             # Basis for RI approximation, this will not work for all basis sets
             mdci_params["input_keywords"].append(f"{basis}/C")
@@ -298,7 +319,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.opt.orca.parameters = gs_opt_parameters
         builder.exc.orca.parameters = es_parameters
 
-        num_proc = self.resources_config.num_mpi_tasks.value
+        num_proc = self.resources_settings.num_mpi_tasks.value
         if num_proc > 1:
             # NOTE: We only paralelize the optimizations job,
             # because we suppose there will be lot's of TDDFT jobs in NEA,

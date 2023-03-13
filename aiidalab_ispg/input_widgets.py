@@ -1,4 +1,4 @@
-"""Common inputs widgets"""
+"""Common inputs widgets for workflow settings"""
 
 from enum import Enum, unique
 
@@ -9,7 +9,28 @@ from aiida.common import NotExistent
 from aiida.orm import load_code
 from aiidalab_widgets_base import ComputationalResourcesWidget
 
-from .widgets import PCM_SOLVENT_LIST
+# Taken from ORCA-5.0 manual, section 9.41
+PCM_SOLVENT_LIST = (
+    "None",
+    "Water",
+    "Acetone",
+    "Acetonitrile",
+    "Ammonia",
+    "Benzene",
+    "CCl4",
+    "CH2Cl2",
+    "Chloroform",
+    "Cyclohexane",
+    "DMF",
+    "DMSO",
+    "Ethanol",
+    "Hexane",
+    "Methanol",
+    "Octanol",
+    "Pyridine",
+    "THF",
+    "Toluene",
+)
 
 
 @unique
@@ -142,19 +163,6 @@ class ExcitedStateSettings(ipw.VBox):
         )
         self.excited_method.observe(self._observe_excited_method, names="value")
 
-        self.tddft_functional = ipw.Text(
-            value=self._DEFAULT_FUNCTIONAL,
-            description="TDDFT functional",
-            style=style,
-            layout=layout,
-        )
-        self.basis = ipw.Text(
-            value=self._DEFAULT_BASIS,
-            description="Basis set",
-            style=style,
-            layout=layout,
-        )
-
         self.nstates = ipw.BoundedIntText(
             description="Number of excited states",
             tooltip="Number of excited states",
@@ -166,21 +174,56 @@ class ExcitedStateSettings(ipw.VBox):
             layout=layout,
         )
 
+        self.ground_state_sync = ipw.Checkbox(
+            value=True,
+            description="Use ground state basis set and functional",
+            indent=False,
+        )
+        self.ground_state_sync.observe(self._observe_gs_sync, "value")
+
+        self.tddft_functional = ipw.Text(
+            value=self._DEFAULT_FUNCTIONAL,
+            description="TDDFT functional",
+            style=style,
+            layout=layout,
+            disabled=True,
+        )
+        self.basis = ipw.Text(
+            value=self._DEFAULT_BASIS,
+            description="Basis set",
+            style=style,
+            layout=layout,
+            disabled=True,
+        )
+
         super().__init__(
             children=[
                 self.qm_title,
                 self.excited_method,
+                self.nstates,
+                self.ground_state_sync,
                 self.tddft_functional,
                 self.basis,
-                self.nstates,
             ]
         )
+
+    def _observe_gs_sync(self, change):
+        if change["new"]:
+            self.basis.disabled = True
+            self.tddft_functional.disabled = True
+        else:
+            self.basis.disabled = False
+            if self.excited_method.value not in (
+                ExcitedStateMethod.ADC2,
+                ExcitedStateMethod.CCSD,
+            ):
+                self.tddft_functional.disabled = False
 
     def _observe_excited_method(self, change):
         es_method = change["new"]
         if es_method in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
             self.tddft_functional.disabled = True
-        else:
+        elif not self.ground_state_sync.value:
             self.tddft_functional.disabled = False
 
     def reset(self):
