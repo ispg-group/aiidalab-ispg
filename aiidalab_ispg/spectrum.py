@@ -551,10 +551,14 @@ class SpectrumWidget(ipw.VBox):
         **args additional arguments are passed into Figure.line()"""
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
+        renderers = f.select({"name": label})
+        if renderers is not None and len(renderers) > 0:
+            for r in renderers:
+                print(r)
+                r.destroy()
+                # f.renderers.remove(r)
             # line.data_source.data = {"x": x, "y": y}
-            self.remove_line(label)
+            # self.remove_line(label)
         f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
@@ -752,5 +756,6 @@ class SpectrumWidget(ipw.VBox):
             "line_color": "orange",
             "line_dash": "dashed",
             "line_width": 2,
+            "legend_label": "Experiment",
         }
         self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
