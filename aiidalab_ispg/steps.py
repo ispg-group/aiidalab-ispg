@@ -25,8 +25,7 @@ from aiidalab_widgets_base import (
 import aiidalab_ispg.qeapp as qeapp
 
 from .parameters import DEFAULT_PARAMETERS
-from .widgets import ResourceSelectionWidget
-from .widgets import QMSelectionWidget, ExcitedStateMethod, spinner
+from .widgets import spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
@@ -67,7 +66,7 @@ class StructureSelectionStep(qeapp.StructureSelectionStep):
 
 
 class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
-    """Base class for workflow submission steps. Must be subclassed."""
+    """Base class for workflow submission step. Must be subclassed."""
 
     input_structure = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
@@ -82,9 +81,10 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             tooltip="Submit the calculation with the selected parameters.",
             icon="play",
             button_style="success",
-            layout=ipw.Layout(width="auto", flex="1 1 auto"),
+            layout=ipw.Layout(width="auto", flex="0 0 auto"),
             disabled=True,
         )
+        self.submit_button.layout.margin = "10px 0px 10px 0px"
 
         self.submit_button.on_click(self._on_submit_button_clicked)
 
@@ -100,7 +100,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     def submit(self):
         """Submit workflow, implementation must be provided by the the child class"""
-        raise NotImplementedError
+        raise NotImplementedError("FATAL: submit method not implemented")
 
     def _get_state(self):
         # Process is already running.

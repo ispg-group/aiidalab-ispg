@@ -37,12 +37,12 @@ __all__ = [
 ]
 
 
-@unique
-class ExcitedStateMethod(Enum):
-    TDA = "TDA/TDDFT"
-    TDDFT = "TDDFT"
-    CCSD = "EOM-CCSD"
-    ADC2 = "ADC2"
+# @unique
+# class ExcitedStateMethod(Enum):
+#    TDA = "TDA/TDDFT"
+#    TDDFT = "TDDFT"
+#    CCSD = "EOM-CCSD"
+#    ADC2 = "ADC2"
 
 
 # Taken from ORCA-5.0 manual, section 9.41
@@ -278,43 +278,6 @@ class TrajectoryDataViewer(StructureDataViewer):
             return base64.b64encode(raw.read()).decode()
 
 
-class ResourceSelectionWidget(ipw.VBox):
-    """Widget for the selection of compute resources."""
-
-    title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Resources</h4>
-    </div>"""
-    )
-    prompt = ipw.HTML(
-        """<div style="line-height:120%; padding-top:0px">
-        <p style="padding-bottom:10px">
-        Number of MPI tasks for this calculation.
-        </p></div>"""
-    )
-
-    def __init__(self, **kwargs):
-        extra = {
-            "style": {"description_width": "150px"},
-            # "layout": {"max_width": "200px"},
-            "layout": {"min_width": "310px"},
-        }
-
-        self.num_mpi_tasks = ipw.BoundedIntText(
-            value=1, step=1, min=1, max=16, description="# MPI tasks", **extra
-        )
-
-        super().__init__(
-            children=[
-                self.title,
-                ipw.HBox(children=[self.prompt, self.num_mpi_tasks]),
-            ]
-        )
-
-    def reset(self):
-        self.num_mpi_tasks.value = 1
-
-
 class QMSelectionWidget(ipw.HBox):
     """Widget for selecting ab initio level (basis set, method, etc.)"""
 
@@ -360,14 +323,6 @@ class QMSelectionWidget(ipw.HBox):
 
         self.basis = ipw.Text(value="def2-SVP", description="Basis set")
 
-        self.solvent = ipw.Dropdown(
-            options=PCM_SOLVENT_LIST,
-            value="None",
-            description="PCM solvent",
-            disabled=False,
-            style=style,
-        )
-
         # TODO: Move Wigner settings to a separate widget
         self.nwigner = ipw.BoundedIntText(
             value=1,
@@ -388,6 +343,15 @@ class QMSelectionWidget(ipw.HBox):
             title="Normal modes below this frequency will be ignored",
         )
 
+        self.nstates = ipw.BoundedIntText(
+            description="Nstate",
+            tooltip="Number of excited states",
+            disabled=False,
+            value=3,
+            min=1,
+            max=50,
+        )
+
         super().__init__(
             children=[
                 ipw.VBox(
@@ -396,13 +360,13 @@ class QMSelectionWidget(ipw.HBox):
                         self.excited_method,
                         self.method,
                         self.basis,
-                        self.solvent,
                     ]
                 ),
                 ipw.VBox(
                     children=[
                         self.spectra_title,
                         self.spectra_desc,
+                        self.nstates,
                         self.nwigner,
                         self.wigner_low_freq_thr,
                     ]
@@ -418,13 +382,13 @@ class QMSelectionWidget(ipw.HBox):
             return
         if es_method in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
             self.method.value = "MP2"
-            self.solvent.value = "None"
-            self.solvent.disabled = True
+            # self.solvent.value = "None"
+            # self.solvent.disabled = True
         elif change["old"] in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
             # Switching to (TDA)TDDFT from ADC2/EOM-CCSD
             # We do not want to reset the functional if switching between TDA and full TDDFT
             self.method.value = self._DEFAULT_FUNCTIONAL
-            self.solvent.disabled = False
+            # self.solvent.disabled = False
 
     # NOTE: It seems this method is currently not called
     def reset(self):

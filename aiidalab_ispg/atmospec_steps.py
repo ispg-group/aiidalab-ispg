@@ -12,15 +12,19 @@ from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
 from aiida.orm import load_code, load_node
 from aiidalab_widgets_base import WizardAppWidgetStep
 
-from .input_widgets import MoleculeSettings, GroundStateSettings, CodeSettings
+from .input_widgets import (
+    ExcitedStateMethod,
+    MolecularGeometrySettings,
+    MoleculeSettings,
+    GroundStateSettings,
+    ExcitedStateSettings,
+    WignerSamplingSettings,
+    CodeSettings,
+    ResourceSelectionWidget,
+)
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
-from .widgets import (
-    ResourceSelectionWidget,
-    QMSelectionWidget,
-    ExcitedStateMethod,
-    spinner,
-)
+from .widgets import spinner
 from .utils import MEMORY_PER_CPU
 
 try:
@@ -45,7 +49,7 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     method="wB97X-D4",
     basis="def2-SVP",
     solvent="None",
-    geo_opt_type="NONE",
+    geo_opt_type="OPT",
     excited_method=ExcitedStateMethod.TDA,
     nstates=3,
     nwigner=1,
@@ -53,106 +57,53 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
 )
 
 
-class WorkChainSettings(ipw.VBox):
-    structure_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Molecular geometry</h4></div>"""
-    )
-    structure_help = ipw.HTML(
-        """<div style="line-height: 140%; padding-top: 0px; padding-bottom: 5px">
-        By default, the workflow will optimize the provided geometry.<br>
-        Select "Geometry as is" if this is not desired.</div>"""
-    )
-
-    electronic_structure_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Electronic structure</h4></div>"""
-    )
-
-    button_style_on = "info"
-    button_style_off = "danger"
-
-    def __init__(self, **kwargs):
-        # Whether to optimize the molecule or not.
-        self.geo_opt_type = ipw.ToggleButtons(
-            options=[
-                ("Geometry as is", "NONE"),
-                ("Optimize geometry", "OPT"),
-            ],
-            value="OPT",
-        )
-
-        # TODO: Use Dropdown with Enum (Singlet, Doublet...)
-        self.spin_mult = ipw.BoundedIntText(
-            min=1,
-            max=1,
-            step=1,
-            description="Multiplicity",
-            disabled=True,
-            value=1,
-        )
-
-        self.charge = ipw.IntText(
-            description="Charge",
-            disabled=False,
-            value=0,
-        )
-
-        self.nstates = ipw.BoundedIntText(
-            description="Nstate",
-            tooltip="Number of excited states",
-            disabled=False,
-            value=3,
-            min=1,
-            max=50,
-        )
-
-        super().__init__(
-            children=[
-                self.structure_title,
-                self.structure_help,
-                self.geo_opt_type,
-                self.electronic_structure_title,
-                self.charge,
-                self.spin_mult,
-                self.nstates,
-            ],
-            **kwargs,
-        )
-
-
 class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
     def __init__(self, **kwargs):
-        self.workchain_settings = WorkChainSettings()
+        self.molecule_settings = MoleculeSettings()
+        self.molecule_settings.multiplicity.disabled = True
+
+        self.geometry_settings = MolecularGeometrySettings()
+        self.geometry_settings.geo_opt_type.observe(self._observe_geo_opt_type, "value")
+
+        self.ground_state_settings = GroundStateSettings()
+        self.ground_state_settings.method.observe(self._observe_gs_method, "value")
+        self.ground_state_settings.method.continuous_update = False
+        self.ground_state_settings.basis.continuous_update = False
+
+        self.excited_state_settings = ExcitedStateSettings()
+        self.wigner_settings = WignerSamplingSettings()
+
         self.codes_selector = CodeSettings()
         self.resources_config = ResourceSelectionWidget()
-        self.qm_config = QMSelectionWidget()
 
         self.codes_selector.orca.observe(self._update_state, "value")
 
-        self.tab = ipw.Tab(
-            children=[
-                self.workchain_settings,
-            ],
-            layout=ipw.Layout(min_height="250px"),
-        )
+        flex_layout = ipw.Layout(justify_content="space-between")
 
-        self.tab.set_title(0, "Workflow")
-        self.tab.set_title(1, "Advanced settings")
-        self.tab.set_title(2, "Codes & Resources")
-        self.tab.children = [
-            self.workchain_settings,
-            self.qm_config,
-            ipw.VBox(children=[self.codes_selector, self.resources_config]),
+        components = [
+            ipw.HBox(
+                [
+                    ipw.VBox(
+                        [self.geometry_settings, self.molecule_settings],
+                        layout=flex_layout,
+                    ),
+                    ipw.VBox([self.ground_state_settings, self.excited_state_settings]),
+                    self.wigner_settings,
+                ],
+                layout=flex_layout,
+            ),
+            ipw.HTML("<hr>"),
+            ipw.HBox(children=[self.codes_selector, self.resources_config]),
         ]
 
         self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
 
-        super().__init__(components=[self.tab])
+        super().__init__(components=components)
 
     # TODO: More validations (molecule size etc)
+    # TODO: Prevent submission if solvent is selected with EOM-CCSD or ADC2
     # TODO: display an error message when there is an issue.
     # See how "submission blockers" are handled in QeApp
     def _validate_input_parameters(self) -> bool:
@@ -162,46 +113,54 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             return False
         return True
 
+    def _observe_geo_opt_type(self, change):
+        # If we don't optimize the molecule, we cannot do Wigner sampling
+        if change["new"] == "OPT":
+            self.wigner_settings.disabled = False
+        else:
+            self.wigner_settings.disabled = True
+
+    def _observe_gs_method(self, change):
+        """Update TDDFT functional if ground state functional is changed"""
+        gs_method = change["new"]
+        if gs_method is not None and gs_method.lower() not in ("ri-mp2", "mp2"):
+            self.excited_state_settings.tddft_functional.value = gs_method
+
     def _update_ui_from_parameters(self, parameters: AtmospecParameters) -> None:
         """Update UI widgets according to builder parameters.
 
         This function is called when we load an already finished workflow,
         and we want the input widgets to be updated accordingly
         """
-        # self.molecule_settings.charge.value = parameters.charge
-        # self.molecule_settings.multiplicity.value = parameters.multiplicity
-        # self.molecule_settings.solvent.value = parameters.solvent
-        # self.ground_state_settings.method.value = parameters.method
-        # self.ground_state_settings.basis.value = parameters.basis
-        self.workchain_settings.spin_mult.value = parameters.multiplicity
-        self.workchain_settings.charge.value = parameters.charge
-        self.workchain_settings.nstates.value = parameters.nstates
-        self.qm_config.excited_method.value = parameters.excited_method
-        self.qm_config.method.value = parameters.method
-        self.qm_config.basis.value = parameters.basis
-        self.qm_config.solvent.value = parameters.solvent
-        self.qm_config.nwigner.value = parameters.nwigner
-        self.qm_config.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
-        self.workchain_settings.geo_opt_type.value = parameters.geo_opt_type
+        self.geometry_settings.geo_opt_type.value = parameters.geo_opt_type
+        self.molecule_settings.charge.value = parameters.charge
+        self.molecule_settings.multiplicity.value = parameters.multiplicity
+        self.molecule_settings.solvent.value = parameters.solvent
+        self.ground_state_settings.method.value = parameters.method
+        self.ground_state_settings.basis.value = parameters.basis
+        self.excited_state_settings.nstates.value = parameters.nstates
+        self.excited_state_settings.excited_method.value = parameters.excited_method
+        # self.excited_state_settings.tddft_functional.value = parameters.tddft_functional
+        # self.excited_state_settings.basis.value = parameters.excited_state_basis
+        self.wigner_settings.nwigner.value = parameters.nwigner
+        self.wigner_settings.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
 
     def _get_parameters_from_ui(self) -> AtmospecParameters:
         """Prepare builder parameters from the UI input widgets"""
         return AtmospecParameters(
-            # charge=self.molecule_settings.charge.value,
-            # multiplicity=self.molecule_settings.multiplicity.value,
-            # solvent=self.molecule_settings.solvent.value,
-            # method=self.ground_state_settings.method.value,
-            # basis=self.ground_state_settings.basis.value,
-            charge=self.workchain_settings.charge.value,
-            multiplicity=self.workchain_settings.spin_mult.value,
-            geo_opt_type=self.workchain_settings.geo_opt_type.value,
-            solvent=self.qm_config.solvent.value,
-            method=self.qm_config.method.value,
-            basis=self.qm_config.basis.value,
-            nstates=self.workchain_settings.nstates.value,
-            excited_method=self.qm_config.excited_method.value,
-            nwigner=self.qm_config.nwigner.value,
-            wigner_low_freq_thr=self.qm_config.wigner_low_freq_thr.value,
+            geo_opt_type=self.geometry_settings.geo_opt_type.value,
+            charge=self.molecule_settings.charge.value,
+            multiplicity=self.molecule_settings.multiplicity.value,
+            solvent=self.molecule_settings.solvent.value,
+            method=self.ground_state_settings.method.value,
+            basis=self.ground_state_settings.basis.value,
+            # TODO
+            # method=self.excited_state_settings.dft_functional.value,
+            # basis=self.excited_state_settings.basis.value,
+            excited_method=self.excited_state_settings.excited_method.value,
+            nstates=self.excited_state_settings.nstates.value,
+            nwigner=self.wigner_settings.nwigner.value,
+            wigner_low_freq_thr=self.wigner_settings.wigner_low_freq_thr.value,
         )
 
     @traitlets.observe("process")
