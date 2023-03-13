@@ -406,10 +406,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                     bp["solvent"] if bp.get("solvent") != "None" else "the gas phase"
                 )
             # TODO: Compatibility hack
-            es_method = bp.get("excited_method", "TDA-TDDFT")
+            es_method = bp.get("excited_method", "TDA/TDDFT")
+            tddft_functional = bp.get("tddft_functional", bp.get("method", ""))
+            method_string = f"{es_method}"
+            if "TDDFT" in es_method:
+                method_string = f"{es_method}/{tddft_functional}"
+            es_basis = bp.get("es_basis", bp.get("basis", ""))
             self.header.value = (
                 f"<h4>UV/vis spectrum of {formula} "
-                f"at {es_method}/{bp['method']}/{bp['basis']} level "
+                f"at {method_string}/{es_basis} level "
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )

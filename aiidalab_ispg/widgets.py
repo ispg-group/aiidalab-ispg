@@ -453,3 +453,35 @@ class Spinner(ipw.HTML):
             )
         else:
             self.value = ""
+
+
+class HeaderWarning(ipw.HTML):
+    """Class to display a warning in the header."""
+
+    def __init__(self, dismissible=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dismissible = dismissible
+        self.layout = ipw.Layout(
+            display="none",
+            width="600px",
+            height="auto",
+            margin="0px 0px 0px 0px",
+            padding="0px 0px 0px 0px",
+        )
+
+    def show(self, message):
+        """Show the warning."""
+        if self.dismissible:
+            alert_classes = "alert alert-danger alert-dismissible"
+            dismiss = """<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>"""
+        else:
+            alert_classes = "alert alert-danger"
+            dismiss = ""
+        self.value = (
+            f"""<div class="alert alert-danger" role="alert">{dismiss}{message}</div>"""
+        )
+        self.layout.display = "block"
+
+    def hide(self):
+        """Hide the warning."""
+        self.layout.display = "none"

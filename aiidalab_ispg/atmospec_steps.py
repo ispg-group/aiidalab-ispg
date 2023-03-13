@@ -24,7 +24,7 @@ from .input_widgets import (
 )
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
-from .widgets import spinner
+from .widgets import HeaderWarning, spinner
 from .utils import MEMORY_PER_CPU
 
 try:
@@ -65,6 +65,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
     def __init__(self, **kwargs):
+        self.header_warning = HeaderWarning(dismissible=True)
+
         self.molecule_settings = MoleculeSettings()
         self.molecule_settings.multiplicity.disabled = True
 
@@ -107,6 +109,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         super().__init__(
             components=[
+                self.header_warning,
                 ipw.GridBox(children=settings, layout=grid_layout),
                 ipw.HTML("<hr>"),
                 ipw.HBox([self.codes_selector, self.resources_settings]),
@@ -173,6 +176,15 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.wigner_settings.nwigner.value = parameters.nwigner
         self.wigner_settings.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
 
+        # Infer the value of the gs_sync checkbox
+        if (
+            parameters.method == parameters.tddft_functional
+            and parameters.basis == parameters.es_basis
+        ):
+            self.excited_state_settings.ground_state_sync.value = True
+        else:
+            self.excited_state_settings.ground_state_sync.value = False
+
     def _get_parameters_from_ui(self) -> AtmospecParameters:
         """Prepare builder parameters from the UI input widgets"""
         return AtmospecParameters(
@@ -194,6 +206,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _observe_process(self, change):
         with self.hold_trait_notifications():
             process = change["new"]
+            self.header_warning.hide()
             if process is not None:
                 self.input_structure = process.inputs.structure
                 try:
@@ -203,9 +216,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                     )
                     self._update_ui_from_parameters(AtmospecParameters(**parameters))
                 except (AttributeError, KeyError, TypeError):
-                    # extras do not exist or are incompatible, ignore this problem
-                    # TODO: Maybe display warning?
-                    pass
+                    # extras do not exist or are incompatible, let's reset to default values
+                    self.header_warning.show(
+                        f"WARNING: Workflow parameters could not be loaded from process pk: {process.pk}"
+                    )
+                    self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
             self._update_state()
 
     # TODO: Need to implement logic for handling more CPUs
@@ -370,6 +385,12 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         ].value
         process.base.extras.set("builder_parameters", builder_parameters)
         self.process = process
+
+    def reset(self):
+        # NOTE: We purposefully do not reset the workchain settings back to default,
+        # in case one wants to submit a series of same workflows for different molecules.
+        self.header_warning.hide()
+        super().reset()
 
 
 # TODO: Disambiguate between optimizing conformers,
