@@ -26,8 +26,6 @@ MIT
 
 This project has been funded by European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 803718, [project SINDAM](https://cordis.europa.eu/project/id/803718)).
 
-![ERC logo](https://cordis.europa.eu/assets/img/projects/icons/logo-erc.jpg)
-
 ## Local installation
 
 NOTE: The details of some of the commands will depend on your
