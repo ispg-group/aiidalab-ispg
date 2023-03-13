@@ -18,8 +18,13 @@ from aiidalab_widgets_base import (
     ProcessNodesTreeWidget,
 )
 
-from .input_widgets import CodeSettings, MoleculeSettings, GroundStateSettings
-from .widgets import ResourceSelectionWidget, TrajectoryDataViewer, spinner
+from .input_widgets import (
+    ResourceSelectionWidget,
+    CodeSettings,
+    MoleculeSettings,
+    GroundStateSettings,
+)
+from .widgets import TrajectoryDataViewer, spinner
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .utils import MEMORY_PER_CPU
 
@@ -58,22 +63,23 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
         # We need to observe each widget for which the validation could fail.
         self.code_settings.orca.observe(self._update_state, "value")
-        components = [
-            ipw.HBox(
-                [
-                    self.molecule_settings,
-                    self.ground_state_settings,
-                ]
+
+        grid = ipw.GridBox(
+            [
+                self.molecule_settings,
+                self.ground_state_settings,
+                self.code_settings,
+                self.resources_settings,
+            ],
+            layout=ipw.Layout(
+                width="100%",
+                grid_gap="0% 5%",
+                grid_template_rows="auto auto",
+                grid_template_columns="47% 47%",
             ),
-            ipw.HBox(
-                [
-                    self.code_settings,
-                    self.resources_settings,
-                ]
-            ),
-        ]
+        )
         self._update_ui_from_parameters(DEFAULT_OPTIMIZATION_PARAMETERS)
-        super().__init__(components=components)
+        super().__init__(components=[grid])
 
     # TODO: More validations (molecule size etc)
     # TODO: display an error message when there is an issue.

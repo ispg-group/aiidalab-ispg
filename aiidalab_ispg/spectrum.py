@@ -255,7 +255,7 @@ class SpectrumWidget(ipw.VBox):
         )
         self.conformer_toggle.observe(self._handle_conformer_toggle, names="value")
 
-        self.debug_output = ipw.Output()
+        self.debug_output = ipw.HTML()
 
         # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
         figure_size = {
@@ -381,7 +381,7 @@ class SpectrumWidget(ipw.VBox):
             if not isinstance(tr, dict) or (
                 "energy" not in tr or "osc_strength" not in tr
             ):
-                self.debug_print("Invalid transition", tr)
+                self.debug_print("ERROR: Invalid transition", tr)
                 return False
         return True
 
@@ -520,8 +520,7 @@ class SpectrumWidget(ipw.VBox):
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
-        with self.debug_output:
-            print(*args)
+        self.debug_output.value = "<br>".join(*args)
 
     def plot_sticks(self, x, y, label: str, **args):
         """Plot stick spectrum"""
@@ -633,7 +632,7 @@ class SpectrumWidget(ipw.VBox):
 
         self.disabled = True
         self.figure.clean()
-        self.debug_output.clear_output()
+        self.debug_output.value = ""
 
     @traitlets.validate("conformer_transitions")
     def _validate_conformers(self, change):
