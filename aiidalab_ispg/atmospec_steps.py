@@ -38,6 +38,8 @@ class AtmospecParameters(OptimizationParameters):
     geo_opt_type: str
     excited_method: ExcitedStateMethod
     nstates: int
+    es_basis: str
+    tddft_functional: str
     nwigner: int
     wigner_low_freq_thr: float
 
@@ -52,6 +54,8 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     geo_opt_type="OPT",
     excited_method=ExcitedStateMethod.TDA,
     nstates=3,
+    es_basis="def2-SVP",
+    tddft_functional="wB97X-D4",
     nwigner=1,
     wigner_low_freq_thr=100.0,
 )
@@ -164,8 +168,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.ground_state_settings.basis.value = parameters.basis
         self.excited_state_settings.nstates.value = parameters.nstates
         self.excited_state_settings.excited_method.value = parameters.excited_method
-        # self.excited_state_settings.tddft_functional.value = parameters.tddft_functional
-        # self.excited_state_settings.basis.value = parameters.excited_state_basis
+        self.excited_state_settings.tddft_functional.value = parameters.tddft_functional
+        self.excited_state_settings.basis.value = parameters.es_basis
         self.wigner_settings.nwigner.value = parameters.nwigner
         self.wigner_settings.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
 
@@ -178,9 +182,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             solvent=self.molecule_settings.solvent.value,
             method=self.ground_state_settings.method.value,
             basis=self.ground_state_settings.basis.value,
-            # TODO
-            # method=self.excited_state_settings.dft_functional.value,
-            # basis=self.excited_state_settings.basis.value,
+            tddft_functional=self.excited_state_settings.tddft_functional.value,
+            es_basis=self.excited_state_settings.basis.value,
             excited_method=self.excited_state_settings.excited_method.value,
             nstates=self.excited_state_settings.nstates.value,
             nwigner=self.wigner_settings.nwigner.value,
@@ -226,7 +229,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         # equilibrium solvation for ground state optimization,
         # and non-equilibrium solvation for single point excited state calculations.
         # This should be the default, but it would be better to be explicit.
-        input_keywords = [params.basis]
+        input_keywords = []
         if params.solvent != "None":
             input_keywords.append(f"CPCM({params.solvent})")
         return {
@@ -241,6 +244,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _add_mdci_orca_params(self, orca_parameters, basis, mdci_method, nroots):
         mdci_params = deepcopy(orca_parameters)
         mdci_params["input_keywords"].append(mdci_method.value)
+        mdci_params["input_keywords"].append(basis)
         if mdci_method == ExcitedStateMethod.ADC2:
             # Basis for RI approximation, this will not work for all basis sets
             mdci_params["input_keywords"].append(f"{basis}/C")
@@ -257,10 +261,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         return mdci_params
 
     def _add_tddft_orca_params(
-        self, base_orca_parameters, es_method, functional, nroots
+        self, base_orca_parameters, basis, es_method, functional, nroots
     ):
         tddft_params = deepcopy(base_orca_parameters)
         tddft_params["input_keywords"].append(functional)
+        tddft_params["input_keywords"].append(basis)
         tddft_params["input_blocks"]["tddft"] = {
             "nroots": nroots,
             "maxcore": MEMORY_PER_CPU,
@@ -272,6 +277,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _add_optimization_orca_params(self, base_orca_parameters, basis, gs_method):
         opt_params = deepcopy(base_orca_parameters)
         opt_params["input_keywords"].append(gs_method)
+        opt_params["input_keywords"].append(basis)
         opt_params["input_keywords"].append("TightOpt")
         opt_params["input_keywords"].append("AnFreq")
         # For MP2, analytical frequencies are only available without Frozen Core
@@ -301,7 +307,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             es_parameters = self._add_tddft_orca_params(
                 base_orca_parameters,
                 es_method=bp.excited_method,
-                functional=bp.method,
+                basis=bp.es_basis,
+                functional=bp.tddft_functional,
                 nroots=bp.nstates,
             )
         elif bp.excited_method in (
@@ -310,7 +317,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         ):
             es_parameters = self._add_mdci_orca_params(
                 base_orca_parameters,
-                basis=bp.basis,
+                basis=bp.es_basis,
                 mdci_method=bp.excited_method,
                 nroots=bp.nstates,
             )
