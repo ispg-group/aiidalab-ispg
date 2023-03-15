@@ -1,0 +1,20 @@
+---
+molecule: glycolaldehyde 
+smiles: "O=CCO"
+source_file: glycolaldehyde.txt
+metadata:
+  description': 'Geoffrey S. Tyndall, Laboratory Kinetics Project'
+  license': '?'
+  publication:
+    authors:
+      - "Bacher, C."
+      - "Tyndall, G.S."
+      - "Orlando, J.J."
+    title: "The Atmospheric Chemistry of Glycolaldehyde"
+    journal:  "J. Atmos. Chem." 
+    issue: "39"
+    pages: "171-189"
+    year: "2001"
+    doi: "10.1023/A:1010689706869"
+  source:
+    db_name: 'Andrews data'
