@@ -176,7 +176,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         )
         inputs.orca.code = self.inputs.code
 
-        if self.inputs.optimize:
+        if self.inputs.optimize.value:
             self.report("Calculating spectrum for optimized geometry")
             inputs.orca.structure = self.ctx.calc_opt.outputs.relaxed_structure
 
@@ -200,7 +200,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
         n_low_freq_vibs = 0
         for freq in self.ctx.calc_opt.outputs.output_parameters["vibfreqs"]:
-            if freq < self.inputs.wigner_low_freq_thr:
+            if freq < self.inputs.wigner_low_freq_thr.value:
                 n_low_freq_vibs += 1
         if n_low_freq_vibs > 0:
             self.report(
@@ -270,7 +270,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         return self.inputs.optimize.value
 
     def should_run_wigner(self):
-        return self.should_optimize() and self.inputs.nwigner > 0
+        return self.should_optimize() and self.inputs.nwigner.value > 0
 
     def results(self):
         """Expose results from child workchains"""
@@ -361,7 +361,7 @@ class AtmospecWorkChain(WorkChain):
 
         # Combine all spectra data
         # NOTE: This if duplicates the logic of OrcaWignerSpectrumWorkChain.should_run_wigner()
-        if self.inputs.optimize and self.inputs.nwigner > 0:
+        if self.inputs.optimize.value and self.inputs.nwigner.value > 0:
             data = {
                 str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)
             }
@@ -377,7 +377,7 @@ class AtmospecWorkChain(WorkChain):
         # Combine all optimized geometries into single TrajectoryData
         # TODO: Include energies in TrajectoryData for optimized structures
         # TODO: Calculate Boltzmann weights and append them to TrajectoryData
-        if self.inputs.optimize:
+        if self.inputs.optimize.value:
             relaxed_structures = {
                 f"struct_{i}": wc.outputs.relaxed_structure
                 for i, wc in enumerate(self.ctx.confs)
