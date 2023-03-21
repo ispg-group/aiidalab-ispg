@@ -72,6 +72,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.disabled = True
             self.density_tab.reset()
+            self.photolysis_tab.reset()
 
 
 class DensityPlotWidget(ipw.VBox):
@@ -304,6 +305,17 @@ class PhotolysisPlotWidget(ipw.VBox):
     def _get_data(self):
         from .spectrum import Spectrum, EnergyUnit, BroadeningKernel
 
+        # Determine spectrum energy range based on all excitation energies
+        all_exc_energies = np.array(
+            [
+                transitions["energy"]
+                for conformer in self.conformer_transitions
+                for transitions in conformer["transitions"]
+            ]
+        )
+
+        x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
         for conf_id, conformer in enumerate(self.conformer_transitions):
@@ -314,8 +326,9 @@ class PhotolysisPlotWidget(ipw.VBox):
             #             x = np.linspace(x_min, x_max, num=self.N_SAMPLE_POINTS)
             #             y = np.zeros(len(x))
             x, y, xs, ys = spec.get_spectrum(
-                BroadeningKernel.GAUSS, 0.05, EnergyUnit.NM, x_min=None, x_max=None
+                BroadeningKernel.GAUSS, 0.05, EnergyUnit.NM, x_min=x_min, x_max=x_max
             )
+
             y *= conformer["weight"]
             total_cross_section += y
 
