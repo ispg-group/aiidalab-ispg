@@ -132,7 +132,7 @@ class Spectrum:
         x = np.linspace(x_min, x_max, num=self.N_SAMPLE_POINTS)
         y = np.zeros(len(x))
 
-        if kernel is BroadeningKernel.GAUSS:
+        if kernel is BroadeningKernel.GAUSS or kernel == BroadeningKernel.GAUSS:
             self._calc_gauss_spectrum(x, y, width)
         elif kernel is BroadeningKernel.LORENTZ:
             self._calc_lorentzian_spectrum(x, y, width)
@@ -140,7 +140,7 @@ class Spectrum:
             raise ValueError(f"Invalid broadening kernel {kernel}")
 
         # Conversion factor from eV to given energy unit
-        if x_unit == EnergyUnit.NM:
+        if x_unit is EnergyUnit.NM or x_unit == EnergyUnit.NM:
             x, y = self._convert_to_nanometers(x, y)
             x_stick = self.get_energy_unit_factor(x_unit) / self.excitation_energies
         else:
@@ -485,6 +485,7 @@ class SpectrumWidget(ipw.VBox):
                 for transitions in conformer["transitions"]
             ]
         )
+
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
         x_stick = []
