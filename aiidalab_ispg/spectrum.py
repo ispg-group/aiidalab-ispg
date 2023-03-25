@@ -499,8 +499,6 @@ class SpectrumWidget(ipw.VBox):
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
 
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
-        if energy_unit is not EnergyUnit.NM or energy_unit != EnergyUnit.NM:
-            total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
         x_stick = []
         y_stick = []
@@ -511,16 +509,6 @@ class SpectrumWidget(ipw.VBox):
             x, y, xs, ys = spec.get_spectrum(
                 kernel, width, energy_unit, x_min=x_min, x_max=x_max
             )
-            if energy_unit is not EnergyUnit.NM or energy_unit != EnergyUnit.NM:
-                # convert to nm
-                x_unit = EnergyUnit.NM
-                # print(x_unit)
-                spec_nm = Spectrum(conformer["transitions"], conformer["nsample"])
-                x_nm, y_nm, xs_nm, ys_nm = spec.get_spectrum(
-                    kernel, width, x_unit=x_unit, x_min=x_min, x_max=x_max
-                )
-                y_nm *= conformer["weight"]
-                total_cross_section_nm += y
 
             y *= conformer["weight"]
             total_cross_section += y
@@ -533,13 +521,21 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
-        # print(x,total_cross_section)
-        if energy_unit == EnergyUnit.NM:
-            print("x")
-            self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
-        else:
-            print("x_nm")
-            print(x_unit)
+        self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
+
+        # Energy unit not nm needs converting for spectrum analysis
+        if energy_unit != EnergyUnit.NM:
+            total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
+
+            for conf_id, conformer in enumerate(self.conformer_transitions):
+                spec = Spectrum(conformer["transitions"], conformer["nsample"])
+                x_nm, y_nm, xs_nm, ys_nm = spec.get_spectrum(
+                    kernel, width, EnergyUnit.NM, x_min=x_min, x_max=x_max
+                )
+
+                y_nm *= conformer["weight"]
+                total_cross_section_nm += y_nm
+
             self.spectrum_data = [x_nm.tolist(), total_cross_section_nm.tolist()]
 
         # Plot total spectrum

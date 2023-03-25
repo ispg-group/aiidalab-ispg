@@ -328,6 +328,7 @@ class PhotolysisPlotWidget(ipw.VBox):
     @traitlets.observe("spectrum_data")
     def _observe_conformer_transitions(self, change):
         self.disabled = True
+        print(self.spectrum_data)
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
