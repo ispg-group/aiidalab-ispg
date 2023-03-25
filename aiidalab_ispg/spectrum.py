@@ -521,8 +521,6 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
-        self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
-
         # Energy unit not nm needs converting for spectrum analysis
         if energy_unit != EnergyUnit.NM:
             total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
@@ -537,6 +535,8 @@ class SpectrumWidget(ipw.VBox):
                 total_cross_section_nm += y_nm
 
             self.spectrum_data = [x_nm.tolist(), total_cross_section_nm.tolist()]
+        else:
+            self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
 
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
