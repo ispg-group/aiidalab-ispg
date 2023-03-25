@@ -9,14 +9,13 @@ from enum import Enum, unique
 
 import bokeh.plotting as plt
 import bokeh.palettes
-from bokeh.models import ColumnDataSource, Scatter
+from bokeh.models import ColumnDataSource, Scatter, Range1d
 
 import ipywidgets as ipw
 import traitlets
 import scipy
 from scipy import constants
 import numpy as np
-
 
 from .utils import BokehFigureContext
 
@@ -36,6 +35,9 @@ class SpectrumAnalysisWidget(ipw.VBox):
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
+
+    spectrum_data = traitlets.List(trait=traitlets.List, allow_none=True, default=None)
+
     disabled = traitlets.Bool(default=True)
 
     def __init__(self):
@@ -50,7 +52,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
             (self, "disabled"),
             (self.density_tab, "disabled"),
         )
-
+        ###########################################################################################################
         self.photolysis_tab = PhotolysisPlotWidget()
         ipw.dlink(
             (self, "conformer_transitions"),
@@ -60,7 +62,11 @@ class SpectrumAnalysisWidget(ipw.VBox):
             (self, "disabled"),
             (self.photolysis_tab, "disabled"),
         )
-
+        ipw.dlink(
+            (self, "spectrum_data"),
+            (self.photolysis_tab, "spectrum_data"),
+        )
+        ###########################################################################################################
         tab_components = [self.photolysis_tab, self.density_tab]
 
         tab = ipw.Tab(children=tab_components)
@@ -99,7 +105,7 @@ class DensityPlotWidget(ipw.VBox):
         self.density_toggle.observe(self._observe_density_toggle, names="value")
 
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
-        bokeh_tools = "pan,wheel_zoom,box_zoom,reset,save"
+        bokeh_tools = "save"
         figure_size = {
             "sizing_mode": "stretch_width",
             "height": 400,
@@ -167,8 +173,9 @@ class DensityPlotWidget(ipw.VBox):
         f = self.figure.get_figure()
         f.x_range.range_padding = f.y_range.range_padding = 0.1
         f.circle(
-            energies, osc_strengths, name=self._BOKEH_LABEL, fill_color="black", size=5
-        )
+            energies, osc_strengths, name=self._BOKEH_LABEL
+        )  # fill_color="black", size=5
+
         self.figure.update()
 
     def plot_density(self, energies, osc_strengths):
@@ -236,27 +243,32 @@ class DensityPlotWidget(ipw.VBox):
             self.density_toggle.disabled = False
 
 
+# **********************************************************************
+"""A widget providing anaylsis of the main spectrum. Namely, the 
+differential photolysis rate of the molecule is calculated and plotted.
+The intensity of actinic flux can be selected by the user - either High,
+Medium, or low. The quantum yield can be altered by the user moving a 
+slider. The photolysis rate constant will also be displayed"""
+# **********************************************************************
 class PhotolysisPlotWidget(ipw.VBox):
-
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
     )
 
     disabled = traitlets.Bool(default=True)
 
+    spectrum_data = traitlets.List(trait=traitlets.List, allow_none=True, default=None)
+
     _data = None
 
+    # **********************************************************************
     def __init__(self):
-
         self.flux_toggle = ipw.ToggleButtons(
-            options=[
-                ("Low flux", "LOW"),
-                ("Med flux", "MED"),
-                ("High flux", "HIGH"),
-            ],
+            options=[("Low flux", "LOW"), ("Med flux", "MED"), ("High flux", "HIGH")],
             value="HIGH",
         )
-        self.flux_toggle.observe(self._handle_flux_toggle, names="value")
+
+        self.flux_toggle.observe(self._observe_flux_toggle, names="value")
 
         self.yield_slider = ipw.FloatSlider(
             min=0.01,
@@ -265,16 +277,28 @@ class PhotolysisPlotWidget(ipw.VBox):
             value=1,
             description="Quantum yield",
             continuous_update=True,
+            disabled=False,
+        )
+        self.yield_slider.observe(self.handle_slider_change, names="value")
+
+        self.flux_data = self.read_in_actinic()
+        self.xsection = self.read_in_cross_section()
+        # self.interpolated_xsection = self.prepare_for_plot()
+
+        self.number = ipw.HTML(
+            description=r"$$Photolysis rate constant (s^{-1})$$ =",
+            style={"description_width": "initial"},
             disabled=True,
         )
-        self.yield_slider.observe(self._handle_yield_update, names="value")
 
-        self.output = ipw.Output()
+        #         self.out = widgets.Output(
+        #             layout={'border': '1px solid black'},
+        #             description = r"$$Photolysis rate constant (s^{-1})$$ =",
+        #             style={'description_width': 'initial'})
 
-        # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
         bokeh_tools = "pan,wheel_zoom,box_zoom,reset,save"
         figure_size = {
-            "sizing_mode": "stretch_width",
+            "sizing_mode": "stretch_height",
             "height": 400,
             "max_width": 400,
         }
@@ -282,139 +306,78 @@ class PhotolysisPlotWidget(ipw.VBox):
         self.figure.layout = ipw.Layout(overflow="initial")
 
         super().__init__(
-            children=[self.yield_slider, self.flux_toggle, self.figure, self.output]
+            children=[self.flux_toggle, self.yield_slider, self.number, self.figure]
         )
+        layout = ipw.Layout(justify_content="flex-start")
 
+    # **********************************************************************
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = f"Excitation Energy (nm)"
-        f.yaxis.axis_label = f"Oscillator strength (-)"
+        f.xaxis.axis_label = f"λ (nm)"
+        f.yaxis.axis_label = r"$$j (s^{-1} nm^{-1})$$"
+        f.x_range = Range1d(280, 400)
+
         return figure
 
-    def _handle_flux_toggle(self, change):
-        """Redraw spectra when user changes flux via toggle"""
-        self._plot_j_values(flux=change["new"], q_yield=self.yield_slider.value)
+    # **********************************************************************
 
-    def _handle_yield_update(self, change):
-        """Redraw spectra when user changes yield via slider"""
-        self._plot_j_values(flux=self.flux_toggle.value, q_yield=change["new"])
-
-    #     @traitlets.observe("conformer_transitions")
-    def _get_data(self):
-        from .spectrum import Spectrum, EnergyUnit, BroadeningKernel
-
-        # Determine spectrum energy range based on all excitation energies
-        all_exc_energies = np.array(
-            [
-                transitions["energy"]
-                for conformer in self.conformer_transitions
-                for transitions in conformer["transitions"]
-            ]
-        )
-
-        x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
-
-        total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
-
-        for conf_id, conformer in enumerate(self.conformer_transitions):
-            spec = Spectrum(conformer["transitions"], conformer["nsample"])
-            #             x_min = 250
-            #             x_max = 500
-            #             width = 0.05
-            #             x = np.linspace(x_min, x_max, num=self.N_SAMPLE_POINTS)
-            #             y = np.zeros(len(x))
-            x, y, xs, ys = spec.get_spectrum(
-                BroadeningKernel.GAUSS, 0.05, EnergyUnit.NM, x_min=x_min, x_max=x_max
-            )
-
-            y *= conformer["weight"]
-            total_cross_section += y
-
-        # Plot total spectrum
-        self.plot_line(x, total_cross_section, "theory", line_width=2)
-
-    def _get_j_values(self):
-        self._get_data()
-        # j calculation
-
-    @traitlets.observe("conformer_transitions")
+    # **********************************************************************
+    # @traitlets.observe("conformer_transitions")
+    @traitlets.observe("spectrum_data")
     def _observe_conformer_transitions(self, change):
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
-
-        ## Here is a good place to add the comparison for flux?
-        # Then call update j plot with flux_type
-        self._update_j_plot(self.flux_toggle.value, self.yield_slider.value)
+        self._update_density_plot2(
+            plot_type=self.flux_toggle.value, quantumY=self.yield_slider.value
+        )
         self.disabled = False
 
-    def _update_j_plot(self, flux_type: str, yield_value: float):
+    def _observe_flux_toggle(self, change):
+        """Redraw spectra when user changes flux via toggle"""
+        self._update_density_plot2(
+            plot_type=change.new, quantumY=self.yield_slider.value
+        )
+
+    def handle_slider_change(self, change):
+        self._update_density_plot2(
+            plot_type=self.flux_toggle.value, quantumY=change.new
+        )
+
+    # **********************************************************************
+    def _update_density_plot2(self, plot_type: str, quantumY):
         if self.conformer_transitions is None:
             return
+        if plot_type == "LOW":
+            j_values = self.calculation(1, quantum_yield=quantumY)
+            wavelengths = self.flux_data[2]
+            self.plot_line(wavelengths, j_values, label="label")
+        elif plot_type == "MED":
+            j_values = self.calculation(2, quantum_yield=quantumY)
+            wavelengths = self.flux_data[2]
+            self.plot_line(wavelengths, j_values, label="label")
+        elif plot_type == "HIGH":
+            j_values = self.calculation(3, quantum_yield=quantumY)
+            wavelengths = self.flux_data[2]
+            self.plot_line(wavelengths, j_values, label="label")
         else:
-            self._plot_j_values(self.flux_toggle.value, self.yield_slider.value)
+            raise ValueError(f"Unexpected value for toggle: {plot_type}")
 
-    def _plot_j_values(self, flux, q_yield):
-        # Determine plot range
-        self._get_j_values()
-        # plot_line()
+        self.number.value = f"{np.round(np.trapz(j_values, dx=1),13)}"
+        return j_values, wavelengths
 
-    def _plot_flux(self):
-        pass
+    # **********************************************************************
 
-    # plot_line(), hide_line() and remove_line() are public
-    # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label, update=True, **args):
-        """Update existing plot line or create a new one.
-        Updating existing plot lines unfortunately only work for label=theory
-        and label=experiment, that are predefined in _init_figure()
-        To modify a custom line, first remove it by calling remove_line(label)
-
-        **args additional arguments are passed into Figure.line()"""
-        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
-            # line.data_source.data = {"x": x, "y": y}
-            self.remove_line(label)
-        f.line(x, y, name=label, **args)
-        if update:
-            self.figure.update()
-
-    def hide_line(self, label: str, update=True):
-        """Hide given line from the plot"""
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None or not line.visible:
-            return
-        line.visible = False
-        if update:
-            self.figure.update()
-
-    def remove_line(self, label: str, update=True):
-        # This approach is potentially britle, see:
-        # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
-        # Observation: Removing and adding lines via
-        # plot_line() and remove_line() works well. However, doing
-        # updates on existing lines only works for lines defined in _init_figure()
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None:
-            return
-        f.renderers.remove(line)
-        if update:
-            self.figure.update()
-
+    # **********************************************************************
     def reset(self):
         with self.hold_trait_notifications():
             self.disabled = True
-            self._data = None
+            self._density = None
             self.figure.clean()
             self.flux_toggle.value = "HIGH"
-            self.yield_slider.value = 1
 
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):
@@ -425,3 +388,110 @@ class PhotolysisPlotWidget(ipw.VBox):
         else:
             self.flux_toggle.disabled = False
             self.yield_slider.disabled = False
+
+    # **********************************************************************
+
+    # **********************************************************************
+    # Here two csv files are read in and processed as per the work of the
+    # first few weeks of the project. This will need modifying slightly such
+    # that the cross sectional data is taken from spectrum.py instead of the
+    # tsv file. Ask Daniel about where actinic fluc data comes from, this is
+    # most likely from a csv as implemented below
+    # **********************************************************************
+    def read_in_actinic(self):
+        flux_file = "StandardActinicFluxes2.csv"
+        actinic = self.process(flux_file, ",")
+        return actinic
+
+    def read_in_cross_section(self):
+        xsection_file = "pinacolone_pbe0_6311pgs_n256_gauss0.05.nm.tsv"
+        xsection = self.process(xsection_file, "\t")
+        return xsection
+
+    #     def prepare_for_plot(self):
+    #         actinic = self.flux_data
+    #         xsection = self.xsection
+    #         mol_wlength = xsection[0]
+    #         mol_wlength = np.flip(mol_wlength)
+    #         mol_intensity = xsection[1]
+    #         mol_intensity = np.flip(mol_intensity)
+    #         masked_data = self.mask_data(mol_wlength, mol_intensity, 280, 749.5)
+    #         mol_wlength = masked_data[0]
+    #         mol_intensity = masked_data[1]
+    #         mol_intensity_interp = np.interp(actinic[2], mol_wlength, mol_intensity)
+    #         return mol_intensity_interp
+
+    def calculation(self, level, quantum_yield):
+        du = level + 2
+        interpolated_xsection = self.prepare_for_plot()
+        # j_vals = self.interpolated_xsection * self.flux_data[du] * quantum_yield
+        # j_vals = self._get_data() * self.flux_data[du] * quantum_yield
+        j_vals = self.prepare_for_plot() * self.flux_data[du] * quantum_yield
+        return j_vals
+
+    def prepare_for_plot(self):
+        actinic = self.flux_data
+        mol_wlength, xsection = self.spectrum_data
+        mol_wlength = np.flip(mol_wlength)
+        mol_intensity = xsection
+        mol_intensity = np.flip(mol_intensity)
+        wl_max = mol_wlength.max()
+        masked_data = self.mask_data(mol_wlength, mol_intensity, 280, np.floor(wl_max))
+        mol_wlength = masked_data[0]
+        mol_intensity = masked_data[1]
+        mol_intensity_interp = np.interp(actinic[2], mol_wlength, mol_intensity)
+        return mol_intensity_interp
+
+    def process(self, file, delimiter):
+        from csv import reader
+
+        with open(file) as csv_file:
+            csv_reader = reader(csv_file, delimiter=delimiter)
+            data = list(csv_reader)
+        data = np.asarray(data[1:]).transpose()
+        return data.astype(float)
+
+    def mask_data(self, array_wlength, array_intensities, minimum, maximum):
+        # print(array_wlength,array_intensities)
+        low_cutoff = np.where(np.asarray(array_wlength) > minimum)[0][0] - 1
+        array_wlength = array_wlength[low_cutoff:]
+        array_intensities = array_intensities[low_cutoff:]
+        high_cutoff = np.where(np.asarray(array_wlength) > maximum)[0][0]
+        array_wlength = array_wlength[:high_cutoff]
+        array_intensities = array_intensities[:high_cutoff]
+        return array_wlength, array_intensities
+
+    # **********************************************************************
+
+    # **********************************************************************
+    def plot_line(self, x, y, label, update=True, **args):
+        # plot_line function taken from spectrum.py
+        f = self.figure.get_figure()
+        line = f.select_one({"name": label})
+        if line is not None:
+            self.remove_line(label)
+        f.line(x, y, name=label, **args)
+        if update:
+            self.figure.update()
+
+    # **********************************************************************
+
+    # **********************************************************************
+    def remove_line(self, label: str, update=True):
+        f = self.figure.get_figure()
+        line = f.select_one({"name": label})
+        if line is None:
+            return
+        f.renderers.remove(line)
+        if update:
+            self.figure.update()
+
+    # **********************************************************************
+
+    def reset(self):
+        with self.hold_trait_notifications():
+            self.disabled = True
+            self.figure.clean()
+            self.flux_toggle.value = "HIGH"
+            self.yield_slider.value = 1
+            self.number.value = ""
