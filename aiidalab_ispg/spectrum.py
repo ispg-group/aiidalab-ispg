@@ -68,6 +68,7 @@ class Spectrum:
         self.osc_strengths = np.array(
             [tr["osc_strength"] for tr in transitions], dtype=float
         )
+
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
@@ -132,7 +133,7 @@ class Spectrum:
         x = np.linspace(x_min, x_max, num=self.N_SAMPLE_POINTS)
         y = np.zeros(len(x))
 
-        if kernel is BroadeningKernel.GAUSS or kernel == BroadeningKernel.GAUSS:
+        if kernel is BroadeningKernel.GAUSS:
             self._calc_gauss_spectrum(x, y, width)
         elif kernel is BroadeningKernel.LORENTZ:
             self._calc_lorentzian_spectrum(x, y, width)
@@ -140,7 +141,7 @@ class Spectrum:
             raise ValueError(f"Invalid broadening kernel {kernel}")
 
         # Conversion factor from eV to given energy unit
-        if x_unit is EnergyUnit.NM or x_unit == EnergyUnit.NM:
+        if x_unit is EnergyUnit.NM:
             x, y = self._convert_to_nanometers(x, y)
             x_stick = self.get_energy_unit_factor(x_unit) / self.excitation_energies
         else:
@@ -176,7 +177,10 @@ class SpectrumWidget(ipw.VBox):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
+
     selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
+
+    spectrum_data = traitlets.List(trait=traitlets.List, allow_none=True, default=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
@@ -295,6 +299,11 @@ class SpectrumWidget(ipw.VBox):
         ipw.dlink(
             (self, "conformer_transitions"),
             (self.analysis, "conformer_transitions"),
+        )
+
+        ipw.dlink(
+            (self, "spectrum_data"),
+            (self.analysis, "spectrum_data"),
         )
 
         super().__init__(
@@ -430,6 +439,7 @@ class SpectrumWidget(ipw.VBox):
         """Updates the spectra when user changes energy units"""
 
         energy_unit = change["new"]
+        # print(energy_unit)
         xlabel = f"Energy / {energy_unit.value}"
         self.figure.get_figure().xaxis.axis_label = xlabel
 
@@ -487,7 +497,9 @@ class SpectrumWidget(ipw.VBox):
         )
 
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
+
         x_stick = []
         y_stick = []
         # Iterate over conformers, the total spectrum is a sum of
@@ -497,6 +509,7 @@ class SpectrumWidget(ipw.VBox):
             x, y, xs, ys = spec.get_spectrum(
                 kernel, width, energy_unit, x_min=x_min, x_max=x_max
             )
+
             y *= conformer["weight"]
             total_cross_section += y
 
@@ -507,6 +520,23 @@ class SpectrumWidget(ipw.VBox):
             # Plot spectrum of an individual conformer
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
+
+        # Energy unit not nm needs converting for spectrum analysis
+        if energy_unit != EnergyUnit.NM:
+            total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
+
+            for conf_id, conformer in enumerate(self.conformer_transitions):
+                spec = Spectrum(conformer["transitions"], conformer["nsample"])
+                x_nm, y_nm, xs_nm, ys_nm = spec.get_spectrum(
+                    kernel, width, EnergyUnit.NM, x_min=x_min, x_max=x_max
+                )
+
+                y_nm *= conformer["weight"]
+                total_cross_section_nm += y_nm
+
+            self.spectrum_data = [x_nm.tolist(), total_cross_section_nm.tolist()]
+        else:
+            self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
 
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
