@@ -150,6 +150,3 @@ Re-install packages for development in the container
 aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/
 aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/workflows/
 ```
-
-Fay
-Kon

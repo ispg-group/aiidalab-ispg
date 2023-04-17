@@ -259,8 +259,6 @@ class PhotolysisPlotWidget(ipw.VBox):
 
     spectrum_data = traitlets.List(trait=traitlets.List, allow_none=True, default=None)
 
-    _data = None
-
     # **********************************************************************
     def __init__(self):
         self.flux_toggle = ipw.ToggleButtons(
@@ -308,7 +306,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = f"λ (nm)"
+        f.xaxis.axis_label = r"$$λ (nm)$$"
         f.yaxis.axis_label = r"$$j (s^{-1} nm^{-1})$$"
         f.x_range = Range1d(280, 400)
         f.y_range = Range1d(0, 3e-5)
@@ -334,6 +332,7 @@ class PhotolysisPlotWidget(ipw.VBox):
     def _observe_spectrum_data(self, change):
         """
         Observe changes to the spectrum data and update the J plot accordingly.
+        Check that fluxdata overlaps with the spectrum data.
 
         :param change: The change object containing the old and new values of the spectrum data.
         :type change: dict
@@ -342,9 +341,19 @@ class PhotolysisPlotWidget(ipw.VBox):
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
-        self._update_j_plot(
-            plot_type=self.flux_toggle.value, quantumY=self.yield_slider.value
-        )
+
+        flux_min = min(self.flux_data[0])
+        spectrum_max = max(self.spectrum_data[0])
+
+        # Check end of spectrum data overlaps with flux data
+        if spectrum_max >= flux_min:
+            self._update_j_plot(
+                plot_type=self.flux_toggle.value, quantumY=self.yield_slider.value
+            )
+        else:
+            self.reset()
+            return
+
         self.disabled = False
 
     def _observe_flux_toggle(self, change):
@@ -415,7 +424,7 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.figure.clean()
             self.flux_toggle.value = "HIGH"
             self.yield_slider.value = 1
-            self.number.value = ""
+            self.number.value = "None"
 
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):
@@ -458,6 +467,7 @@ class PhotolysisPlotWidget(ipw.VBox):
     def calculation(self, level, quantum_yield):
         """
         Calculate the J values for the given level and quantum yield.
+        Smooth the curve using np.convolve(x, kernel = 3, mode = "valid")
 
         :param level: The level of actinic flux to use in the calculation.
         :type level: int
@@ -486,9 +496,9 @@ class PhotolysisPlotWidget(ipw.VBox):
         mol_intensity = xsection
         mol_intensity = np.flip(mol_intensity)
         wl_max = mol_wlength.max()
-        masked_data = self.mask_data(mol_wlength, mol_intensity, 280, np.floor(wl_max))
-        mol_wlength = masked_data[0]
-        mol_intensity = masked_data[1]
+        mol_wlength, mol_intensity = self.mask_data(
+            mol_wlength, mol_intensity, 280, np.floor(wl_max)
+        )
         mol_intensity_interp = np.interp(self.flux_data[0], mol_wlength, mol_intensity)
         return mol_intensity_interp
 
@@ -514,6 +524,7 @@ class PhotolysisPlotWidget(ipw.VBox):
     def mask_data(self, array_wlength, array_intensities, minimum, maximum):
         """
         Mask the given wavelength and intensity data arrays based on the given minimum and maximum values.
+        If maximum value is not in array_wlength,
 
         :param array_wlength: The wavelength data array to mask.
         :type array_wlength: np.ndarray
@@ -529,9 +540,17 @@ class PhotolysisPlotWidget(ipw.VBox):
         low_cutoff = np.where(np.asarray(array_wlength) > minimum)[0][0] - 1
         array_wlength = array_wlength[low_cutoff:]
         array_intensities = array_intensities[low_cutoff:]
-        high_cutoff = np.where(np.asarray(array_wlength) > maximum)[0][0]
-        array_wlength = array_wlength[:high_cutoff]
-        array_intensities = array_intensities[:high_cutoff]
+        high_cutoff = np.where(np.asarray(array_wlength) > maximum)[0]
+        # max(array_wlength > max(array_intensities)
+        if high_cutoff.size > 0:
+            high_cutoff = high_cutoff[0]
+            array_wlength = array_wlength[:high_cutoff]
+            array_intensities = array_intensities[:high_cutoff]
+        # max(array_wlength < max(array_intensities)
+        # Cut the intensities array to maximum of wavelength array
+        else:
+            high_cutoff = np.where(np.asarray(array_intensities) > maximum)[0][0]
+            array_intensities = array_intensites[:high_cuttoff]
         return array_wlength, array_intensities
 
     # **********************************************************************
