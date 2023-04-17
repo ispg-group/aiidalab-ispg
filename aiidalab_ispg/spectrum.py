@@ -534,14 +534,8 @@ class SpectrumWidget(ipw.VBox):
                 y_nm *= conformer["weight"]
                 total_cross_section_nm += y_nm
 
-            print("NM")
-            print([x_nm.tolist(), total_cross_section_nm.tolist()])
-            print("NOt NM")
-            print([x.tolist(), total_cross_section.tolist()])
             self.spectrum_data = [x_nm.tolist(), total_cross_section_nm.tolist()]
         else:
-            print("NOt NM")
-            print([x.tolist(), total_cross_section.tolist()])
             self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
 
         # Plot total spectrum

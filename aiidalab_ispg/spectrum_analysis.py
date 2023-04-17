@@ -342,12 +342,11 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.reset()
             return
 
-        start1, end1 = min(self.flux_data[0]), max(self.flux_data[0])
-        start2, end2 = min(self.spectrum_data[0]), max(self.spectrum_data[0])
+        flux_min = min(self.flux_data[0])
+        spectrum_max = max(self.spectrum_data[0])
 
         # Check end of spectrum data overlaps with flux data
-        if end2 >= start1:
-            print("data overlaps")
+        if spectrum_max >= flux_min:
             self._update_j_plot(
                 plot_type=self.flux_toggle.value, quantumY=self.yield_slider.value
             )
