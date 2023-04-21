@@ -201,7 +201,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
     def reset(self):
         self.process_uuid = None
-        self.process_tree.value = None
+        self.tree_toggle.value = False
 
     def _update_step_state(self, process_uuid):
         if process_uuid is None:
@@ -250,8 +250,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         show_tree = change["new"]
         if show_tree:
             # TODO: Spawn a new thread for this so we do not block
-            # UI interaction. Also display a spinner while the tree is loading
-            # (perhaps best implemented in AWB, not here)
+            # UI interaction.
             self.tree_toggle.icon = "spinner"
             self.process_tree.value = self.process_uuid
             self.tree_toggle.icon = "folder-open"
@@ -307,7 +306,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if not process.is_finished_ok:
             return
 
-        self.spectrum.debug_output.value = ""
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
         # Number of Wigner geometries per conformer
@@ -370,7 +368,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             if nconf > 1:
                 conformers.set_array("energies", np.array(free_energies))
                 conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.base.extras.set("energy_units", "kJ/mol")
+                conformers.base.extras.set("energy_units", "kJ/mole")
                 conformers.base.extras.set("temperature", temperature)
             self.spectrum.conformer_structures = conformers
         else:
