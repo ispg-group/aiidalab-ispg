@@ -6,7 +6,6 @@ import numpy as np
 from aiida.engine import WorkChain, calcfunction
 from aiida.engine import (
     append_,
-    ToContext,
     ExitCode,
     ProcessHandlerReport,
     process_handler,
@@ -139,7 +138,7 @@ class RobustOptimizationWorkChain(OrcaBaseWorkChain):
 
 
 class ConformerOptimizationWorkChain(WorkChain):
-    """Top-level workchain for optimization of molecules.
+    """Top-level workchain for optimization of molecules in Orca.
 
     Essentially, this is a thin wrapper workchain around RobustOptimizationWorkChain
     to support optimization of multiple conformers in parallel.
