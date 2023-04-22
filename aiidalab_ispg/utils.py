@@ -3,13 +3,6 @@ import math
 import ipywidgets as ipw
 from aiida.plugins import DataFactory
 
-# https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
-# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
-from bokeh.io import push_notebook, show, output_notebook
-
-# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
-output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
-
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
 CifData = DataFactory("core.cif")
