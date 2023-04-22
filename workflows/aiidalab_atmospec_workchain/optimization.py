@@ -25,14 +25,15 @@ KCALtoKJ = 4.183
 AUtoKJ = AUtoKCAL * KCALtoKJ
 EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
 
-# TODO: Switch to variadic arguments (supported since AiiDA 2.3)
+
 @calcfunction
-def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryData:
+def structures_to_trajectory(*structures, arrays: Array = None) -> TrajectoryData:
     """Concatenate a list of StructureData to TrajectoryData
 
-    Optionally, set additional data as Arrays.
+    :param arrays: Optional Array node to be merged into TrajectoryData (including extras)
+    :returns: TrajectoryData node
     """
-    traj = TrajectoryData(list(structures.values()))
+    traj = TrajectoryData(structures)
     if arrays is None:
         return traj
 
@@ -47,12 +48,12 @@ def structures_to_trajectory(arrays: Array = None, **structures) -> TrajectoryDa
     return traj
 
 
-def calc_boltzmann_weights(energies: list, T: float):
+def calc_boltzmann_weights(energies: list, T: float) -> np.ndarray:
     """Compute Boltzmann weights for a list of energies.
 
-    param energies: list of energies / kJ per mole
-    param T: temperature / Kelvin
-    returns: Boltzmann weights as numpy array
+    :param energies: list of energies / kJ per mole
+    :param T: temperature / Kelvin
+    :returns: Boltzmann weights as numpy array
     """
     # Molar gas constant, Avogadro times Boltzmann
     R = 8.3144598
@@ -64,19 +65,18 @@ def calc_boltzmann_weights(energies: list, T: float):
 
 
 @calcfunction
-def extract_trajectory_arrays(**orca_output_parameters) -> Array:
-    """Extract Gibbs energies and other useful stuff from the list
-    of ORCA output parameter dictionaries.
+def extract_trajectory_arrays(*orca_output_parameters) -> Array:
+    """Extract Gibbs energies et al from ORCA output parameters.
 
-    Return Array node, which will be appended to TrajectoryData node.
+    :returns: Array node which will be later appended to TrajectoryData node.
     """
     gibbs_energies = np.array(
-        [params["freeenergy"] for params in orca_output_parameters.values()]
+        [params["freeenergy"] for params in orca_output_parameters]
     )
     en0 = min(gibbs_energies)
     relative_gibbs_energies_kj = AUtoKJ * (gibbs_energies - en0)
 
-    temperature = list(orca_output_parameters.values())[0]["temperature"]
+    temperature = orca_output_parameters[0]["temperature"]
 
     boltzmann_weights = calc_boltzmann_weights(relative_gibbs_energies_kj, temperature)
 
@@ -189,16 +189,16 @@ class ConformerOptimizationWorkChain(WorkChain):
 
     def collect_optimized_conformers(self):
         """Combine all optimized geometries into single TrajectoryData"""
-        # TODO: Switch to lists in AiiDA 2.3
-        relaxed_structures = {}
-        orca_output_params = {}
+        # TODO: Use list comprehension once we ensure the order of self.ctx.confs
+        relaxed_structures = []
+        orca_output_params = []
         for wc in self.ctx.confs:
-            relaxed_structures[f"struct_{wc.pk}"] = wc.outputs.relaxed_structure
-            orca_output_params[f"params_{wc.pk}"] = wc.outputs.output_parameters
+            relaxed_structures.append(wc.outputs.relaxed_structure)
+            orca_output_params.append(wc.outputs.output_parameters)
 
         array_data = None
         if len(self.ctx.confs) > 1:
-            array_data = extract_trajectory_arrays(**orca_output_params)
+            array_data = extract_trajectory_arrays(*orca_output_params)
 
-        trajectory = structures_to_trajectory(arrays=array_data, **relaxed_structures)
+        trajectory = structures_to_trajectory(*relaxed_structures, arrays=array_data)
         self.out("relaxed_structures", trajectory)

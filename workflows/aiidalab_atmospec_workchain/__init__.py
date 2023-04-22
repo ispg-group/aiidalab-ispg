@@ -55,7 +55,9 @@ class ConcatInputsToList(WorkChain):
 
 
 @calcfunction
-def pick_wigner_structure(wigner_structures, index):
+def pick_wigner_structure(
+    wigner_structures: TrajectoryData, index: int
+) -> StructureData:
     return wigner_structures.get_step_structure(index.value)
 
 
@@ -69,7 +71,10 @@ def add_orca_wf_guess(orca_params: Dict) -> Dict:
 
 @calcfunction
 def generate_wigner_structures(
-    minimum_structure, orca_output_dict, nsample, low_freq_thr
+    minimum_structure: StructureData,
+    orca_output_dict: dict,
+    nsample: int,
+    low_freq_thr: float,
 ):
     seed = orca_output_dict.extras["_aiida_hash"]
     ase_molecule = minimum_structure.get_ase()
@@ -378,11 +383,8 @@ class AtmospecWorkChain(WorkChain):
         # TODO: Include energies in TrajectoryData for optimized structures
         # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if self.inputs.optimize:
-            relaxed_structures = {
-                f"struct_{i}": wc.outputs.relaxed_structure
-                for i, wc in enumerate(self.ctx.confs)
-            }
-            trajectory = structures_to_trajectory(**relaxed_structures)
+            relaxed_structures = [wc.outputs.relaxed_structure for wc in self.ctx.confs]
+            trajectory = structures_to_trajectory(*relaxed_structures)
             self.out("relaxed_structures", trajectory)
 
 
