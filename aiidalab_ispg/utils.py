@@ -1,5 +1,6 @@
 import math
 
+import bokeh.io
 import ipywidgets as ipw
 from aiida.plugins import DataFactory
 
@@ -71,7 +72,7 @@ class BokehFigureContext(ipw.Output):
     def set_handle(self):
         self.clear_output()
         with self:
-            self._handle = show(self._figure, notebook_handle=True)
+            self._handle = bokeh.io.show(self._figure, notebook_handle=True)
 
     def get_handle(self):
         return self._handle
@@ -81,7 +82,7 @@ class BokehFigureContext(ipw.Output):
 
     def update(self):
         if self._handle is not None:
-            push_notebook(handle=self._handle)
+            bokeh.io.push_notebook(handle=self._handle)
 
     def remove_renderer(self, label: str, update=True):
         f = self.get_figure()
