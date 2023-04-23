@@ -15,7 +15,7 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 from aiida.orm import load_node, CalcJobNode
-from aiida.cmdline.utils.common import get_workchain_report
+from aiida.cmdline.utils.common import get_workchain_report, get_calcjob_report
 from aiida.tools.query import formatting
 from aiidalab_widgets_base import register_viewer_widget
 from IPython.display import HTML, Javascript, display
@@ -296,7 +296,6 @@ class CalcJobOutputFollower(traitlets.HasTraits):
         try:
             self.filename = calcjob.base.attributes.get("output_filename")
         except AttributeError:
-            # TODO: Verify that AttributeError is the correct exception here
             return []
 
         if "retrieved" in calcjob.outputs:
@@ -392,12 +391,10 @@ class CalcJobNodeViewerWidget(ipw.VBox):
             Last modified {formatting.format_relative_time(calcjob.mtime)}
         """
 
-        # TODO: Only display the report when the CalcJob finished with an error
-        # or exception.
-        if filtered_report == "No log messages recorded for this entry":
-            header_and_report = ipw.HTML(header)
-        else:
+        if self.calcjob.is_finished and not self.calcjob.is_finished_ok:
             header_and_report = ipw.HTML(f"{header}<br><pre>{filtered_report}</pre>")
+        else:
+            header_and_report = ipw.HTML(header)
         super().__init__([header_and_report, self.log_output], **kwargs)
 
     def _observe_output_follower_lineno(self, _):
