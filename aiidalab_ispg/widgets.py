@@ -37,38 +37,6 @@ __all__ = [
 ]
 
 
-@unique
-class ExcitedStateMethod(Enum):
-    TDA = "TDA/TDDFT"
-    TDDFT = "TDDFT"
-    CCSD = "EOM-CCSD"
-    ADC2 = "ADC2"
-
-
-# Taken from ORCA-5.0 manual, section 9.41
-PCM_SOLVENT_LIST = (
-    "None",
-    "Water",
-    "Acetone",
-    "Acetonitrile",
-    "Ammonia",
-    "Benzene",
-    "CCl4",
-    "CH2Cl2",
-    "Chloroform",
-    "Cyclohexane",
-    "DMF",
-    "DMSO",
-    "Ethanol",
-    "Hexane",
-    "Methanol",
-    "Octanol",
-    "Pyridine",
-    "THF",
-    "Toluene",
-)
-
-
 class WorkChainSelector(qeapp.WorkChainSelector):
 
     FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
@@ -281,164 +249,6 @@ class TrajectoryDataViewer(StructureDataViewer):
             return base64.b64encode(raw.read()).decode()
 
 
-class ResourceSelectionWidget(ipw.VBox):
-    """Widget for the selection of compute resources."""
-
-    title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Resources</h4>
-    </div>"""
-    )
-    prompt = ipw.HTML(
-        """<div style="line-height:120%; padding-top:0px">
-        <p style="padding-bottom:10px">
-        Number of MPI tasks for this calculation.
-        </p></div>"""
-    )
-
-    def __init__(self, **kwargs):
-        extra = {
-            "style": {"description_width": "150px"},
-            # "layout": {"max_width": "200px"},
-            "layout": {"min_width": "310px"},
-        }
-
-        self.num_mpi_tasks = ipw.BoundedIntText(
-            value=1, step=1, min=1, max=16, description="# MPI tasks", **extra
-        )
-
-        super().__init__(
-            children=[
-                self.title,
-                ipw.HBox(children=[self.prompt, self.num_mpi_tasks]),
-            ]
-        )
-
-    def reset(self):
-        self.num_mpi_tasks.value = 1
-
-
-class QMSelectionWidget(ipw.HBox):
-    """Widget for selecting ab initio level (basis set, method, etc.)"""
-
-    # TODO: This should probably live elsewhere as a config
-    _DEFAULT_FUNCTIONAL = "PBE"
-
-    qm_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>QM method selection</h4>
-        </div>"""
-    )
-
-    spectra_title = ipw.HTML(
-        """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Spectrum settings</h4>
-        </div>"""
-    )
-
-    spectra_desc = ipw.HTML(
-        """<div style="line-height:120%; padding-top:0px">
-        <p style="padding-bottom:10px">
-        Settings for modeling UV/VIS spectrum
-        </p></div>"""
-    )
-
-    def __init__(self, **kwargs):
-        style = {"description_width": "initial"}
-
-        self.excited_method = ipw.Dropdown(
-            options=[(method.value, method) for method in ExcitedStateMethod],
-            value=ExcitedStateMethod.TDA,
-            description="Excited state",
-            style=style,
-        )
-        self.excited_method.observe(self._update_methods, names="value")
-
-        # TODO: Have separate DFT functional selection for excited state?
-        self.method = ipw.Text(
-            value=self._DEFAULT_FUNCTIONAL,
-            description="Ground state",
-            style=style,
-        )
-
-        self.basis = ipw.Text(value="def2-SVP", description="Basis set")
-
-        self.solvent = ipw.Dropdown(
-            options=PCM_SOLVENT_LIST,
-            value="None",
-            description="PCM solvent",
-            disabled=False,
-            style=style,
-        )
-
-        # TODO: Move Wigner settings to a separate widget
-        self.nwigner = ipw.BoundedIntText(
-            value=1,
-            step=1,
-            min=0,
-            max=1000,
-            style=style,
-            description="Number of Wigner samples",
-        )
-
-        self.wigner_low_freq_thr = ipw.BoundedFloatText(
-            value=100,
-            step=10,
-            min=0,
-            max=10000,
-            style=style,
-            description="Low-frequency threshold",
-            title="Normal modes below this frequency will be ignored",
-        )
-
-        super().__init__(
-            children=[
-                ipw.VBox(
-                    children=[
-                        self.qm_title,
-                        self.excited_method,
-                        self.method,
-                        self.basis,
-                        self.solvent,
-                    ]
-                ),
-                ipw.VBox(
-                    children=[
-                        self.spectra_title,
-                        self.spectra_desc,
-                        self.nwigner,
-                        self.wigner_low_freq_thr,
-                    ]
-                ),
-            ]
-        )
-
-    def _update_methods(self, change):
-        """Update ground state method defaults when
-        excited state method is changed"""
-        es_method = change["new"]
-        if es_method == change["old"]:
-            return
-        if es_method in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
-            self.method.value = "MP2"
-            self.solvent.value = "None"
-            self.solvent.disabled = True
-        elif change["old"] in (ExcitedStateMethod.ADC2, ExcitedStateMethod.CCSD):
-            # Switching to (TDA)TDDFT from ADC2/EOM-CCSD
-            # We do not want to reset the functional if switching between TDA and full TDDFT
-            self.method.value = self._DEFAULT_FUNCTIONAL
-            self.solvent.disabled = False
-
-    # NOTE: It seems this method is currently not called
-    def reset(self):
-        self.excited_method.value = ExcitedStateMethod.TDA
-        self.method.value = self._DEFAULT_FUNCTIONAL
-        self.solvent.value = "None"
-        self.basis.value = "def2-SVP"
-        self.nwigner.value = 1
-        self.wigner_low_freq_thr.value = 100
-
-
 # NOTE: TrajectoryManagerWidget will hopefully note be necessary once
 # the trajectory viewer is merged to AWB
 class TrajectoryManagerWidget(StructureManagerWidget):
@@ -646,3 +456,35 @@ class Spinner(ipw.HTML):
             )
         else:
             self.value = ""
+
+
+class HeaderWarning(ipw.HTML):
+    """Class to display a warning in the header."""
+
+    def __init__(self, dismissible=False, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dismissible = dismissible
+        self.layout = ipw.Layout(
+            display="none",
+            width="600px",
+            height="auto",
+            margin="0px 0px 0px 0px",
+            padding="0px 0px 0px 0px",
+        )
+
+    def show(self, message):
+        """Show the warning."""
+        if self.dismissible:
+            alert_classes = "alert alert-danger alert-dismissible"
+            dismiss = """<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>"""
+        else:
+            alert_classes = "alert alert-danger"
+            dismiss = ""
+        self.value = (
+            f"""<div class="alert alert-danger" role="alert">{dismiss}{message}</div>"""
+        )
+        self.layout.display = "block"
+
+    def hide(self):
+        """Hide the warning."""
+        self.layout.display = "none"

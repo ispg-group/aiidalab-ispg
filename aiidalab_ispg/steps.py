@@ -25,22 +25,14 @@ from aiidalab_widgets_base import (
 import aiidalab_ispg.qeapp as qeapp
 
 from .parameters import DEFAULT_PARAMETERS
-from .widgets import ResourceSelectionWidget
-from .widgets import QMSelectionWidget, ExcitedStateMethod
+from .widgets import spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
-try:
-    from aiidalab_atmospec_workchain import (
-        OrcaWignerSpectrumWorkChain,
-    )
-except ImportError:
-    print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+# TODO: This one will be gone soon
+from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
 
-try:
-    OrcaBaseWorkChain = WorkflowFactory("orca.base")
-except MissingEntryPointError:
-    print("ERROR: Could not find aiida-orca plugin!")
+OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
@@ -67,7 +59,7 @@ class StructureSelectionStep(qeapp.StructureSelectionStep):
 
 
 class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
-    """Base class for workflow submission steps. Must be subclassed."""
+    """Base class for workflow submission step. Must be subclassed."""
 
     input_structure = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
@@ -82,9 +74,10 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             tooltip="Submit the calculation with the selected parameters.",
             icon="play",
             button_style="success",
-            layout=ipw.Layout(width="auto", flex="1 1 auto"),
+            layout=ipw.Layout(width="auto", flex="0 0 auto"),
             disabled=True,
         )
+        self.submit_button.layout.margin = "10px 0px 10px 0px"
 
         self.submit_button.on_click(self._on_submit_button_clicked)
 
@@ -100,7 +93,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     def submit(self):
         """Submit workflow, implementation must be provided by the the child class"""
-        raise NotImplementedError
+        raise NotImplementedError("FATAL: submit method not implemented")
 
     def _get_state(self):
         # Process is already running.
@@ -201,7 +194,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
     def reset(self):
         self.process_uuid = None
-        self.process_tree.value = None
+        self.tree_toggle.value = False
 
     def _update_step_state(self, process_uuid):
         if process_uuid is None:
@@ -250,8 +243,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         show_tree = change["new"]
         if show_tree:
             # TODO: Spawn a new thread for this so we do not block
-            # UI interaction. Also display a spinner while the tree is loading
-            # (perhaps best implemented in AWB, not here)
+            # UI interaction.
             self.tree_toggle.icon = "spinner"
             self.process_tree.value = self.process_uuid
             self.tree_toggle.icon = "folder-open"
@@ -306,6 +298,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
             return
+
+        self.spectrum.debug_output.value = f"Loading...{spinner}"
 
         # Number of Wigner geometries per conformer
         nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
@@ -367,7 +361,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             if nconf > 1:
                 conformers.set_array("energies", np.array(free_energies))
                 conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.base.extras.set("energy_units", "kJ/mol")
+                conformers.base.extras.set("energy_units", "kJ/mole")
                 conformers.base.extras.set("temperature", temperature)
             self.spectrum.conformer_structures = conformers
         else:
@@ -382,6 +376,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             if "boltzmann_weights" in structures.get_arraynames():
                 structures.delete_array("boltzmann_weights")
             self.spectrum.conformer_structures = structures
+
+        # Spectrum loaded! Clear the "Loading..." text.
+        self.spectrum.debug_output.value = ""
 
     def _update_header(self):
         if self.process_uuid is None:
@@ -400,10 +397,15 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                     bp["solvent"] if bp.get("solvent") != "None" else "the gas phase"
                 )
             # TODO: Compatibility hack
-            es_method = bp.get("excited_method", "TDA-TDDFT")
+            es_method = bp.get("excited_method", "TDA/TDDFT")
+            tddft_functional = bp.get("tddft_functional", bp.get("method", ""))
+            method_string = f"{es_method}"
+            if "TDDFT" in es_method:
+                method_string = f"{es_method}/{tddft_functional}"
+            es_basis = bp.get("es_basis", bp.get("basis", ""))
             self.header.value = (
                 f"<h4>UV/vis spectrum of {formula} "
-                f"at {es_method}/{bp['method']}/{bp['basis']} level "
+                f"at {method_string}/{es_basis} level "
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )

@@ -12,7 +12,7 @@ by running the following command from within the AiiDAlab Docker container.
 aiidalab install aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main
 ```
 
-See below for complete installation instructions on local machine.
+See below for complete installation instructions on a local machine.
 
 ## Usage
 
@@ -22,6 +22,10 @@ TODO: A few screenshots / animated gifs illustrating how to use the app.
 
 MIT
 
+## Acknowledgements
+
+This project has been funded by European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 803718, [project SINDAM](https://cordis.europa.eu/project/id/803718)).
+
 ## Local installation
 
 NOTE: The details of some of the commands will depend on your
@@ -29,6 +33,8 @@ OS and its version. The concrete examples are based on Ubuntu 20.04.
 
 ### Install dependencies
 0. [Install ORCA](https://www.orcasoftware.de/tutorials_orca/first_steps/install.html)
+
+NOTE: If you're downloading for Linux, choose the "shared-version", which has much smaller download size.
 
 1. [Install Docker](https://docs.docker.com/engine/install/#server)
 
@@ -140,7 +146,7 @@ aiidalab-launch --help
 ## Development
 
 Re-install packages for development in the container
-```sh
+```console
 aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/
 aiidalab-launch exec -- pip install --user -e /home/aiida/apps/aiidalab-ispg/workflows/
 ```

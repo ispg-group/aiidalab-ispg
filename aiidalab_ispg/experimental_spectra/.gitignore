@@ -1,0 +1,3 @@
+# Just a temporary measure, we do not want to commit the spectra data to the repo, bot sure they are open source
+*.abs
+*.txt

@@ -1,14 +1,8 @@
 import math
 
+import bokeh.io
 import ipywidgets as ipw
 from aiida.plugins import DataFactory
-
-# https://docs.bokeh.org/en/latest/docs/user_guide/jupyter.html
-# https://github.com/bokeh/bokeh/blob/branch-3.0/examples/howto/server_embed/notebook_embed.ipynb
-from bokeh.io import push_notebook, show, output_notebook
-
-# https://docs.bokeh.org/en/latest/docs/reference/io.html#bokeh.io.output_notebook
-output_notebook(hide_banner=True, load_timeout=5000, verbose=True)
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -78,7 +72,7 @@ class BokehFigureContext(ipw.Output):
     def set_handle(self):
         self.clear_output()
         with self:
-            self._handle = show(self._figure, notebook_handle=True)
+            self._handle = bokeh.io.show(self._figure, notebook_handle=True)
 
     def get_handle(self):
         return self._handle
@@ -88,7 +82,7 @@ class BokehFigureContext(ipw.Output):
 
     def update(self):
         if self._handle is not None:
-            push_notebook(handle=self._handle)
+            bokeh.io.push_notebook(handle=self._handle)
 
     def remove_renderer(self, label: str, update=True):
         f = self.get_figure()

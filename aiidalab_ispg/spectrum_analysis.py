@@ -56,7 +56,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
         tab = ipw.Tab(children=tab_components)
         tab.set_title(0, "Photolysis constant")
-        tab.set_title(1, "Energy Density")
+        tab.set_title(1, "Energy x Oscillator strength")
         super().__init__(children=[title, tab])
 
     def reset(self):
