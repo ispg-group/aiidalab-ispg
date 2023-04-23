@@ -7,6 +7,7 @@ Authors:
 
 import base64
 import hashlib
+import re
 from queue import Queue
 from tempfile import NamedTemporaryFile
 from threading import Event, Lock, Thread
@@ -14,6 +15,8 @@ from threading import Event, Lock, Thread
 import ipywidgets as ipw
 import traitlets
 from aiida.orm import load_node, CalcJobNode
+from aiida.cmdline.utils.common import get_workchain_report, get_calcjob_report
+from aiida.tools.query import formatting
 from aiidalab_widgets_base import register_viewer_widget
 from IPython.display import HTML, Javascript, display
 
@@ -242,6 +245,8 @@ class CalcJobOutputFollower(traitlets.HasTraits):
     output = traitlets.List(trait=traitlets.Unicode)
     lineno = traitlets.Int()
 
+    _EOF = None
+
     def __init__(self, **kwargs):
         self._output_queue = Queue()
 
@@ -288,9 +293,13 @@ class CalcJobOutputFollower(traitlets.HasTraits):
 
     def _fetch_output(self, calcjob):
         assert isinstance(calcjob, CalcJobNode)
+        try:
+            self.filename = calcjob.base.attributes.get("output_filename")
+        except AttributeError:
+            return []
+
         if "retrieved" in calcjob.outputs:
             try:
-                self.filename = calcjob.base.attributes.get("output_filename")
                 with calcjob.outputs.retrieved.base.repository.open(self.filename) as f:
                     return f.read().splitlines()
             except OSError:
@@ -298,17 +307,13 @@ class CalcJobOutputFollower(traitlets.HasTraits):
 
         elif "remote_folder" in calcjob.outputs:
             try:
-                fn_out = calcjob.base.attributes.get("output_filename")
-                self.filename = fn_out
                 with NamedTemporaryFile() as tmpfile:
-                    calcjob.outputs.remote_folder.getfile(fn_out, tmpfile.name)
+                    calcjob.outputs.remote_folder.getfile(self.filename, tmpfile.name)
                     return tmpfile.read().decode().splitlines()
             except OSError:
                 return []
         else:
             return []
-
-    _EOF = None
 
     def _push_output(self, calcjob_uuid, delay=0.2):
         """Push new log lines onto the queue."""
@@ -342,6 +347,31 @@ class CalcJobOutputFollower(traitlets.HasTraits):
                 self._output_queue.task_done()
 
 
+# TODO: Perhaps we should just use the ProcessReportWidget from
+# aiidalab_widgets_base.process, and modify it to make it nicer.
+def get_filtered_process_report(
+    process, levelname: str = "REPORT", max_depth: int = 1
+) -> str:
+    """Get a sligtly prettier process report"""
+    if process is None:
+        return
+
+    # Copy pasted from ProcessReportWidget
+    if isinstance(process, CalcJobNode):
+        report = get_calcjob_report(process)
+    elif isinstance(process, WorkChainNode):
+        report = get_workchain_report(
+            process, levelname, self.indent_size, max_depth=max_depth
+        )
+    elif isinstance(process, (CalcFunctionNode, WorkFunctionNode)):
+        report = get_process_function_report(process)
+
+    filtered_report = re.sub(
+        r"^[0-9]{4}.*\| ([A-Z]+)\]", r"\1", report, flags=re.MULTILINE
+    )
+    return filtered_report
+
+
 @register_viewer_widget("process.calculation.calcjob.CalcJobNode.")
 class CalcJobNodeViewerWidget(ipw.VBox):
     def __init__(self, calcjob, **kwargs):
@@ -352,9 +382,20 @@ class CalcJobNodeViewerWidget(ipw.VBox):
         self.output_follower.calcjob_uuid = self.calcjob.uuid
         self.output_follower.observe(self._observe_output_follower_lineno, ["lineno"])
 
-        super().__init__(
-            [ipw.HTML(f"CalcJob: {self.calcjob}"), self.log_output], **kwargs
-        )
+        filtered_report = get_filtered_process_report(self.calcjob)
+        header = f"""
+            Process: {calcjob.process_label},
+            State: {formatting.format_process_state(calcjob.process_state.value)},
+            PK: {calcjob.pk}, 
+            Started {formatting.format_relative_time(calcjob.ctime)},
+            Last modified {formatting.format_relative_time(calcjob.mtime)}
+        """
+
+        if self.calcjob.is_finished and not self.calcjob.is_finished_ok:
+            header_and_report = ipw.HTML(f"{header}<br><pre>{filtered_report}</pre>")
+        else:
+            header_and_report = ipw.HTML(header)
+        super().__init__([header_and_report, self.log_output], **kwargs)
 
     def _observe_output_follower_lineno(self, _):
         with self.hold_trait_notifications():
