@@ -10,6 +10,8 @@ import traitlets
 from aiida.engine import submit, ProcessState
 from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
 from aiida.orm import load_code, load_node
+from aiida.plugins import WorkflowFactory
+
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import (
@@ -27,10 +29,7 @@ from .optimization_steps import OptimizationParameters
 from .widgets import HeaderWarning, spinner
 from .utils import MEMORY_PER_CPU
 
-try:
-    from aiidalab_atmospec_workchain import AtmospecWorkChain
-except ImportError:
-    print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+AtmospecWorkChain = WorkflowFactory("ispg.atmospec")
 
 
 @dataclass(frozen=True)

@@ -29,17 +29,10 @@ from .widgets import spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
-try:
-    from aiidalab_atmospec_workchain import (
-        OrcaWignerSpectrumWorkChain,
-    )
-except ImportError:
-    print("ERROR: Could not find aiidalab_atmospec_workchain module!")
+# TODO: This one will be gone soon
+from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
 
-try:
-    OrcaBaseWorkChain = WorkflowFactory("orca.base")
-except MissingEntryPointError:
-    print("ERROR: Could not find aiida-orca plugin!")
+OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
 class StructureSelectionStep(qeapp.StructureSelectionStep):
