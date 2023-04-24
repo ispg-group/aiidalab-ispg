@@ -1,0 +1,8 @@
+[build-system]
+# Version 64.0.0 is needed for editable installs without setup.py file
+# https://setuptools.pypa.io/en/latest/references/keywords.html
+requires = [
+    "setuptools>=64.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"

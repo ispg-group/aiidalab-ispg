@@ -13,7 +13,7 @@ services:
             AIIDALAB_DEFAULT_APPS: ''
             JUPYTER_TOKEN: ${JUPYTER_TOKEN}
         volumes:
-            - ..:/home/jovyan/apps/aiidalab-ispg
+            - ../..:/home/jovyan/apps/aiidalab-ispg
         ports:
             - 8998:8888
 
