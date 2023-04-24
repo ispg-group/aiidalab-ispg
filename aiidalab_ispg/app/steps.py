@@ -22,9 +22,8 @@ from aiidalab_widgets_base import (
     WizardAppWidgetStep,
 )
 
-import aiidalab_ispg.qeapp as qeapp
+from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
 
-from .parameters import DEFAULT_PARAMETERS
 from .widgets import spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
@@ -35,7 +34,7 @@ from aiidalab_atmospec_workchain import OrcaWignerSpectrumWorkChain
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
-class StructureSelectionStep(qeapp.StructureSelectionStep):
+class StructureSelectionStep(QeAppStructureSelectionStep):
     """Integrated widget for the selection of structures from different sources."""
 
     structure = traitlets.Union(

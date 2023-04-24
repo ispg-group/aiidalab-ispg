@@ -25,7 +25,7 @@ from aiidalab_widgets_base import register_viewer_widget
 from aiidalab_widgets_base import StructureManagerWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
 
-import aiidalab_ispg.qeapp as qeapp
+from .qeapp import WorkChainSelector as QeAppWorkChainSelector
 from .utils import get_formula
 
 StructureData = DataFactory("core.structure")
@@ -37,7 +37,7 @@ __all__ = [
 ]
 
 
-class WorkChainSelector(qeapp.WorkChainSelector):
+class WorkChainSelector(QeAppWorkChainSelector):
 
     FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
 
