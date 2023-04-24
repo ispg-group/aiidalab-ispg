@@ -21,6 +21,11 @@ def is_responsive(url):
 
 
 @pytest.fixture(scope="session")
+def docker_compose_file(pytestconfig):
+    return os.path.join(str(pytestconfig.rootdir), "tests/app", "docker-compose.yml")
+
+
+@pytest.fixture(scope="session")
 def docker_compose(docker_services):
     return docker_services._docker_compose
 
@@ -54,12 +59,12 @@ def appdir(nb_user):
 def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir):
     """Ensure that HTTP service is up and responsive."""
 
-    # Directory ~/apps/aiidalab-qe/ is mounted by docker,
+    # Directory ~/apps/aiidalab-ispg/ is mounted by docker,
     # make it writeable for jovyan user, needed for `pip install`
     aiidalab_exec(f"chmod -R a+rw {appdir}", user="root")
 
     # Install dependencies via pip
-    aiidalab_exec("pip install .", workdir=appdir, user=nb_user)
+    aiidalab_exec("pip install --user .", workdir=appdir, user=nb_user)
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -76,7 +81,7 @@ def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path, wait_time=5.0):
         url, token = notebook_service
         url_with_token = urljoin(
-            url, f"apps/apps/aiidalab-ispg/{nb_path}?token={token}"
+            url, f"apps/apps/aiidalab-ispg/notebooks/{nb_path}?token={token}"
         )
         selenium.get(f"{url_with_token}")
         selenium.implicitly_wait(wait_time)  # must wait until the app loaded
