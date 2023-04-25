@@ -29,7 +29,7 @@ from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
 # TODO: This one will be gone soon
-from aiidalab_ispg.workflows import OrcaWignerSpectrumWorkChain
+from aiidalab_ispg.workflows.atmospec import OrcaWignerSpectrumWorkChain
 
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
