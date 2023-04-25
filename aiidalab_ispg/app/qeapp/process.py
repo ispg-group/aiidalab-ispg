@@ -105,6 +105,7 @@ class WorkChainSelector(ipw.HBox):
             )
 
     @traitlets.default("busy")
+    # DH: Why is default True?
     def _default_busy(self):
         return True
 
@@ -153,9 +154,10 @@ class WorkChainSelector(ipw.HBox):
             self._refresh_thread.join(timeout=30)
             self._refresh_thread = None
 
+    # DH: Disabled auto-refresh for now.
     @traitlets.default("auto_refresh_interval")
     def _default_auto_refresh_interval(self):
-        return 60  # seconds
+        return -1  # seconds
 
     @traitlets.observe("auto_refresh_interval")
     def _observe_auto_refresh_interval(self, change):
@@ -171,5 +173,5 @@ class WorkChainSelector(ipw.HBox):
 
         if new not in {pk for _, pk in self.work_chains_selector.options}:
             self.refresh_work_chains()
-
+        # TODO: We should still check that new is in options after refresh!
         self.work_chains_selector.value = new
