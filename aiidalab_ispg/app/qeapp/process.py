@@ -47,6 +47,12 @@ class WorkChainSelector(ipw.HBox):
         self._stop_refresh_thread = Event()
         self._update_auto_refresh_thread_state()
 
+        # If the auto-refresh is disabled, we need to do the inital load
+        # of the processes here. We use a separate thread
+        # so we do not block the initial page load.
+        if self.auto_refresh_interval <= 0:
+            thread = Thread(target=self.refresh_work_chains).start()
+
         super().__init__(
             children=[
                 self.work_chains_prompt,
