@@ -180,7 +180,9 @@ class SpectrumWidget(ipw.VBox):
 
     selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
 
-    spectrum_data = traitlets.List(trait=traitlets.List, allow_none=True, default=None)
+    cross_section_nm = traitlets.List(
+        trait=traitlets.List, allow_none=True, default=None
+    )
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
@@ -302,8 +304,8 @@ class SpectrumWidget(ipw.VBox):
         )
 
         ipw.dlink(
-            (self, "spectrum_data"),
-            (self.analysis, "spectrum_data"),
+            (self, "cross_section_nm"),
+            (self.analysis, "cross_section_nm"),
         )
 
         super().__init__(
@@ -437,9 +439,7 @@ class SpectrumWidget(ipw.VBox):
 
     def _handle_energy_unit_update(self, change):
         """Updates the spectra when user changes energy units"""
-
         energy_unit = change["new"]
-        # print(energy_unit)
         xlabel = f"Energy / {energy_unit.value}"
         self.figure.get_figure().xaxis.axis_label = xlabel
 
@@ -534,9 +534,9 @@ class SpectrumWidget(ipw.VBox):
                 y_nm *= conformer["weight"]
                 total_cross_section_nm += y_nm
 
-            self.spectrum_data = [x_nm.tolist(), total_cross_section_nm.tolist()]
+            self.cross_section_nm = [x_nm.tolist(), total_cross_section_nm.tolist()]
         else:
-            self.spectrum_data = [x.tolist(), total_cross_section.tolist()]
+            self.cross_section_nm = [x.tolist(), total_cross_section.tolist()]
 
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
