@@ -47,6 +47,12 @@ class WorkChainSelector(ipw.HBox):
         self._stop_refresh_thread = Event()
         self._update_auto_refresh_thread_state()
 
+        # If the auto-refresh is disabled, we need to do the inital load
+        # of the processes here. We use a separate thread
+        # so we do not block the initial page load.
+        if self.auto_refresh_interval <= 0:
+            thread = Thread(target=self.refresh_work_chains).start()
+
         super().__init__(
             children=[
                 self.work_chains_prompt,
@@ -105,6 +111,7 @@ class WorkChainSelector(ipw.HBox):
             )
 
     @traitlets.default("busy")
+    # DH: Why is default True?
     def _default_busy(self):
         return True
 
@@ -153,9 +160,10 @@ class WorkChainSelector(ipw.HBox):
             self._refresh_thread.join(timeout=30)
             self._refresh_thread = None
 
+    # DH: Disabled auto-refresh for now.
     @traitlets.default("auto_refresh_interval")
     def _default_auto_refresh_interval(self):
-        return 60  # seconds
+        return -1  # seconds
 
     @traitlets.observe("auto_refresh_interval")
     def _observe_auto_refresh_interval(self, change):
@@ -171,5 +179,5 @@ class WorkChainSelector(ipw.HBox):
 
         if new not in {pk for _, pk in self.work_chains_selector.options}:
             self.refresh_work_chains()
-
+        # TODO: We should still check that new is in options after refresh!
         self.work_chains_selector.value = new
