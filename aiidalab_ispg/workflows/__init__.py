@@ -9,7 +9,11 @@ from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
 
 from aiidalab_ispg.wigner import Wigner
-from .optimization import structures_to_trajectory
+from .optimization import (
+    extract_trajectory_arrays,
+    RobustOptimizationWorkChain,
+    structures_to_trajectory,
+)
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")
@@ -101,7 +105,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(
-            OrcaBaseWorkChain, namespace="opt", exclude=["orca.structure", "orca.code"]
+            RobustOptimizationWorkChain,
+            namespace="opt",
+            exclude=["orca.structure", "orca.code"],
         )
         spec.expose_inputs(
             OrcaBaseWorkChain, namespace="exc", exclude=["orca.structure", "orca.code"]
@@ -135,6 +141,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             valid_type=Dict,
             required=True,
             help="Output parameters from a single-point TDDFT calculation",
+        )
+        spec.expose_outputs(
+            RobustOptimizationWorkChain, namespace="opt", include=["output_parameters"]
         )
 
         # TODO: Rename this port
@@ -237,12 +246,12 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def optimize(self):
         """Optimize geometry"""
         inputs = self.exposed_inputs(
-            OrcaBaseWorkChain, namespace="opt", agglomerate=False
+            RobustOptimizationWorkChain, namespace="opt", agglomerate=False
         )
         inputs.orca.structure = self.inputs.structure
         inputs.orca.code = self.inputs.code
 
-        calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
+        calc_opt = self.submit(RobustOptimizationWorkChain, **inputs)
         calc_opt.label = "optimization"
         return ToContext(calc_opt=calc_opt)
 
@@ -251,6 +260,14 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if not self.ctx.calc_opt.is_finished_ok:
             self.report("Optimization failed :-(")
             return self.exit_codes.ERROR_OPTIMIZATION_FAILED
+        self.out_many(
+            self.exposed_outputs(
+                self.ctx.calc_opt,
+                RobustOptimizationWorkChain,
+                namespace="opt",
+                agglomerate=False,
+            )
+        )
 
     def inspect_excitation(self):
         """Check whether excitation succeeded"""
@@ -375,15 +392,18 @@ class AtmospecWorkChain(WorkChain):
         self.out("spectrum_data", all_results["output"])
 
         # Combine all optimized geometries into single TrajectoryData
-        # TODO: Include energies in TrajectoryData for optimized structures
-        # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if self.inputs.optimize:
-            relaxed_structures = {
-                f"struct_{i}": wc.outputs.relaxed_structure
-                for i, wc in enumerate(self.ctx.confs)
-            }
-            trajectory = structures_to_trajectory(**relaxed_structures)
+            relaxed_structures = {}
+            orca_output_params = {}
+            for wc in self.ctx.confs:
+                relaxed_structures[f"struct_{wc.pk}"] = wc.outputs.relaxed_structure
+                orca_output_params[f"params_{wc.pk}"] = wc.outputs.opt.output_parameters
+
+            array_data = None
+            if len(self.ctx.confs) > 1:
+                array_data = extract_trajectory_arrays(**orca_output_params)
+
+            trajectory = structures_to_trajectory(
+                arrays=array_data, **relaxed_structures
+            )
             self.out("relaxed_structures", trajectory)
-
-
-__version__ = "0.1-alpha"

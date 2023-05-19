@@ -29,9 +29,10 @@ from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
 
 # TODO: This one will be gone soon
-from aiidalab_ispg.workflows import OrcaWignerSpectrumWorkChain
-
-OrcaBaseWorkChain = WorkflowFactory("orca.base")
+from aiidalab_ispg.workflows import (
+    RobustOptimizationWorkChain,
+    OrcaWignerSpectrumWorkChain,
+)
 
 
 class StructureSelectionStep(QeAppStructureSelectionStep):
@@ -316,7 +317,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             assert nconf == len(conformer_workchains)
             for node in conformer_workchains:
                 for link in node.base.links.get_outgoing(
-                    link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
+                    link_type=LinkType.CALL_WORK,
+                    node_class=RobustOptimizationWorkChain,
                 ):
                     wc = link.node
                     if wc.label == "optimization":

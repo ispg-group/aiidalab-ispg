@@ -369,6 +369,9 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
         builder.opt.orca.metadata.description = "ORCA geometry optimization"
 
+        # Fetch GBW file from optimization step, use as a guess for
+        builder.opt.orca.metadata.options.additional_retrieve_list = ["aiida.gbw"]
+
         if bp.geo_opt_type == "NONE":
             builder.optimize = False
 
