@@ -275,6 +275,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
 
+        self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)
+
     def inspect_wigner_excitation(self):
         """Check whether all wigner excitations succeeded"""
         for calc in self.ctx.wigner_calcs:
@@ -306,8 +308,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             }
             all_results = run(ConcatInputsToList, ns=data)
             self.out("wigner_tddft", all_results["output"])
-
-        self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)
 
 
 class AtmospecWorkChain(WorkChain):
@@ -343,13 +343,6 @@ class AtmospecWorkChain(WorkChain):
 
     def launch(self):
         inputs = self.exposed_inputs(OrcaWignerSpectrumWorkChain, agglomerate=False)
-        # Single conformer
-        # TODO: Test this!
-        if isinstance(self.inputs.structure, StructureData):
-            self.report("Launching ATMOSPEC for 1 conformer")
-            inputs.structure = self.inputs.structure
-            return ToContext(conf=self.submit(OrcaWignerSpectrumWorkChain, **inputs))
-
         self.report(
             f"Launching ATMOSPEC for {len(self.inputs.structure.get_stepids())} conformers"
         )
@@ -360,16 +353,6 @@ class AtmospecWorkChain(WorkChain):
             self.to_context(confs=append_(workflow))
 
     def collect(self):
-        # For single conformer
-        # TODO: This currently does not work
-        if isinstance(self.inputs.structure, StructureData):
-            if not self.ctx.conf.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
-            self.out_many(
-                self.exposed_outputs(self.ctx.conf, OrcaWignerSpectrumWorkChain)
-            )
-            return
-
         # Check for errors
         # TODO: Specialize errors. Can we expose errors from child workflows?
         for wc in self.ctx.confs:
