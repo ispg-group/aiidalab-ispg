@@ -361,6 +361,10 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
             builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
 
+        # Fetch GBW file from optimization step, to be used as a guess
+        # for subsequent excited state calculations.
+        builder.opt.orca.metadata.options.additional_retrieve_list = ["aiida.gbw"]
+
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
         builder.exc.clean_workdir = Bool(True)
@@ -369,8 +373,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
         builder.opt.orca.metadata.description = "ORCA geometry optimization"
 
+        # TODO: Change bp.geo_opt_type to  bp.optimize and use directly
         if bp.geo_opt_type == "NONE":
             builder.optimize = False
+        else:
+            builder.optimize = True
 
         # Wigner will be sampled only when optimize == True
         builder.nwigner = bp.nwigner
