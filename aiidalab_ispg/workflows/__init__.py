@@ -1,6 +1,6 @@
 """Base work chain to run an ORCA calculation"""
 
-from aiida.engine import WorkChain, calcfunction
+from aiida.engine import WorkChain, calcfunction, ExitCode
 from aiida.engine import append_, ToContext, if_
 
 # not sure if this is needed? Can we use self.run()?
@@ -143,7 +143,10 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             help="Output parameters from a single-point TDDFT calculation",
         )
         spec.expose_outputs(
-            RobustOptimizationWorkChain, namespace="opt", include=["output_parameters"]
+            RobustOptimizationWorkChain,
+            namespace="opt",
+            include=["output_parameters"],
+            namespace_options={"required": False},
         )
 
         # TODO: Rename this port
@@ -240,7 +243,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 self.ctx.wigner_structures, Int(i)
             )
             calc = self.submit(OrcaBaseWorkChain, **inputs)
-            calc.label = "wigner-single-point-tddft"
+            calc.label = "wigner-excitation"
             self.to_context(wigner_calcs=append_(calc))
 
     def optimize(self):
@@ -298,7 +301,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
 
         if self.should_run_wigner():
-            self.report("Concatenating Wigner outputs")
             # TODO: Instead of deepcopying all dicts,
             # only pick the data that we need for the spectrum to save space.
             # We should introduce a special aiida type for spectrum data
@@ -317,7 +319,7 @@ class AtmospecWorkChain(WorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(OrcaWignerSpectrumWorkChain, exclude=["structure"])
-        spec.input("structure", valid_type=(StructureData, TrajectoryData))
+        spec.input("structure", valid_type=TrajectoryData)
 
         spec.output(
             "spectrum_data",
@@ -349,15 +351,13 @@ class AtmospecWorkChain(WorkChain):
         for conf_id in self.inputs.structure.get_stepids():
             inputs.structure = self.inputs.structure.get_step_structure(conf_id)
             workflow = self.submit(OrcaWignerSpectrumWorkChain, **inputs)
-            # workflow.label = 'conformer-wigner-spectrum'
+            workflow.label = f"atmospec-conf-{conf_id}"
             self.to_context(confs=append_(workflow))
 
     def collect(self):
-        # Check for errors
-        # TODO: Specialize errors. Can we expose errors from child workflows?
         for wc in self.ctx.confs:
             if not wc.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
+                return ExitCode(wc.exit_status, wc.exit_message)
 
         # Combine all spectra data
         # NOTE: This if duplicates the logic of OrcaWignerSpectrumWorkChain.should_run_wigner()
