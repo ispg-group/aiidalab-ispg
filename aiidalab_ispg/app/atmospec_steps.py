@@ -34,7 +34,7 @@ AtmospecWorkChain = WorkflowFactory("ispg.atmospec")
 
 @dataclass(frozen=True)
 class AtmospecParameters(OptimizationParameters):
-    geo_opt_type: str
+    optimize: bool
     excited_method: ExcitedStateMethod
     nstates: int
     es_basis: str
@@ -50,7 +50,7 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     method="wB97X-D4",
     basis="def2-SVP",
     solvent="None",
-    geo_opt_type="OPT",
+    optimize=True,
     excited_method=ExcitedStateMethod.TDA,
     nstates=3,
     es_basis="def2-SVP",
@@ -70,7 +70,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.molecule_settings.multiplicity.disabled = True
 
         self.geometry_settings = MolecularGeometrySettings()
-        self.geometry_settings.geo_opt_type.observe(self._observe_geo_opt_type, "value")
+        self.geometry_settings.optimize.observe(self._observe_optimize, "value")
 
         self.ground_state_settings = GroundStateSettings()
         self.ground_state_settings.method.observe(self._observe_gs_method, "value")
@@ -126,12 +126,12 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             return False
         return True
 
-    def _observe_geo_opt_type(self, change):
+    def _observe_optimize(self, change):
         # If we don't optimize the molecule, we cannot do Wigner sampling
-        if change["new"] == "OPT":
-            self.wigner_settings.disabled = False
-        else:
+        if not change["new"]:
             self.wigner_settings.disabled = True
+        else:
+            self.wigner_settings.disabled = False
 
     def _observe_gs_sync(self, change):
         if change["new"]:
@@ -162,7 +162,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         This function is called when we load an already finished workflow,
         and we want the input widgets to be updated accordingly
         """
-        self.geometry_settings.geo_opt_type.value = parameters.geo_opt_type
+        self.geometry_settings.optimize.value = parameters.optimize
         self.molecule_settings.charge.value = parameters.charge
         self.molecule_settings.multiplicity.value = parameters.multiplicity
         self.molecule_settings.solvent.value = parameters.solvent
@@ -187,7 +187,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _get_parameters_from_ui(self) -> AtmospecParameters:
         """Prepare builder parameters from the UI input widgets"""
         return AtmospecParameters(
-            geo_opt_type=self.geometry_settings.geo_opt_type.value,
+            optimize=self.geometry_settings.optimize.value,
             charge=self.molecule_settings.charge.value,
             multiplicity=self.molecule_settings.multiplicity.value,
             solvent=self.molecule_settings.solvent.value,
@@ -340,6 +340,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 f"Excited method {bp.excited_method} not implemented"
             )
 
+        builder.optimize = bp.optimize
         builder.opt.orca.parameters = gs_opt_parameters
         builder.exc.orca.parameters = es_parameters
 
@@ -372,12 +373,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
         builder.opt.orca.metadata.description = "ORCA geometry optimization"
-
-        # TODO: Change bp.geo_opt_type to  bp.optimize and use directly
-        if bp.geo_opt_type == "NONE":
-            builder.optimize = False
-        else:
-            builder.optimize = True
 
         # Wigner will be sampled only when optimize == True
         builder.nwigner = bp.nwigner
