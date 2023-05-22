@@ -55,14 +55,14 @@ class MolecularGeometrySettings(ipw.VBox):
 
     def __init__(self, **kwargs):
         # Whether to optimize the molecule or not.
-        self.geo_opt_type = ipw.ToggleButtons(
+        self.optimize = ipw.ToggleButtons(
             options=[
-                ("Geometry as is", "NONE"),
-                ("Optimize geometry", "OPT"),
+                ("Geometry as is", False),
+                ("Optimize geometry", True),
             ],
-            value="OPT",
+            value=True,
         )
-        super().__init__(children=[self.title, self.geo_opt_type])
+        super().__init__(children=[self.title, self.optimize])
 
 
 class MoleculeSettings(ipw.VBox):
