@@ -293,10 +293,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _show_spectrum(self):
         if self.process_uuid is None:
+            self.spectrum.debug_output.value = ""
             return
 
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
+            self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
@@ -358,13 +360,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if "relaxed_structures" in process.outputs:
             assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
-            conformers = process.outputs.relaxed_structures.clone()
-            if nconf > 1:
-                conformers.set_array("energies", np.array(free_energies))
-                conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.base.extras.set("energy_units", "kJ/mole")
-                conformers.base.extras.set("temperature", temperature)
-            self.spectrum.conformer_structures = conformers
+            self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"
