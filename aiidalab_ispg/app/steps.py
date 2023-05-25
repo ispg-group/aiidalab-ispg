@@ -26,12 +26,7 @@ from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
 
 from .widgets import spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
-from .utils import get_formula, calc_boltzmann_weights, AUtoKJ
-
-# TODO: This one will be gone soon
-from aiidalab_ispg.workflows import OrcaWignerSpectrumWorkChain
-
-OrcaBaseWorkChain = WorkflowFactory("orca.base")
+from .utils import get_formula
 
 
 class StructureSelectionStep(QeAppStructureSelectionStep):
@@ -292,44 +287,27 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _show_spectrum(self):
         if self.process_uuid is None:
+            self.spectrum.debug_output.value = ""
             return
 
         process = load_node(self.process_uuid)
         if not process.is_finished_ok:
+            self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
+        # Number of conformers
+        nconf = len(process.inputs.structure.get_stepids())
         # Number of Wigner geometries per conformer
         nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
 
-        nconf = len(process.inputs.structure.get_stepids())
-        free_energies = []
         boltzmann_weights = [1.0 for i in range(nconf)]
-        if process.inputs.optimize:
-            conformer_workchains = [
-                link.node
-                for link in process.base.links.get_outgoing(
-                    link_type=LinkType.CALL_WORK, node_class=OrcaWignerSpectrumWorkChain
-                )
-            ]
-            assert nconf == len(conformer_workchains)
-            for node in conformer_workchains:
-                for link in node.base.links.get_outgoing(
-                    link_type=LinkType.CALL_WORK, node_class=OrcaBaseWorkChain
-                ):
-                    wc = link.node
-                    if wc.label == "optimization":
-                        temperature = wc.outputs.output_parameters["temperature"]
-                        free_energy = wc.outputs.output_parameters["freeenergy"]
-                        free_energies.append(free_energy)
+        if nconf > 1 and process.inputs.optimize:
+            boltzmann_weights = process.outputs.relaxed_structures.get_array(
+                "boltzmann_weights"
+            )
 
-            en0 = min(free_energies)
-            free_energies = [(en - en0) * AUtoKJ for en in free_energies]
-            boltzmann_weights = calc_boltzmann_weights(free_energies, T=temperature)
-
-        # TODO: How to ensure the correct order of process.outputs.spectrum_data.get_list()?
-        # with respect to boltzmann_weights that we computed above?
         conformer_transitions = [
             {
                 "transitions": self._wigner_output_to_transitions(conformer),
@@ -353,16 +331,10 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         else:
             self.spectrum.smiles = None
 
-        if "relaxed_structures" in process.outputs:
+        if process.inputs.optimize:
             assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
-            conformers = process.outputs.relaxed_structures.clone()
-            if nconf > 1:
-                conformers.set_array("energies", np.array(free_energies))
-                conformers.set_array("boltzmann_weights", np.array(boltzmann_weights))
-                conformers.base.extras.set("energy_units", "kJ/mole")
-                conformers.base.extras.set("temperature", temperature)
-            self.spectrum.conformer_structures = conformers
+            self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:
             # If we did not optimize the structure, just show the input structure(s)
             self.spectrum.conformer_header.value = "<h4>Input structures</h4>"

@@ -1,27 +1,31 @@
 """Base work chain to run an ORCA calculation"""
 
-from aiida.engine import WorkChain, calcfunction
+from aiida.engine import WorkChain, calcfunction, ExitCode
 from aiida.engine import append_, ToContext, if_
 
 # not sure if this is needed? Can we use self.run()?
 from aiida.engine import run
 from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
+from aiida.orm import (
+    StructureData,
+    TrajectoryData,
+    SinglefileData,
+    Int,
+    Float,
+    Bool,
+    List,
+    Dict,
+)
 
 from aiidalab_ispg.wigner import Wigner
-from .optimization import structures_to_trajectory
+from .optimization import (
+    extract_trajectory_arrays,
+    RobustOptimizationWorkChain,
+    structures_to_trajectory,
+)
 
-StructureData = DataFactory("core.structure")
-TrajectoryData = DataFactory("core.array.trajectory")
-SinglefileData = DataFactory("core.singlefile")
-Array = DataFactory("core.array")
-Int = DataFactory("core.int")
-Float = DataFactory("core.float")
-Bool = DataFactory("core.bool")
 Code = DataFactory("core.code.installed")
-List = DataFactory("core.list")
-Dict = DataFactory("core.dict")
-
 OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
@@ -101,7 +105,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(
-            OrcaBaseWorkChain, namespace="opt", exclude=["orca.structure", "orca.code"]
+            RobustOptimizationWorkChain,
+            namespace="opt",
+            exclude=["orca.structure", "orca.code"],
         )
         spec.expose_inputs(
             OrcaBaseWorkChain, namespace="exc", exclude=["orca.structure", "orca.code"]
@@ -131,18 +137,23 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
         spec.output("relaxed_structure", valid_type=StructureData, required=False)
         spec.output(
-            "single_point_tddft",
+            "single_point_excitations",
             valid_type=Dict,
             required=True,
-            help="Output parameters from a single-point TDDFT calculation",
+            help="Output parameters from a single-point excitations",
+        )
+        spec.expose_outputs(
+            RobustOptimizationWorkChain,
+            namespace="opt",
+            include=["output_parameters"],
+            namespace_options={"required": False},
         )
 
-        # TODO: Rename this port
         spec.output(
-            "wigner_tddft",
+            "wigner_excitations",
             valid_type=List,
             required=False,
-            help="Output parameters from all Wigner TDDFT calculation",
+            help="Output parameters from all Wigner excited state calculation",
         )
 
         spec.outline(
@@ -231,18 +242,18 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 self.ctx.wigner_structures, Int(i)
             )
             calc = self.submit(OrcaBaseWorkChain, **inputs)
-            calc.label = "wigner-single-point-tddft"
+            calc.label = "wigner-excitation"
             self.to_context(wigner_calcs=append_(calc))
 
     def optimize(self):
         """Optimize geometry"""
         inputs = self.exposed_inputs(
-            OrcaBaseWorkChain, namespace="opt", agglomerate=False
+            RobustOptimizationWorkChain, namespace="opt", agglomerate=False
         )
         inputs.orca.structure = self.inputs.structure
         inputs.orca.code = self.inputs.code
 
-        calc_opt = self.submit(OrcaBaseWorkChain, **inputs)
+        calc_opt = self.submit(RobustOptimizationWorkChain, **inputs)
         calc_opt.label = "optimization"
         return ToContext(calc_opt=calc_opt)
 
@@ -251,6 +262,14 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if not self.ctx.calc_opt.is_finished_ok:
             self.report("Optimization failed :-(")
             return self.exit_codes.ERROR_OPTIMIZATION_FAILED
+        self.out_many(
+            self.exposed_outputs(
+                self.ctx.calc_opt,
+                RobustOptimizationWorkChain,
+                namespace="opt",
+                agglomerate=False,
+            )
+        )
 
     def inspect_excitation(self):
         """Check whether excitation succeeded"""
@@ -258,11 +277,14 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
 
+        self.out(
+            "single_point_excitations", self.ctx.calc_exc.outputs.output_parameters
+        )
+
     def inspect_wigner_excitation(self):
         """Check whether all wigner excitations succeeded"""
         for calc in self.ctx.wigner_calcs:
             if not calc.is_finished_ok:
-                # TODO: Report all failed calcs at once
                 self.report("Wigner excitation failed :-(")
                 return self.exit_codes.ERROR_EXCITATION_FAILED
 
@@ -279,7 +301,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
 
         if self.should_run_wigner():
-            self.report("Concatenating Wigner outputs")
             # TODO: Instead of deepcopying all dicts,
             # only pick the data that we need for the spectrum to save space.
             # We should introduce a special aiida type for spectrum data
@@ -288,9 +309,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 for i, wc in enumerate(self.ctx.wigner_calcs)
             }
             all_results = run(ConcatInputsToList, ns=data)
-            self.out("wigner_tddft", all_results["output"])
-
-        self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)
+            self.out("wigner_excitations", all_results["output"])
 
 
 class AtmospecWorkChain(WorkChain):
@@ -300,7 +319,7 @@ class AtmospecWorkChain(WorkChain):
     def define(cls, spec):
         super().define(spec)
         spec.expose_inputs(OrcaWignerSpectrumWorkChain, exclude=["structure"])
-        spec.input("structure", valid_type=(StructureData, TrajectoryData))
+        spec.input("structure", valid_type=TrajectoryData)
 
         spec.output(
             "spectrum_data",
@@ -321,69 +340,52 @@ class AtmospecWorkChain(WorkChain):
             cls.collect,
         )
 
-        # Very generic error now
-        spec.exit_code(410, "CONFORMER_ERROR", "Conformer spectrum generation failed")
-
     def launch(self):
         inputs = self.exposed_inputs(OrcaWignerSpectrumWorkChain, agglomerate=False)
-        # Single conformer
-        # TODO: Test this!
-        if isinstance(self.inputs.structure, StructureData):
-            self.report("Launching ATMOSPEC for 1 conformer")
-            inputs.structure = self.inputs.structure
-            return ToContext(conf=self.submit(OrcaWignerSpectrumWorkChain, **inputs))
-
         self.report(
             f"Launching ATMOSPEC for {len(self.inputs.structure.get_stepids())} conformers"
         )
         for conf_id in self.inputs.structure.get_stepids():
             inputs.structure = self.inputs.structure.get_step_structure(conf_id)
             workflow = self.submit(OrcaWignerSpectrumWorkChain, **inputs)
-            # workflow.label = 'conformer-wigner-spectrum'
+            workflow.label = f"atmospec-conf-{conf_id}"
             self.to_context(confs=append_(workflow))
 
     def collect(self):
-        # For single conformer
-        # TODO: This currently does not work
-        if isinstance(self.inputs.structure, StructureData):
-            if not self.ctx.conf.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
-            self.out_many(
-                self.exposed_outputs(self.ctx.conf, OrcaWignerSpectrumWorkChain)
-            )
-            return
-
-        # Check for errors
-        # TODO: Specialize errors. Can we expose errors from child workflows?
         for wc in self.ctx.confs:
             if not wc.is_finished_ok:
-                return self.exit_codes.CONFORMER_ERROR
+                return ExitCode(wc.exit_status, wc.exit_message)
+
+        conf_outputs = [wc.outputs for wc in self.ctx.confs]
 
         # Combine all spectra data
-        # NOTE: This if duplicates the logic of OrcaWignerSpectrumWorkChain.should_run_wigner()
         if self.inputs.optimize and self.inputs.nwigner > 0:
             data = {
-                str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)
+                str(i): outputs.wigner_excitations
+                for i, outputs in enumerate(conf_outputs)
             }
         else:
-            # TODO: We should have a separate output for single-point spectra
             data = {
-                str(i): [wc.outputs.single_point_tddft.get_dict()]
-                for i, wc in enumerate(self.ctx.confs)
+                str(i): [outputs.single_point_excitations.get_dict()]
+                for i, outputs in enumerate(conf_outputs)
             }
         all_results = run(ConcatInputsToList, ns=data)
         self.out("spectrum_data", all_results["output"])
 
         # Combine all optimized geometries into single TrajectoryData
-        # TODO: Include energies in TrajectoryData for optimized structures
-        # TODO: Calculate Boltzmann weights and append them to TrajectoryData
         if self.inputs.optimize:
-            relaxed_structures = {
-                f"struct_{i}": wc.outputs.relaxed_structure
-                for i, wc in enumerate(self.ctx.confs)
-            }
-            trajectory = structures_to_trajectory(**relaxed_structures)
+            relaxed_structures = {}
+            orca_output_params = {}
+            for i, outputs in enumerate(conf_outputs):
+                relaxed_structures[f"struct_{i}"] = outputs.relaxed_structure
+                orca_output_params[f"params_{i}"] = outputs.opt.output_parameters
+
+            # For multiple conformers, we're appending relative energies and Boltzmann weights
+            array_data = None
+            if len(self.ctx.confs) > 1:
+                array_data = extract_trajectory_arrays(**orca_output_params)
+
+            trajectory = structures_to_trajectory(
+                arrays=array_data, **relaxed_structures
+            )
             self.out("relaxed_structures", trajectory)
-
-
-__version__ = "0.1-alpha"
