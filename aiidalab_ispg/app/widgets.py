@@ -38,7 +38,7 @@ __all__ = [
 
 
 class WorkChainSelector(QeAppWorkChainSelector):
-    EXTRA_FIELDS = [("formula", str)]
+    extra_fields = [("formula", str)]
 
     def __init__(self, workchain_label, **kwargs):
         super().__init__(process_label=workchain_label, **kwargs)
