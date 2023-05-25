@@ -1,5 +1,4 @@
 """Widgets related to process management."""
-import abc
 from dataclasses import make_dataclass
 
 import ipywidgets as ipw
@@ -70,9 +69,9 @@ class WorkChainSelector(ipw.HBox):
 
         self.refresh_work_chains()
 
-    @abc.abstractmethod
-    def parse_extra_info(self, pk: int):
+    def parse_extra_info(self, pk: int) -> dict:
         """Parse extra information about the work chain."""
+        return {}
 
     def find_work_chains(self):
         builder = CalculationQueryBuilder()
