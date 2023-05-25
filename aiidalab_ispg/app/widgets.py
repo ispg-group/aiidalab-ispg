@@ -38,61 +38,20 @@ __all__ = [
 
 
 class WorkChainSelector(QeAppWorkChainSelector):
-
-    FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
+    EXTRA_FIELDS = [("formula", str)]
 
     def __init__(self, workchain_label, **kwargs):
-        self.workchain_label = workchain_label
-        super().__init__(**kwargs)
+        super().__init__(process_label=workchain_label, **kwargs)
 
-    @dataclass
-    class WorkChainData:
-        pk: int
-        ctime: str
-        state: str
-        formula: str
+    def parse_extra_info(self, pk: int):
+        """Parse extra information about the work chain.
 
-    @classmethod
-    def find_work_chains(cls, workchain_label):
-        builder = CalculationQueryBuilder()
-        filters = builder.get_filters(
-            process_label=workchain_label,
-        )
-        query_set = builder.get_query_set(
-            filters=filters,
-            order_by={"ctime": "desc"},
-        )
-        projected = builder.get_projected(
-            query_set, projections=["pk", "ctime", "state"]
-        )
-
-        for process in projected[1:]:
-            pk = process[0]
-            structure = load_node(pk).inputs.structure
-            formula = get_formula(structure)
-            yield cls.WorkChainData(formula=formula, *process)
-
-    def refresh_work_chains(self, _=None):
-        # TODO: Don't lock if dropdown open
-        with self._refresh_lock:
-            try:
-                self.set_trait("busy", True)  # disables the widget
-
-                with self.hold_trait_notifications():
-                    # We need to restore the original value, because it may be reset due to this issue:
-                    # https://github.com/jupyter-widgets/ipywidgets/issues/2230
-                    original_value = self.work_chains_selector.value
-
-                    self.work_chains_selector.options = [
-                        ("New calculation...", self._NO_PROCESS)
-                    ] + [
-                        (self.FMT_WORKCHAIN.format(wc=wc), wc.pk)
-                        for wc in self.find_work_chains(self.workchain_label)
-                    ]
-
-                    self.work_chains_selector.value = original_value
-            finally:
-                self.set_trait("busy", False)  # reenable the widget
+        :param pk: the UUID of the work chain to parse
+        :return: the parsed extra information"""
+        structure = load_node(pk).inputs.structure
+        return {
+            "formula": get_formula(structure),
+        }
 
 
 @register_viewer_widget("data.core.array.trajectory.TrajectoryData.")
