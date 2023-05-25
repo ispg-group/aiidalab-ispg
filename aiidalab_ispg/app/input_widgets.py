@@ -152,7 +152,7 @@ class ExcitedStateSettings(ipw.VBox):
 
     qm_title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Excited state QM method</h4>
+        <h4>Excited state electronic structure</h4>
         </div>"""
     )
 
