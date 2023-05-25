@@ -7,6 +7,16 @@ from aiida.engine import append_, ToContext, if_
 from aiida.engine import run
 from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
 from aiida.orm import to_aiida_type
+from aiida.orm import (
+    StructureData,
+    TrajectoryData,
+    SinglefileData,
+    Int,
+    Float,
+    Bool,
+    List,
+    Dict,
+)
 
 from aiidalab_ispg.wigner import Wigner
 from .optimization import (
@@ -15,17 +25,7 @@ from .optimization import (
     structures_to_trajectory,
 )
 
-StructureData = DataFactory("core.structure")
-TrajectoryData = DataFactory("core.array.trajectory")
-SinglefileData = DataFactory("core.singlefile")
-Array = DataFactory("core.array")
-Int = DataFactory("core.int")
-Float = DataFactory("core.float")
-Bool = DataFactory("core.bool")
 Code = DataFactory("core.code.installed")
-List = DataFactory("core.list")
-Dict = DataFactory("core.dict")
-
 OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
@@ -137,10 +137,10 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
         spec.output("relaxed_structure", valid_type=StructureData, required=False)
         spec.output(
-            "single_point_tddft",
+            "single_point_excitations",
             valid_type=Dict,
             required=True,
-            help="Output parameters from a single-point TDDFT calculation",
+            help="Output parameters from a single-point excitations",
         )
         spec.expose_outputs(
             RobustOptimizationWorkChain,
@@ -149,12 +149,11 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             namespace_options={"required": False},
         )
 
-        # TODO: Rename this port
         spec.output(
-            "wigner_tddft",
+            "wigner_excitations",
             valid_type=List,
             required=False,
-            help="Output parameters from all Wigner TDDFT calculation",
+            help="Output parameters from all Wigner excited state calculation",
         )
 
         spec.outline(
@@ -278,13 +277,14 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
 
-        self.out("single_point_tddft", self.ctx.calc_exc.outputs.output_parameters)
+        self.out(
+            "single_point_excitations", self.ctx.calc_exc.outputs.output_parameters
+        )
 
     def inspect_wigner_excitation(self):
         """Check whether all wigner excitations succeeded"""
         for calc in self.ctx.wigner_calcs:
             if not calc.is_finished_ok:
-                # TODO: Report all failed calcs at once
                 self.report("Wigner excitation failed :-(")
                 return self.exit_codes.ERROR_EXCITATION_FAILED
 
@@ -309,7 +309,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 for i, wc in enumerate(self.ctx.wigner_calcs)
             }
             all_results = run(ConcatInputsToList, ns=data)
-            self.out("wigner_tddft", all_results["output"])
+            self.out("wigner_excitations", all_results["output"])
 
 
 class AtmospecWorkChain(WorkChain):
@@ -340,9 +340,6 @@ class AtmospecWorkChain(WorkChain):
             cls.collect,
         )
 
-        # Very generic error now
-        spec.exit_code(410, "CONFORMER_ERROR", "Conformer spectrum generation failed")
-
     def launch(self):
         inputs = self.exposed_inputs(OrcaWignerSpectrumWorkChain, agglomerate=False)
         self.report(
@@ -359,17 +356,18 @@ class AtmospecWorkChain(WorkChain):
             if not wc.is_finished_ok:
                 return ExitCode(wc.exit_status, wc.exit_message)
 
+        conf_outputs = [wc.outputs for wc in self.ctx.confs]
+
         # Combine all spectra data
-        # NOTE: This if duplicates the logic of OrcaWignerSpectrumWorkChain.should_run_wigner()
         if self.inputs.optimize and self.inputs.nwigner > 0:
             data = {
-                str(i): wc.outputs.wigner_tddft for i, wc in enumerate(self.ctx.confs)
+                str(i): outputs.wigner_excitations
+                for i, outputs in enumerate(conf_outputs)
             }
         else:
-            # TODO: We should have a separate output for single-point spectra
             data = {
-                str(i): [wc.outputs.single_point_tddft.get_dict()]
-                for i, wc in enumerate(self.ctx.confs)
+                str(i): [outputs.single_point_excitations.get_dict()]
+                for i, outputs in enumerate(conf_outputs)
             }
         all_results = run(ConcatInputsToList, ns=data)
         self.out("spectrum_data", all_results["output"])
@@ -378,10 +376,11 @@ class AtmospecWorkChain(WorkChain):
         if self.inputs.optimize:
             relaxed_structures = {}
             orca_output_params = {}
-            for wc in self.ctx.confs:
-                relaxed_structures[f"struct_{wc.pk}"] = wc.outputs.relaxed_structure
-                orca_output_params[f"params_{wc.pk}"] = wc.outputs.opt.output_parameters
+            for i, outputs in enumerate(conf_outputs):
+                relaxed_structures[f"struct_{i}"] = outputs.relaxed_structure
+                orca_output_params[f"params_{i}"] = outputs.opt.output_parameters
 
+            # For multiple conformers, we're appending relative energies and Boltzmann weights
             array_data = None
             if len(self.ctx.confs) > 1:
                 array_data = extract_trajectory_arrays(**orca_output_params)
