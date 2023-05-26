@@ -25,7 +25,7 @@ from aiidalab_widgets_base import register_viewer_widget
 from aiidalab_widgets_base import StructureManagerWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
 
-from .qeapp import WorkChainSelector as QeAppWorkChainSelector
+from .qeapp.process import WorkChainSelector
 from .utils import get_formula
 
 StructureData = DataFactory("core.structure")
@@ -37,62 +37,21 @@ __all__ = [
 ]
 
 
-class WorkChainSelector(QeAppWorkChainSelector):
+class ISPGWorkChainSelector(WorkChainSelector):
+    extra_fields = [("formula", str)]
 
-    FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}\t{wc.formula}"
+    def __init__(self, process_label: str, **kwargs):
+        super().__init__(process_label=process_label, **kwargs)
 
-    def __init__(self, workchain_label, **kwargs):
-        self.workchain_label = workchain_label
-        super().__init__(**kwargs)
+    def parse_extra_info(self, pk: int) -> dict:
+        """Parse extra information about the work chain.
 
-    @dataclass
-    class WorkChainData:
-        pk: int
-        ctime: str
-        state: str
-        formula: str
-
-    @classmethod
-    def find_work_chains(cls, workchain_label):
-        builder = CalculationQueryBuilder()
-        filters = builder.get_filters(
-            process_label=workchain_label,
-        )
-        query_set = builder.get_query_set(
-            filters=filters,
-            order_by={"ctime": "desc"},
-        )
-        projected = builder.get_projected(
-            query_set, projections=["pk", "ctime", "state"]
-        )
-
-        for process in projected[1:]:
-            pk = process[0]
-            structure = load_node(pk).inputs.structure
-            formula = get_formula(structure)
-            yield cls.WorkChainData(formula=formula, *process)
-
-    def refresh_work_chains(self, _=None):
-        # TODO: Don't lock if dropdown open
-        with self._refresh_lock:
-            try:
-                self.set_trait("busy", True)  # disables the widget
-
-                with self.hold_trait_notifications():
-                    # We need to restore the original value, because it may be reset due to this issue:
-                    # https://github.com/jupyter-widgets/ipywidgets/issues/2230
-                    original_value = self.work_chains_selector.value
-
-                    self.work_chains_selector.options = [
-                        ("New calculation...", self._NO_PROCESS)
-                    ] + [
-                        (self.FMT_WORKCHAIN.format(wc=wc), wc.pk)
-                        for wc in self.find_work_chains(self.workchain_label)
-                    ]
-
-                    self.work_chains_selector.value = original_value
-            finally:
-                self.set_trait("busy", False)  # reenable the widget
+        :param pk: the pk of the workchain to parse
+        :return: the parsed extra information"""
+        structure = load_node(pk).inputs.structure
+        return {
+            "formula": get_formula(structure),
+        }
 
 
 @register_viewer_widget("data.core.array.trajectory.TrajectoryData.")

@@ -315,6 +315,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 class AtmospecWorkChain(WorkChain):
     """The top-level ATMOSPEC workchain"""
 
+    def _build_process_label(self):
+        return "ATMOSPEC workflow"
+
     @classmethod
     def define(cls, spec):
         super().define(spec)
