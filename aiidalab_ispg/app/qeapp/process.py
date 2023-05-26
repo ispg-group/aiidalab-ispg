@@ -18,7 +18,7 @@ class WorkChainSelector(ipw.HBox):
     names of the output keys of the `parse_extra_info` method.
     """
 
-    # The PK of a 'aiida.workflows:quantumespresso.pw.bands' WorkChainNode.
+    # The PK of process Node
     value = tl.Int(allow_none=True)
 
     # Indicate whether the widget is currently updating the work chain options.
@@ -29,7 +29,7 @@ class WorkChainSelector(ipw.HBox):
     # use `None` as setting the widget's value to None will lead to "no selection".
     _NO_PROCESS = object()
 
-    FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
+    BASE_FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
 
     BASE_FIELDS = [("pk", int), ("ctime", str), ("state", str)]
     extra_fields = None
@@ -51,9 +51,9 @@ class WorkChainSelector(ipw.HBox):
 
         if self.extra_fields is not None:
             fmt_extra = "".join([f"{{wc.{field[0]}}}" for field in self.extra_fields])
-            self.fmt_workchain = self.FMT_WORKCHAIN + "\t" + fmt_extra
+            self.fmt_workchain = self.BASE_FMT_WORKCHAIN + "\t" + fmt_extra
         else:
-            self.fmt_workchain = self.FMT_WORKCHAIN
+            self.fmt_workchain = self.BASE_FMT_WORKCHAIN
 
         self.refresh_work_chains_button = ipw.Button(description="Refresh")
         self.refresh_work_chains_button.on_click(self.refresh_work_chains)

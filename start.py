@@ -6,7 +6,7 @@ template = """
 </div>
 <table>
 <tr>
-  <th style="text-align:center">ISPG testing Applications</th>
+  <th style="text-align:center">ISPG Applications</th>
 <tr>
   <td valign="top"><ul>
     <li><a href="{appbase}/notebooks/spectrum_widget.ipynb" target="_blank">Spectrum Widget</a></li>

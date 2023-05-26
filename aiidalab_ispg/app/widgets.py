@@ -25,7 +25,7 @@ from aiidalab_widgets_base import register_viewer_widget
 from aiidalab_widgets_base import StructureManagerWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
 
-from .qeapp import WorkChainSelector as QeAppWorkChainSelector
+from .qeapp.process import WorkChainSelector
 from .utils import get_formula
 
 StructureData = DataFactory("core.structure")
@@ -37,16 +37,16 @@ __all__ = [
 ]
 
 
-class WorkChainSelector(QeAppWorkChainSelector):
+class ISPGWorkChainSelector(WorkChainSelector):
     extra_fields = [("formula", str)]
 
-    def __init__(self, workchain_label, **kwargs):
-        super().__init__(process_label=workchain_label, **kwargs)
+    def __init__(self, process_label: str, **kwargs):
+        super().__init__(process_label=process_label, **kwargs)
 
-    def parse_extra_info(self, pk: int):
+    def parse_extra_info(self, pk: int) -> dict:
         """Parse extra information about the work chain.
 
-        :param pk: the UUID of the work chain to parse
+        :param pk: the pk of the workchain to parse
         :return: the parsed extra information"""
         structure = load_node(pk).inputs.structure
         return {
