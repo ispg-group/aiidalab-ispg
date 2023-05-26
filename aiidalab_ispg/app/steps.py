@@ -272,8 +272,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _orca_output_to_transitions(self, output_dict, geom_index):
         EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
-        en = output_dict["etenergies"]
-        osc = output_dict["etoscs"]
+        en = output_dict["excitation_energies_cm"]
+        osc = output_dict["oscillator_strengths"]
         return [
             {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
             for tr in zip(en, osc)

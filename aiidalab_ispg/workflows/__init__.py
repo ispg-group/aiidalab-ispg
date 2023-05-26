@@ -271,15 +271,25 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             )
         )
 
+    def extract_transitions_from_orca_output(self, orca_output_params):
+        return {
+            "oscillator_strengths": orca_output_params["etoscs"],
+            # Orca returns excited state energies in cm^-1
+            # Perhaps we should do the conversion here,
+            # to make this less ORCA specific.
+            "excitation_energies_cm": orca_output_params["etenergies"],
+        }
+
     def inspect_excitation(self):
         """Check whether excitation succeeded"""
         if not self.ctx.calc_exc.is_finished_ok:
             self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
 
-        self.out(
-            "single_point_excitations", self.ctx.calc_exc.outputs.output_parameters
+        transitions = self.extract_transitions_from_orca_output(
+            self.ctx.calc_exc.outputs.output_parameters
         )
+        self.out("single_point_excitations", Dict(transitions).store())
 
     def inspect_wigner_excitation(self):
         """Check whether all wigner excitations succeeded"""
@@ -301,15 +311,11 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
 
         if self.should_run_wigner():
-            # TODO: Instead of deepcopying all dicts,
-            # only pick the data that we need for the spectrum to save space.
-            # We should introduce a special aiida type for spectrum data
-            data = {
-                str(i): wc.outputs.output_parameters
-                for i, wc in enumerate(self.ctx.wigner_calcs)
-            }
-            all_results = run(ConcatInputsToList, ns=data)
-            self.out("wigner_excitations", all_results["output"])
+            all_wigner_data = [
+                self.extract_transitions_from_orca_output(wc.outputs.output_parameters)
+                for wc in self.ctx.wigner_calcs
+            ]
+            self.out("wigner_excitations", List(all_wigner_data).store())
 
 
 class AtmospecWorkChain(WorkChain):
