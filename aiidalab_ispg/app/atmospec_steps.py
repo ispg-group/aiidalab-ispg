@@ -43,19 +43,18 @@ class AtmospecParameters(OptimizationParameters):
     wigner_low_freq_thr: float
 
 
-# TODO: Production parameters
 DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     charge=0,
     multiplicity=1,
     method="wB97X-D4",
-    basis="def2-SVP",
+    basis="aug-cc-pVDZ",
     solvent="None",
     optimize=True,
     excited_method=ExcitedStateMethod.TDA,
     nstates=3,
-    es_basis="def2-SVP",
+    es_basis="aug-cc-pVDZ",
     tddft_functional="wB97X-D4",
-    nwigner=1,
+    nwigner=0,
     wigner_low_freq_thr=100.0,
 )
 
@@ -435,7 +434,10 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
             if change["new"]:
                 self._status_text.value = {
                     AtmospecWorkflowStatus.INIT: "Workflow started",
-                    AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
+                    # TODO: This needs to be properly implemented, the tricky part is
+                    # how to do it when there are multiple conformers
+                    # AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
+                    AtmospecWorkflowStatus.IN_PROGRESS: f"Workflow is running {spinner}",
                     AtmospecWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
                     AtmospecWorkflowStatus.FAILED: "Workflow failed! 😧",
                 }.get(change["new"], change["new"].name)

@@ -45,7 +45,7 @@ DEFAULT_OPTIMIZATION_PARAMETERS = OptimizationParameters(
     charge=0,
     multiplicity=1,
     method="wB97X-D4",
-    basis="def2-SVP",
+    basis="aug-cc-pVDZ",
     solvent="None",
 )
 
