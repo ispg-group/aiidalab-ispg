@@ -246,7 +246,7 @@ class WignerSamplingSettings(ipw.VBox):
 
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Wigner sampling</h4>
+        <h4>Harmonic Wigner sampling</h4>
         </div>"""
     )
 
