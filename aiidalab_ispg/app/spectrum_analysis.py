@@ -79,14 +79,15 @@ class DensityPlotWidget(ipw.VBox):
     _BOKEH_LABEL = "energy-osc"
 
     def __init__(self):
+        # We currently disable the 2D density toggle as it may produce misleading maps
         self.density_toggle = ipw.ToggleButtons(
             options=[
                 ("Scatterplot", "SCATTER"),
-                ("2D Density", "DENSITY"),
+                # ("2D Density", "DENSITY"),
             ],
             value="SCATTER",
         )
-        self.density_toggle.observe(self._observe_density_toggle, names="value")
+        # self.density_toggle.observe(self._observe_density_toggle, names="value")
 
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
         bokeh_tools = "save"
@@ -98,7 +99,7 @@ class DensityPlotWidget(ipw.VBox):
         self.figure = self._init_figure(tools=bokeh_tools, **figure_size)
         self.figure.layout = ipw.Layout(overflow="initial")
 
-        super().__init__(children=[self.density_toggle, self.figure])
+        super().__init__(children=[self.figure])
 
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
