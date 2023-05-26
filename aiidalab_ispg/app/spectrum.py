@@ -74,10 +74,20 @@ class Spectrum:
     @staticmethod
     def get_energy_range_ev(excitation_energies):
         """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
-        # NOTE: We don't include zero to prevent
-        # division by zero when converting to wavelength
-        x_min = max(0.01, excitation_energies.min() - 1.5)
-        x_max = excitation_energies.max() + 1.5
+        en_min_ev = excitation_energies.min()
+        en_max_ev = excitation_energies.max()
+        assert en_min_ev > 0.0
+        assert en_max_ev > 0.0
+        padding_ev = 1.5
+        # You're not supposed to understand this. :-)
+        # Okay, so essentially we're determining the x-axis of the spectrum
+        # by taking a minimum and maximum excitation energy and adding some padding.
+        # However, for low-energy excitation, we want to use smaller padding, since small
+        # excitation energies result in big tail when converted to nanometers.
+        x_max = en_max_ev + padding_ev
+        x_min = en_min_ev - padding_ev
+        if x_min < 1.0:
+            x_min = en_min_ev - en_min_ev / 2.0
         return x_min, x_max
 
     @staticmethod
@@ -156,13 +166,6 @@ class Spectrum:
 
     def _convert_to_nanometers(self, x, y):
         x = self.get_energy_unit_factor(EnergyUnit.NM) / x
-        # Filtering out ultralong wavelengths
-        # TODO: Set this threshold adaptively based on lowest energy transition
-        # TODO: Because the arrays are ordered, there's much easier way than np.delete()
-        nm_thr = 1000
-        to_delete = [i for i, nm in enumerate(x) if nm > nm_thr]
-        x = np.delete(x, to_delete)
-        y = np.delete(y, to_delete)
         return x, y
 
 
