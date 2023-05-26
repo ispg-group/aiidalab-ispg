@@ -125,10 +125,6 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
     def _observe_process(self, change):
         self._update_state()
 
-    def can_reset(self):
-        "Do not allow reset while process is running."
-        return self.state is not self.State.ACTIVE
-
     def reset(self):
         with self.hold_trait_notifications():
             self.process = None
@@ -181,10 +177,6 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             components = components + children
 
         super().__init__(children=components, **kwargs)
-
-    def can_reset(self):
-        "Do not allow reset while process is running."
-        return self.state is not self.State.ACTIVE
 
     def reset(self):
         self.process_uuid = None
