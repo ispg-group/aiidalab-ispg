@@ -182,12 +182,17 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         self.process_uuid = None
         self.tree_toggle.value = False
 
-    def _update_step_state(self, process_uuid):
-        if process_uuid is None:
+    # NOTE: This is somewhat subtle: The second argument with default None is needed
+    # because this function is called from ProcessMonitor, which passes process_uuid to callbacks.
+    # HOWEVER, we don't want to actually use it, and instead use self.process_uuid,
+    # so that the state of the widget is consistent in case ProcessMonitor is not synced yet.
+    # The same comment applies to _update_workflow_state() and _display_result() as well.
+    def _update_step_state(self, _=None):
+        if self.process_uuid is None:
             self.state = self.State.INIT
             return
 
-        process = load_node(process_uuid)
+        process = load_node(self.process_uuid)
         process_state = process.process_state
         if process_state in (
             ProcessState.CREATED,
@@ -203,13 +208,13 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             self.state = self.State.SUCCESS
 
-    def _update_workflow_state(self, process_uuid):
+    def _update_workflow_state(self, _=None):
         """To be implemented by child workflows
         to power the workflow-specific progress bar
         """
         pass
 
-    def _display_results(self, process_uuid):
+    def _display_results(self, _=None):
         """Optional function to be called when the process is finished"""
         pass
 
@@ -220,8 +225,8 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             self.tree_toggle.disabled = True
         else:
             self.tree_toggle.disabled = False
-        self._update_step_state(process_uuid)
-        self._update_workflow_state(process_uuid)
+        self._update_step_state()
+        self._update_workflow_state()
 
     def _observe_tree_toggle(self, change):
         if change["new"] == change["old"]:

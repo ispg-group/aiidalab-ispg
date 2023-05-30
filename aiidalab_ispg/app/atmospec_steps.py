@@ -465,8 +465,8 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         )
         super().__init__(progress_bar=self.progress_bar, **kwargs)
 
-    def _update_workflow_state(self, process_uuid):
-        if process_uuid is None:
+    def _update_workflow_state(self):
+        if self.process_uuid is None:
             self.workflow_status = None
             return
 
