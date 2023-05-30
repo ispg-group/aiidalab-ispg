@@ -1,3 +1,4 @@
+# ruff: noqa: INP001
 import os
 import time
 from pathlib import Path
@@ -13,7 +14,7 @@ from selenium.webdriver.common.by import By
 
 def is_responsive(url):
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=200)
         if response.status_code == 200:
             return True
     except ConnectionError:
@@ -22,7 +23,7 @@ def is_responsive(url):
 
 @pytest.fixture(scope="session")
 def docker_compose_file(pytestconfig):
-    return os.path.join(str(pytestconfig.rootdir), "tests/app", "docker-compose.yml")
+    return pytestconfig.rootdir / "tests" / "app" / "docker-compose.yml"
 
 
 @pytest.fixture(scope="session")
@@ -76,7 +77,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir)
     return url, token
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def selenium_driver(selenium, notebook_service):
     def _selenium_driver(nb_path, wait_time=5.0):
         url, token = notebook_service
@@ -97,7 +98,7 @@ def selenium_driver(selenium, notebook_service):
     return _selenium_driver
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
         smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
@@ -113,7 +114,7 @@ def generate_mol_from_smiles(selenium):
     return _generate_mol
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture()
 def check_atoms(selenium):
     """Check that we can select atoms in a molecule given atom symbols."""
 
@@ -143,7 +144,7 @@ def check_atoms(selenium):
     return _select_atoms
 
 
-@pytest.fixture
+@pytest.fixture()
 def button_enabled(selenium):
     def _button_enabled(button_title):
         WebDriverWait(selenium, 15).until(
@@ -157,7 +158,7 @@ def button_enabled(selenium):
     return _button_enabled
 
 
-@pytest.fixture
+@pytest.fixture()
 def button_disabled(selenium):
     def _button_disabled(button_title):
         WebDriverWait(selenium, 15).until(
@@ -171,15 +172,15 @@ def button_disabled(selenium):
 
 @pytest.fixture(scope="session")
 def screenshot_dir():
-    sdir = Path.joinpath(Path.cwd(), "screenshots")
+    sdir = Path.cwd() / "screenshots"
     try:
-        os.mkdir(sdir)
+        Path.mkdir(sdir)
     except FileExistsError:
         pass
     return sdir
 
 
-@pytest.fixture
+@pytest.fixture()
 def final_screenshot(request, screenshot_dir, selenium):
     """Take screenshot at the end of the test.
     Screenshot name is generated from the test function name
@@ -191,13 +192,13 @@ def final_screenshot(request, screenshot_dir, selenium):
     selenium.get_screenshot_as_file(screenshot_path)
 
 
-@pytest.fixture
+@pytest.fixture()
 def firefox_options(firefox_options):
     firefox_options.add_argument("--headless")
     return firefox_options
 
 
-@pytest.fixture
+@pytest.fixture()
 def chrome_options(chrome_options):
     chrome_options.add_argument("--headless")
     return chrome_options

@@ -5,16 +5,13 @@ Authors:
 """
 
 from dataclasses import dataclass
-from enum import Enum, unique
 
 import bokeh.plotting as plt
 import bokeh.palettes
-from bokeh.models import ColumnDataSource, Scatter
 
 import ipywidgets as ipw
 import traitlets
 import scipy
-from scipy import constants
 import numpy as np
 
 from .utils import BokehFigureContext
@@ -105,8 +102,8 @@ class DensityPlotWidget(ipw.VBox):
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = f"Excitation Energy (eV)"
-        f.yaxis.axis_label = f"Oscillator strength (-)"
+        f.xaxis.axis_label = "Excitation Energy (eV)"
+        f.yaxis.axis_label = "Oscillator strength (-)"
         return figure
 
     @traitlets.observe("conformer_transitions")
@@ -130,7 +127,8 @@ class DensityPlotWidget(ipw.VBox):
         elif plot_type == "DENSITY":
             self.plot_density(energies, osc_strengths)
         else:
-            raise ValueError(f"Unexpected value for toggle: {plot_type}")
+            msg = f"Unexpected value for toggle: {plot_type}"
+            raise ValueError(msg)
 
     def _flatten_transitions(self):
         # Flatten transitions for all conformers.

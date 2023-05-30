@@ -24,7 +24,6 @@ __all__ = [
 
 
 class RollingOutput(ipw.VBox):
-
     style = (
         "background-color: #253239; color: #cdd3df; line-height: normal; custom=test"
     )
@@ -107,7 +106,8 @@ class DownloadButton(ipw.Button):
         return "Download"
 
     def __on_click(self, _):
-        digest = hashlib.md5(self.payload).hexdigest()  # bypass browser cache
+        # bypass browser cache
+        digest = hashlib.md5(self.payload).hexdigest()  # noqa: S324
         payload = base64.b64encode(self.payload).decode()
 
         link_id = f"dl_{digest}"
@@ -134,7 +134,6 @@ class DownloadButton(ipw.Button):
 
 
 class FilenameDisplayWidget(ipw.Box):
-
     value = traitlets.Unicode()
 
     def __init__(self, max_width=None, **kwargs):
@@ -158,7 +157,6 @@ class FilenameDisplayWidget(ipw.Box):
 
 
 class LogOutputWidget(ipw.VBox):
-
     filename = traitlets.Unicode()
     value = traitlets.Unicode()
 
@@ -236,7 +234,6 @@ class LogOutputWidget(ipw.VBox):
 
 
 class CalcJobOutputFollower(traitlets.HasTraits):
-
     calcjob_uuid = traitlets.Unicode(allow_none=True)
     filename = traitlets.Unicode(allow_none=True)
     output = traitlets.List(trait=traitlets.Unicode)

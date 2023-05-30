@@ -26,6 +26,7 @@ R = 8.3144598
 # https://github.com/pzarabadip/aiida-orca/issues/45
 MEMORY_PER_CPU = 3000  # Mb
 
+
 # TODO: Use numpy here? Measure the speed...
 # Energies expected in kJ / mole, Absolute temperature in Kelvins
 def calc_boltzmann_weights(energies, T):
@@ -48,7 +49,8 @@ def get_formula(data_node):
     elif isinstance(data_node, CifData):
         return data_node.get_ase().get_chemical_formula()
     else:
-        raise ValueError(f"Cannot get formula from node {type(data_node)}")
+        msg = f"Cannot get formula from node {type(data_node)}"
+        raise ValueError(msg)
 
 
 # https://stackoverflow.com/a/3382369

@@ -69,7 +69,6 @@ class FFMethod(Enum):
 
 
 class ConformerSmilesWidget(SmilesWidget):
-
     structure = Union(
         [Instance(Atoms), Instance(StructureData), Instance(TrajectoryData)],
         allow_none=True,
@@ -232,7 +231,10 @@ class ConformerSmilesWidget(SmilesWidget):
                 selected_energies.append(shifted_energy)
         return selected_conformers, selected_energies
 
-    def _rdkit_opt(self, smiles, steps, algo=RDKitMethod.ETKDGV1, opt_algo=None):
+    # TODO: Refactor this to smaller functions
+    def _rdkit_opt(  # noqa: C901
+        self, smiles, steps, algo=RDKitMethod.ETKDGV1, opt_algo=None
+    ):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
 
         if self.debug:
@@ -273,7 +275,8 @@ class ConformerSmilesWidget(SmilesWidget):
                 mol, numConfs=num_confs, params=params
             )
         if len(conf_ids) == 0:
-            raise ValueError("Failed to generate conformers with RDKit")
+            msg = "Failed to generate conformers with RDKit"
+            raise ValueError(msg)
 
         ffenergies = None
         if opt_algo == FFMethod.UFF and AllChem.UFFHasAllMoleculeParams(mol):

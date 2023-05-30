@@ -1,3 +1,4 @@
+# ruff: noqa: INP001
 # This script needs to be run with `verdi run`
 import argparse
 from pprint import pprint
@@ -6,6 +7,9 @@ import yaml
 
 import numpy as np
 from rdkit import Chem
+
+from aiida.orm import QueryBuilder
+from aiida.plugins import DataFactory
 
 XyData = DataFactory("array.xy")
 
@@ -33,15 +37,16 @@ def parse_cmd():
 def canonicalize_smiles(smiles):
     mol = Chem.MolFromSmiles(smiles, sanitize=True)
     if mol is None:
-        raise ValueError("RDkit ERROR: Invalid SMILES string")
+        msg = "RDkit ERROR: Invalid SMILES string"
+        raise ValueError(msg)
     canonical_smiles = Chem.MolToSmiles(mol, isomericSmiles=True, canonical=True)
     if not canonical_smiles:
-        raise ValueError("RDKit: Could not canonicalize SMILES")
+        msg = "RDKit: Could not canonicalize SMILES"
+        raise ValueError(msg)
     return canonical_smiles
 
 
 def main(input_file, dry_run=True):
-
     with open(opts.input_file) as f:
         data = yaml.safe_load(f)
 

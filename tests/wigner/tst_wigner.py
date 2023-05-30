@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
+# ruff: noqa
 
 import ase
-import aiidalab_atmospec_workchain.wigner as wigner
+from aiidalab_atmospec_workchain.wigner import wigner
 from aiidalab_atmospec_workchain.wigner import ANG_TO_BOHR
 
 LOW_FREQ_THR = 200

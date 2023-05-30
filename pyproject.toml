@@ -7,6 +7,38 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
+[tool.ruff]
+# Enable pyflakes and pyf-builtins, pyflakes, f=bugbear 
+select = [
+    "A", # flake8-builtins
+    "B", # flake8-bugbear
+    "E", # pycodestyle
+    "F", # pyflakes
+    "C90", # McCabe code complexity
+    "UP", # pyupgrade
+    "S", # bandit
+    "C4", # comprehensiosn 
+    "EM", # errormsg
+    "ISC", # implicit concatenation
+    "ICN", # import convention
+    "INP", # no implicite namespace package
+    "PIE", # 
+    "PT", # pytest style
+    "PTH",
+    # "PL", # pylint, for now disabled
+    # "PLR", # pylint refactor
+    "PLC", "PLE", "PLW",
+    "RUF", # ruff
+]
+line-length = 120
+src = ["aiidalab_ispg", "tests"]
+target-version = "py39"
+
+# Never enforce `E501` (line length violations).
+# TODO: Remove all asserts from the codebase and enable this rule
+# Use of assert detected (S101)
+ignore = ["E501", "S101", "PT004", "PTH123"]
+
 [tool.bumpver]
 current_version = "0.2.0a3"
 version_pattern = "MAJOR.MINOR.PATCH[PYTAGNUM]"

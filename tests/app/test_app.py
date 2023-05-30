@@ -1,5 +1,5 @@
+# ruff: noqa: INP001
 import requests
-import time
 from enum import Enum
 from pathlib import Path
 
@@ -13,6 +13,7 @@ from selenium.webdriver.common.by import By
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 1250
 
+
 # Copied over from aiidalab_widgets_base/wizard.py
 class StepState(Enum):
     """Wizzard step state"""
@@ -25,14 +26,14 @@ class StepState(Enum):
     FAIL = -1  # the step has unrecoverably failed
 
 
-@pytest.fixture
+@pytest.fixture()
 def check_step_status(selenium):
     ICONS = {
         StepState.INIT: "○",
         StepState.READY: "◎",
         StepState.CONFIGURED: "●",
         StepState.SUCCESS: "✓",
-        StepState.FAIL: "×",
+        StepState.FAIL: "×",  # noqa: RUF001
         # The ACTIVE state is "animated", see aiidalab_widgets_base/wizard.py,
         # hence we cannot use it in tests.
         # WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
@@ -47,14 +48,14 @@ def check_step_status(selenium):
     return _check_step_status
 
 
-@pytest.mark.tryfirst
+@pytest.mark.tryfirst()
 def test_post_install(notebook_service, aiidalab_exec, nb_user, appdir):
     aiidalab_exec("./post_install", workdir=appdir, user=nb_user)
 
 
 def test_notebook_service_available(notebook_service):
     url, token = notebook_service
-    response = requests.get(f"{url}/?token={token}")
+    response = requests.get(f"{url}/?token={token}", timeout=100)
     assert response.status_code == 200
 
 
@@ -157,7 +158,7 @@ def test_optimization_steps(
 
     button_disabled("Confirm")
     button_disabled("Submit")
-    submit = WebDriverWait(driver, 10).until(
+    WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((By.XPATH, "//button[text()='Submit']"))
     )
 
@@ -221,7 +222,7 @@ def test_atmospec_steps(
 
     # Make sure the submit button is visible. It should not be clickable since
     # ORCA is not installed.
-    submit = WebDriverWait(driver, 10).until(
+    WebDriverWait(driver, 10).until(
         EC.visibility_of_element_located((By.XPATH, "//button[text()='Submit']"))
     )
     button_disabled("Submit")

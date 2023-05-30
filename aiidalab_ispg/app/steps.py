@@ -5,15 +5,12 @@ Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
 """
 import ipywidgets as ipw
-import numpy as np
 import re
 import traitlets
 
-from aiida.common import MissingEntryPointError, LinkType
-from aiida.engine import ProcessState, submit
+from aiida.engine import ProcessState
 from aiida.orm import load_node
 from aiida.orm import WorkChainNode, StructureData, TrajectoryData
-from aiida.plugins import WorkflowFactory
 
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
@@ -87,7 +84,8 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     def submit(self):
         """Submit workflow, implementation must be provided by the the child class"""
-        raise NotImplementedError("FATAL: submit method not implemented")
+        msg = "FATAL: submit method not implemented"
+        raise NotImplementedError(msg)
 
     def _get_state(self):
         # Process is already running.
@@ -212,11 +210,9 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         """To be implemented by child workflows
         to power the workflow-specific progress bar
         """
-        pass
 
     def _display_results(self, _=None):
         """Optional function to be called when the process is finished"""
-        pass
 
     @traitlets.observe("process_uuid")
     def _observe_process(self, change):

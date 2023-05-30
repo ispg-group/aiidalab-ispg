@@ -8,16 +8,10 @@ from IPython.display import clear_output, display
 import traitlets
 
 from aiida.engine import submit, ProcessState
-from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
+from aiida.orm import Bool
 from aiida.orm import load_code, load_node
 from aiida.plugins import WorkflowFactory
 
-from aiidalab_widgets_base import (
-    WizardAppWidgetStep,
-    AiidaNodeViewWidget,
-    ProcessMonitor,
-    ProcessNodesTreeWidget,
-)
 
 from .input_widgets import (
     ResourceSelectionWidget,
@@ -27,7 +21,6 @@ from .input_widgets import (
 )
 from .widgets import TrajectoryDataViewer, spinner
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
-from .utils import MEMORY_PER_CPU
 
 ConformerOptimizationWorkChain = WorkflowFactory("ispg.conformer_opt")
 
