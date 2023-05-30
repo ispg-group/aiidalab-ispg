@@ -6,18 +6,15 @@ Authors:
 """
 
 import base64
-from enum import Enum, unique
 import io
 
 import ipywidgets as ipw
 import traitlets
 import nglview
-from dataclasses import dataclass
 
 import ase
 from ase import Atoms
 
-from aiida.tools.query.calculation import CalculationQueryBuilder
 from aiida.orm import load_node, Node, Data
 from aiida.plugins import DataFactory
 
@@ -56,7 +53,6 @@ class ISPGWorkChainSelector(WorkChainSelector):
 
 @register_viewer_widget("data.core.array.trajectory.TrajectoryData.")
 class TrajectoryDataViewer(StructureDataViewer):
-
     # TODO: Do not subclass StructureDataViewer, but have it as a component
     trajectory = traitlets.Instance(Node, allow_none=True)
     selected_structure_id = traitlets.Int(allow_none=True)
@@ -66,7 +62,6 @@ class TrajectoryDataViewer(StructureDataViewer):
     _boltzmann_weights = None
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
-
         if configuration_tabs is None:
             configuration_tabs = ["Selection", "Download"]
 
@@ -223,7 +218,6 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         node_class=None,
         **kwargs,
     ):
-
         # History of modifications
         self.history = []
 
@@ -268,11 +262,8 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         elif node_class in self.SUPPORTED_DATA_FORMATS:
             self.node_class = node_class
         else:
-            raise ValueError(
-                "Unknown data format '{}'. Options: {}".format(
-                    node_class, list(self.SUPPORTED_DATA_FORMATS.keys())
-                )
-            )
+            msg = f"Unknown data format '{node_class}'. Options: {list(self.SUPPORTED_DATA_FORMATS.keys())}"
+            raise ValueError(msg)
 
         self.output = ipw.HTML("")
 
@@ -280,12 +271,15 @@ class TrajectoryManagerWidget(StructureManagerWidget):
             self._structure_importers(importers),
             self.viewer,
             ipw.HBox(
-                store_and_description
-                + [self.structure_label, self.structure_description]
+                [
+                    *store_and_description,
+                    self.structure_label,
+                    self.structure_description,
+                ]
             ),
         ]
 
-        super(ipw.VBox, self).__init__(children=children + [self.output], **kwargs)
+        super(ipw.VBox, self).__init__(children=[*children, self.output], **kwargs)
 
     def _convert_to_structure_node(self, structure):
         """Convert structure of any type to the StructureNode object."""
@@ -324,7 +318,8 @@ class TrajectoryManagerWidget(StructureManagerWidget):
                         structurelist=(StructureData(ase=structure.get_ase()),)
                     )
                 else:
-                    raise ValueError(f"Unexpected node type {type(structure)}")
+                    msg = f"Unexpected node type {type(structure)}"
+                    raise ValueError(msg)
 
         # Using self.structure, as it was already converted to the ASE Atoms object.
         return structure_node_type(ase=self.structure)
@@ -430,14 +425,13 @@ class HeaderWarning(ipw.HTML):
 
     def show(self, message):
         """Show the warning."""
+        dismiss = ""
+        alert_classes = "alert alert-danger"
         if self.dismissible:
-            alert_classes = "alert alert-danger alert-dismissible"
+            alert_classes = f"{alert_classes} alert-dismissible"
             dismiss = """<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>"""
-        else:
-            alert_classes = "alert alert-danger"
-            dismiss = ""
         self.value = (
-            f"""<div class="alert alert-danger" role="alert">{dismiss}{message}</div>"""
+            f"""<div class={alert_classes} role="alert">{dismiss}{message}</div>"""
         )
         self.layout.display = "block"
 

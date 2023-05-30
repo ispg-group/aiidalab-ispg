@@ -42,7 +42,6 @@ class ExcitedStateMethod(Enum):
 
 
 class MolecularGeometrySettings(ipw.VBox):
-
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
         <h4>Molecular geometry</h4></div>"""
@@ -234,14 +233,13 @@ class ExcitedStateSettings(ipw.VBox):
             self.tddft_functional.disabled = False
 
     def reset(self):
-        self.excited_method.value = _DEFAULT_EXCITED_METHOD
+        self.excited_method.value = self._DEFAULT_EXCITED_METHOD
         self.method.value = self._DEFAULT_FUNCTIONAL
         self.basis.value = self._DEFAULT_BASIS
         self.nstate.value = self._DEFAULT_NSTATES
 
 
 class WignerSamplingSettings(ipw.VBox):
-
     disabled = traitlets.Bool(default=False)
 
     title = ipw.HTML(
@@ -296,7 +294,6 @@ class WignerSamplingSettings(ipw.VBox):
 
 
 class CodeSettings(ipw.VBox):
-
     codes_title = ipw.HTML(
         """<div style="padding-top: 10px; padding-bottom: 0px">
         <h4>Codes</h4></div>"""
@@ -311,7 +308,6 @@ class CodeSettings(ipw.VBox):
     _DEFAULT_ORCA_CODES = ("orca@slurm", "orca@localhost")
 
     def __init__(self, **kwargs):
-
         self.orca = ComputationalResourcesWidget(
             default_calc_job_plugin="orca.orca",
             description="ORCA program",

@@ -69,7 +69,6 @@ class FFMethod(Enum):
 
 
 class ConformerSmilesWidget(SmilesWidget):
-
     structure = Union(
         [Instance(Atoms), Instance(StructureData), Instance(TrajectoryData)],
         allow_none=True,
@@ -276,7 +275,8 @@ class ConformerSmilesWidget(SmilesWidget):
                 mol, numConfs=num_confs, params=params
             )
         if len(conf_ids) == 0:
-            raise ValueError("Failed to generate conformers with RDKit")
+            msg = "Failed to generate conformers with RDKit"
+            raise ValueError(msg)
 
         ffenergies = None
         if opt_algo == FFMethod.UFF and AllChem.UFFHasAllMoleculeParams(mol):

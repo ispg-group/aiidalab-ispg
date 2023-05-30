@@ -8,11 +8,10 @@ import ipywidgets as ipw
 import traitlets
 
 from aiida.engine import submit, ProcessState
-from aiida.orm import Bool, StructureData, TrajectoryData, WorkChainNode
+from aiida.orm import Bool
 from aiida.orm import load_code, load_node
 from aiida.plugins import WorkflowFactory
 
-from aiidalab_widgets_base import WizardAppWidgetStep
 
 from .input_widgets import (
     ExcitedStateMethod,
@@ -335,9 +334,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 nroots=bp.nstates,
             )
         else:
-            raise NotImplementedError(
-                f"Excited method {bp.excited_method} not implemented"
-            )
+            msg = f"Excited method {bp.excited_method} not implemented"
+            raise NotImplementedError(msg)
 
         builder.optimize = bp.optimize
         builder.opt.orca.parameters = gs_opt_parameters
@@ -454,7 +452,6 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
-
     workflow_status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):

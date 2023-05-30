@@ -22,6 +22,7 @@ __all__ = [
     "ConformerOptimizationWorkChain",
 ]
 
+
 # TODO: For now this is just a plain optimization,
 # the "robust" part needs to be implemented
 class RobustOptimizationWorkChain(OrcaBaseWorkChain):

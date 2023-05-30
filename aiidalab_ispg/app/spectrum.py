@@ -147,7 +147,8 @@ class Spectrum:
         elif kernel is BroadeningKernel.LORENTZ:
             self._calc_lorentzian_spectrum(x, y, width)
         else:
-            raise ValueError(f"Invalid broadening kernel {kernel}")
+            msg = f"Invalid broadening kernel {kernel}"
+            raise ValueError(msg)
 
         # Conversion factor from eV to given energy unit
         if x_unit == EnergyUnit.NM:
@@ -170,7 +171,6 @@ class Spectrum:
 
 
 class SpectrumWidget(ipw.VBox):
-
     disabled = traitlets.Bool(default=True)
     conformer_transitions = traitlets.List(
         trait=traitlets.Dict, allow_none=True, default=None
@@ -645,7 +645,8 @@ class SpectrumWidget(ipw.VBox):
         if not all(
             self._validate_transitions(c["transitions"]) for c in conformer_transitions
         ):
-            raise ValueError("Invalid conformer transitions")
+            msg = "Invalid conformer transitions"
+            raise ValueError(msg)
         return conformer_transitions
 
     @traitlets.validate("conformer_structures")
@@ -659,7 +660,8 @@ class SpectrumWidget(ipw.VBox):
         elif isinstance(structures, StructureData):
             return TrajectoryData(structurelist=(structures,))
         else:
-            raise ValueError(f"Unsupported type {type(structures)}")
+            msg = f"Unsupported type {type(structures)}"
+            raise ValueError(msg)
 
     @traitlets.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
@@ -704,7 +706,7 @@ class SpectrumWidget(ipw.VBox):
         and plot it if it is available in our DB"""
 
         self.set_trait("experimental_spectrum_uuid", None)
-        if smiles is None or smiles == "":
+        if not smiles:
             return
 
         qb = QueryBuilder()
