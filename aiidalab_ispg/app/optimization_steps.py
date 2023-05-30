@@ -263,8 +263,10 @@ class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
 
     # TODO: This approach seems to be unreliable.
     # It might be better if to create a separate WizzardStep to display the final results
-    def _display_results(self, process_uuid):
-        process = load_node(process_uuid)
+    def _display_results(self):
+        if self.process_uuid is None:
+            return
+        process = load_node(self.process_uuid)
         if process.is_finished_ok:
             trajectory = process.outputs.relaxed_structures
             conformer_viewer = TrajectoryDataViewer(
@@ -284,8 +286,8 @@ class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
         with self.relaxed_structures:
             clear_output()
 
-    def _update_workflow_state(self, process_uuid):
-        if process_uuid is None:
+    def _update_workflow_state(self):
+        if self.process_uuid is None:
             self.workflow_status = None
             return
 
