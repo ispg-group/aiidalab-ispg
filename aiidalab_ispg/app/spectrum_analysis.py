@@ -2,6 +2,12 @@
 
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
+    * Fay Abu-Al-Timen
+    * Will Hobson
+    * Konstantin Nomerotski
+    * Kirstin Gerrand
+    * Marco Barnfield
+    * Emily Wright
 """
 
 from dataclasses import dataclass
@@ -53,7 +59,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
             (self, "disabled"),
             (self.density_tab, "disabled"),
         )
-        ###########################################################################################################
+
         self.photolysis_tab = PhotolysisPlotWidget()
         ipw.dlink(
             (self, "disabled"),
@@ -63,9 +69,8 @@ class SpectrumAnalysisWidget(ipw.VBox):
             (self, "cross_section_nm"),
             (self.photolysis_tab, "cross_section_nm"),
         )
-        ###########################################################################################################
-        tab_components = [self.photolysis_tab, self.density_tab]
 
+        tab_components = [self.photolysis_tab, self.density_tab]
         tab = ipw.Tab(children=tab_components)
         tab.set_title(0, "Photolysis constant")
         tab.set_title(1, "Individual transitions")
@@ -131,7 +136,7 @@ class DensityPlotWidget(ipw.VBox):
         self._update_density_plot(plot_type=self.density_toggle.value)
         self.disabled = False
 
-    def _observe_density_toggle(self, change):
+    def _observe_density_toggle(self, change: dict):
         self._update_density_plot(plot_type=change["new"])
 
     def _update_density_plot(self, plot_type: str):
@@ -146,7 +151,7 @@ class DensityPlotWidget(ipw.VBox):
             msg = f"Unexpected value for toggle: {plot_type}"
             raise ValueError(msg)
 
-    def _flatten_transitions(self):
+    def _flatten_transitions(self) -> tuple:
         # Flatten transitions for all conformers.
         # In the future, we might want to plot individual conformers
         # separately in the scatter plot.
@@ -166,7 +171,7 @@ class DensityPlotWidget(ipw.VBox):
         )
         return energies, osc_strengths
 
-    def plot_scatter(self, energies, osc_strengths):
+    def plot_scatter(self, energies: np.ndarray, osc_strengths: np.ndarray):
         """Update existing scatter plot or create a new one."""
         self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         f = self.figure.get_figure()
@@ -177,7 +182,7 @@ class DensityPlotWidget(ipw.VBox):
 
         self.figure.update()
 
-    def plot_density(self, energies, osc_strengths):
+    def plot_density(self, energies: np.ndarray, osc_strengths: np.ndarray):
         self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         # TODO: Don't do any density estimation for small number of samples,
         # Instead just do a 2D histogram.
@@ -211,7 +216,7 @@ class DensityPlotWidget(ipw.VBox):
     # We could provide a user with a scaling factor to adjust...
     # Crucially, we should not attempt to do this if we do not have enough data.
     @staticmethod
-    def get_kde(x, y, nbins=20):
+    def get_kde(x: np.ndarray, y: np.ndarray, nbins=20) -> Density2D:
         """Evaluate a gaussian kernel density estimate (KDE)
         on a regular grid of nbins x nbins over data extents
 
@@ -234,7 +239,7 @@ class DensityPlotWidget(ipw.VBox):
             self.density_toggle.value = "SCATTER"
 
     @traitlets.observe("disabled")
-    def _observe_disabled(self, change):
+    def _observe_disabled(self, change: dict):
         disabled = change["new"]
         if disabled:
             self.density_toggle.disabled = True
@@ -242,13 +247,14 @@ class DensityPlotWidget(ipw.VBox):
             self.density_toggle.disabled = False
 
 
-# **********************************************************************
 class PhotolysisPlotWidget(ipw.VBox):
-    """A widget providing anaylsis of the main spectrum. Namely, the
-    differential photolysis rate of the molecule is calculated and plotted.
+    """A widget for calculating and plotting photolysis rate constant.
+
+    Differential photolysis rate of the molecule is calculated and plotted.
     The intensity of actinic flux can be selected by the user - either High,
-    Medium, or Low. The quantum yield can be altered by the user moving a
-    slider. The photolysis rate constant will also be displayed"""
+    Medium, or Low. The quantum yield can be altered by the user.
+    The total integrated photolysis rate constant is calculated as well.
+    """
 
     disabled = traitlets.Bool(default=True)
 
@@ -256,7 +262,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         trait=traitlets.List, allow_none=True, default=None
     )
 
-    # **********************************************************************
     def __init__(self):
         self.flux_toggle = ipw.ToggleButtons(
             options=[("Low flux", "LOW"), ("Med flux", "MED"), ("High flux", "HIGH")],
@@ -273,31 +278,29 @@ class PhotolysisPlotWidget(ipw.VBox):
             description="Quantum yield",
             continuous_update=True,
             disabled=False,
+            style={"description_width": "initial"},
         )
         self.yield_slider.observe(self.handle_slider_change, names="value")
 
-        self.check_box = ipw.ToggleButton(
+        self.autoscale_yaxis = ipw.Checkbox(
             value=True,
-            description="Fit to line",
-            disabled=True,
-            button_style="info",  # 'success', 'info', 'warning', 'danger' or ''
-            tooltip="Description",
-            icon="check",
+            description="Autoscale y-axis",
+            indent=False,
         )
-        self.flux_data = self.read_in_actinic()
 
-        self.number = ipw.HTML(
-            description=r"Photolysis rate constant $(s^{-1})$ =",
+        self.flux_data = self.read_actinic_fluxes()
+
+        self.total_rate = ipw.HTML(
+            description="Photolysis rate constant (s$^{-1}$) =",
             style={"description_width": "initial"},
             disabled=True,
         )
 
         bokeh_tools = "pan,wheel_zoom,box_zoom,reset,save"
-
         figure_size = {
             "sizing_mode": "stretch_width",
             "height": 400,
-            "max_width": 400,
+            "max_width": 500,
         }
         self.figure = self._init_figure(tools=bokeh_tools, **figure_size)
         self.figure.layout = ipw.Layout(overflow="initial")
@@ -306,19 +309,19 @@ class PhotolysisPlotWidget(ipw.VBox):
             children=[
                 self.flux_toggle,
                 self.yield_slider,
-                self.check_box,
-                self.number,
+                self.autoscale_yaxis,
+                self.total_rate,
                 self.figure,
             ]
         )
 
-    # **********************************************************************
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
         figure = BokehFigureContext(plt.figure(*args, **kwargs))
         f = figure.get_figure()
-        f.xaxis.axis_label = r"$$λ (nm)$$"
-        f.yaxis.axis_label = r"$$j (s^{-1} nm^{-1})$$"
+        f.xaxis.axis_label = r"$$λ \text{(nm)}$$"
+        f.yaxis.axis_label = r"$$j (\text{s}^{-1} \text{nm}^{-1})$$"
+        # TODO: What should be the x-axis range?
         f.x_range = Range1d(280, 400)
         f.y_range = Range1d(0, 3.5e-05)
 
@@ -334,15 +337,10 @@ class PhotolysisPlotWidget(ipw.VBox):
 
         return figure
 
-    # **********************************************************************
-
     @traitlets.observe("cross_section_nm")
     def _observe_cross_section_nm(self, change: dict):
-        """
-        Observe changes to the spectrum data and update the J plot accordingly.
+        """Observe changes to the spectrum data and update the J plot accordingly.
         Check that fluxdata overlaps with the spectrum data.
-
-        :param change: The change object containing the old and new values of the spectrum data.
         """
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
@@ -366,22 +364,13 @@ class PhotolysisPlotWidget(ipw.VBox):
         self.disabled = False
 
     def _observe_flux_toggle(self, change: dict):
-        """Redraw spectra when user changes flux via toggle
-
-        :param change: The change object containing the old and new values of the flux toggle.
-        """
+        """Redraw spectra when user changes flux via toggle"""
         self._update_j_plot(plot_type=change.new, quantumY=self.yield_slider.value)
 
     def handle_slider_change(self, change: dict):
-        """Redraw spectra when user changes quantum yield via slider
-
-        :param change: The change object containing the old and new values of the yield slider.
-        """
+        """Redraw spectra when user changes quantum yield via slider"""
         self._update_j_plot(plot_type=self.flux_toggle.value, quantumY=change.new)
 
-    # **********************************************************************
-
-    # **********************************************************************
     def _update_j_plot(self, plot_type: str, quantumY: float):
         """
         Update the J plot based on the given plot type and quantum yield
@@ -393,34 +382,35 @@ class PhotolysisPlotWidget(ipw.VBox):
         """
 
         if self.cross_section_nm is None:
+            self.total_rate.value = ""
             return
         if plot_type == "LOW":
             j_values = self.calculation(1, quantum_yield=quantumY)
             wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="label")
-            self.add_log_axis(wavelengths, 1, label="log")
+            self.plot_line(wavelengths, j_values, label="rate")
+            self.add_log_axis(wavelengths, 1, label="log_flux")
         elif plot_type == "MED":
             j_values = self.calculation(2, quantum_yield=quantumY)
             wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="label")
-            self.add_log_axis(wavelengths, 2, label="log")
+            self.plot_line(wavelengths, j_values, label="rate")
+            self.add_log_axis(wavelengths, 2, label="log_flux")
 
         elif plot_type == "HIGH":
             j_values = self.calculation(3, quantum_yield=quantumY)
             wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="label")
-            self.add_log_axis(wavelengths, 3, label="log")
+            self.plot_line(wavelengths, j_values, label="rate")
+            self.add_log_axis(wavelengths, 3, label="log_flux")
 
         else:
             msg = f"Unexpected value for j-plot toggle: {plot_type}"
             raise ValueError(msg)
 
-        self.number.value = f"{np.format_float_scientific(np.trapz(j_values, dx=1),3)}"
+        # Integrate the differential j plot to get the total rate.
+        # Use trapezoid rule.
+        total_rate = np.trapz(j_values, dx=1)
+        self.total_rate.value = f"<b>{np.format_float_scientific(total_rate, 3)}</b>"
         return j_values, wavelengths
 
-    # **********************************************************************
-
-    # **********************************************************************
     def reset(self):
         """
         Reset the figure and its associated widgets to their default values.
@@ -430,8 +420,8 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.figure.clean()
             self.flux_toggle.value = "HIGH"
             self.yield_slider.value = 1
-            self.number.value = "None"
-            self.check_box.value = True
+            self.total_rate.value = ""
+            self.autoscale_yaxis.value = True
 
     @traitlets.observe("disabled")
     def _observe_disabled(self, change: dict):
@@ -439,30 +429,25 @@ class PhotolysisPlotWidget(ipw.VBox):
         if disabled:
             self.flux_toggle.disabled = True
             self.yield_slider.disabled = True
-            self.check_box.disabled = True
+            self.autoscale_yaxis.disabled = True
         else:
             self.flux_toggle.disabled = False
             self.yield_slider.disabled = False
-            self.check_box.disabled = False
+            self.autoscale_yaxis.disabled = False
 
-    def read_in_actinic(self) -> tuple:
-        """
-        Read in actinic flux data from a CSV file.
+    def read_actinic_fluxes(self) -> tuple:
+        """Read in actinic flux data from a CSV file.
 
         :return: A tuple containing the wavelength and low, medium, and high actinic flux data.
         """
-        z = np.loadtxt(
+        wavelengths, low_flux, medium_flux, high_flux = np.loadtxt(
             fname=Path(__file__).parent / "static" / "StandardActinicFluxes2.csv",
             delimiter=",",
             skiprows=1,
             unpack=True,
             usecols=(2, 3, 4, 5),
         )
-        WL = z[0]
-        LOW = z[1]
-        MED = z[2]
-        HIGH = z[3]
-        return WL, LOW, MED, HIGH
+        return wavelengths, low_flux, medium_flux, high_flux
 
     def calculation(self, level: int, quantum_yield: float):
         """
@@ -526,9 +511,6 @@ class PhotolysisPlotWidget(ipw.VBox):
             cross_section = cross_section[:high_cutoff]
         return wavelengths, cross_section
 
-    # **********************************************************************
-
-    # **********************************************************************
     def plot_line(self, x: np.ndarray, y: np.ndarray, label: str, update=True, **args):
         """Plot a line on the figure with the given x and y data and label.
 
@@ -555,11 +537,9 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param end: The new end value for the y-axis range.
         """
         f = self.figure.get_figure()
-        if self.check_box.value:
+        if self.autoscale_yaxis.value:
             f.y_range.start = 0
             f.y_range.end = end
-        else:
-            return
 
     def add_log_axis(self, x: np.ndarray, level: int, label: str, update=True, **args):
         """
@@ -580,9 +560,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    # **********************************************************************
-
-    # **********************************************************************
     def remove_line(self, label: str, update=True):
         """
         Remove a line from the figure.

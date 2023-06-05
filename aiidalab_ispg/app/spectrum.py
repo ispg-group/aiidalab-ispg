@@ -372,7 +372,7 @@ class SpectrumWidget(ipw.VBox):
         delimiter = "\t"
 
         fieldnames = [
-            f"Energy / {self.energy_unit_selector.value.value}",
+            f"Energy ({self.energy_unit_selector.value.value})",
             f"Intensity / {self.intensity_unit}",
             f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
         ]
@@ -443,7 +443,7 @@ class SpectrumWidget(ipw.VBox):
     def _handle_energy_unit_update(self, change):
         """Updates the spectra when user changes energy units"""
         energy_unit = change["new"]
-        xlabel = f"Energy / {energy_unit.value}"
+        xlabel = f"Energy ({energy_unit.value})"
         self.figure.get_figure().xaxis.axis_label = xlabel
 
         self._plot_spectrum(
