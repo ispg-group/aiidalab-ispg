@@ -5,6 +5,7 @@ Authors:
 """
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import bokeh.plotting as plt
 import bokeh.palettes
@@ -444,17 +445,14 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.yield_slider.disabled = False
             self.check_box.disabled = False
 
-    # **********************************************************************
-
-    # **********************************************************************
-    def read_in_actinic(self):
+    def read_in_actinic(self) -> tuple:
         """
         Read in actinic flux data from a CSV file.
 
         :return: A tuple containing the wavelength and low, medium, and high actinic flux data.
         """
         z = np.loadtxt(
-            fname="/home/jovyan/apps/aiidalab-ispg/aiidalab_ispg/static/StandardActinicFluxes2.csv",
+            fname=Path(__file__).parent / "static" / "StandardActinicFluxes2.csv",
             delimiter=",",
             skiprows=1,
             unpack=True,
