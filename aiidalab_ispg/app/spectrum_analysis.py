@@ -233,7 +233,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         f.xaxis.axis_label = r"$$λ \text{(nm)}$$"
         f.yaxis.axis_label = r"$$j (\text{s}^{-1} \text{nm}^{-1})$$"
         # TODO: What should be the x-axis range?
-        f.x_range = Range1d(280, 400)
+        f.x_range = Range1d(280, 749)
         f.y_range = Range1d(0, 3.5e-05)
 
         f.extra_y_ranges = {"V": Range1d(start=1.0, end=1e15)}
