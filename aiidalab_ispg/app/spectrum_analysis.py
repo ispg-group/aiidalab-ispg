@@ -284,9 +284,9 @@ class PhotolysisPlotWidget(ipw.VBox):
 
     def _update_j_plot(self, flux_type: ActinicFlux, quantumY: float):
         """
-        Update the J plot based on the given plot type and quantum yield
+        Update the J plot based on the given flux type and quantum yield
 
-        :param flux_type: The flux of plot to generate. Can be "LOW", "MED", or "HIGH".
+        :param flux_type: Which of the predefined actinic fluxes should is used.
         :param quantumY: The quantum yield value to use in the calculation.
 
         :return: A tuple containing the J values and wavelengths used in the plot.
