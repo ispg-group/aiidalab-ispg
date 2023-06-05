@@ -10,6 +10,7 @@ Authors:
     * Emily Wright
 """
 
+from enum import Enum, unique
 from pathlib import Path
 
 import bokeh.plotting as plt
@@ -19,6 +20,13 @@ import numpy as np
 import traitlets as tl
 
 from .utils import BokehFigureContext
+
+
+@unique
+class ActinicFlux(Enum):
+    LOW = "Low flux"
+    MEDIUM = "Medium flux"
+    HIGH = "High flux"
 
 
 class SpectrumAnalysisWidget(ipw.VBox):
@@ -167,8 +175,8 @@ class PhotolysisPlotWidget(ipw.VBox):
 
     def __init__(self):
         self.flux_toggle = ipw.ToggleButtons(
-            options=[("Low flux", "LOW"), ("Med flux", "MED"), ("High flux", "HIGH")],
-            value="HIGH",
+            options=[(flux.value, flux) for flux in ActinicFlux],
+            value=ActinicFlux.HIGH,
         )
 
         self.flux_toggle.observe(self._observe_flux_toggle, names="value")
@@ -250,15 +258,15 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.reset()
             return
 
-        flux_min = min(self.flux_data[0])
-        flux_max = max(self.flux_data[0])
+        flux_min = min(self.flux_data["wavelengths"])
+        flux_max = max(self.flux_data["wavelengths"])
         spectrum_max = max(self.cross_section_nm[0])
         spectrum_min = min(self.cross_section_nm[0])
 
         # Check end of spectrum data overlaps with flux data
         if spectrum_max >= flux_min and spectrum_min < flux_max:
             self._update_j_plot(
-                plot_type=self.flux_toggle.value, quantumY=self.yield_slider.value
+                flux_type=self.flux_toggle.value, quantumY=self.yield_slider.value
             )
         else:
             self.reset()
@@ -268,17 +276,17 @@ class PhotolysisPlotWidget(ipw.VBox):
 
     def _observe_flux_toggle(self, change: dict):
         """Redraw spectra when user changes flux via toggle"""
-        self._update_j_plot(plot_type=change.new, quantumY=self.yield_slider.value)
+        self._update_j_plot(flux_type=change["new"], quantumY=self.yield_slider.value)
 
     def handle_slider_change(self, change: dict):
         """Redraw spectra when user changes quantum yield via slider"""
-        self._update_j_plot(plot_type=self.flux_toggle.value, quantumY=change.new)
+        self._update_j_plot(flux_type=self.flux_toggle.value, quantumY=change["new"])
 
-    def _update_j_plot(self, plot_type: str, quantumY: float):
+    def _update_j_plot(self, flux_type: ActinicFlux, quantumY: float):
         """
         Update the J plot based on the given plot type and quantum yield
 
-        :param plot_type: The flux of plot to generate. Can be "LOW", "MED", or "HIGH".
+        :param flux_type: The flux of plot to generate. Can be "LOW", "MED", or "HIGH".
         :param quantumY: The quantum yield value to use in the calculation.
 
         :return: A tuple containing the J values and wavelengths used in the plot.
@@ -287,26 +295,15 @@ class PhotolysisPlotWidget(ipw.VBox):
         if self.cross_section_nm is None:
             self.total_rate.value = ""
             return
-        if plot_type == "LOW":
-            j_values = self.calculation(1, quantum_yield=quantumY)
-            wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="rate")
-            self.add_log_axis(wavelengths, 1, label="log_flux")
-        elif plot_type == "MED":
-            j_values = self.calculation(2, quantum_yield=quantumY)
-            wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="rate")
-            self.add_log_axis(wavelengths, 2, label="log_flux")
 
-        elif plot_type == "HIGH":
-            j_values = self.calculation(3, quantum_yield=quantumY)
-            wavelengths = self.flux_data[0]
-            self.plot_line(wavelengths, j_values, label="rate")
-            self.add_log_axis(wavelengths, 3, label="log_flux")
+        wavelengths = self.flux_data["wavelengths"]
+        j_values = self.calculation(flux_type, quantum_yield=quantumY)
 
-        else:
-            msg = f"Unexpected value for j-plot toggle: {plot_type}"
-            raise ValueError(msg)
+        # Plot calculated differential photolysis rate constant
+        self.plot_line(wavelengths, j_values, label="rate")
+
+        # Plot flux
+        self.add_log_axis(wavelengths, flux_type, label="log_flux")
 
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
@@ -321,7 +318,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         with self.hold_trait_notifications():
             self.disabled = True
             self.figure.clean()
-            self.flux_toggle.value = "HIGH"
+            self.flux_toggle.value = ActinicFlux.HIGH
             self.yield_slider.value = 1
             self.total_rate.value = ""
             self.autoscale_yaxis.value = True
@@ -338,7 +335,7 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.yield_slider.disabled = False
             self.autoscale_yaxis.disabled = False
 
-    def read_actinic_fluxes(self) -> tuple:
+    def read_actinic_fluxes(self) -> dict:
         """Read in actinic flux data from a CSV file.
 
         :return: A tuple containing the wavelength and low, medium, and high actinic flux data.
@@ -350,18 +347,23 @@ class PhotolysisPlotWidget(ipw.VBox):
             unpack=True,
             usecols=(2, 3, 4, 5),
         )
-        return wavelengths, low_flux, medium_flux, high_flux
+        return {
+            "wavelengths": wavelengths,
+            ActinicFlux.LOW: low_flux,
+            ActinicFlux.MEDIUM: medium_flux,
+            ActinicFlux.HIGH: high_flux,
+        }
 
-    def calculation(self, level: int, quantum_yield: float):
+    def calculation(self, flux_type: ActinicFlux, quantum_yield: float):
         """
         Calculate the J values for the given level and quantum yield.
         Smooth the curve using np.convolve(x, kernel = 3, mode = "valid")
 
-        :param level: The level of actinic flux to use in the calculation.
+        :param flux_type: The type of actinic flux to use in the calculation.
         :param quantum_yield: The quantum yield value to use in the calculation.
         :return: np.ndarray of smoothed J values.
         """
-        j_vals = self.prepare_for_plot() * self.flux_data[level] * quantum_yield
+        j_vals = self.prepare_for_plot() * self.flux_data[flux_type] * quantum_yield
         kernel_size = 3
         kernel = np.ones(kernel_size) / kernel_size
         j_smoothed = np.convolve(j_vals, kernel, mode="valid")
@@ -378,7 +380,9 @@ class PhotolysisPlotWidget(ipw.VBox):
         y = np.flip(cross_section)
         x_max = max(wavelengths)
         x_masked, y_masked = self.mask_data(x, y, 280, np.floor(x_max))
-        cross_section_interpolated = np.interp(self.flux_data[0], x_masked, y_masked)
+        cross_section_interpolated = np.interp(
+            self.flux_data["wavelengths"], x_masked, y_masked
+        )
         return cross_section_interpolated
 
     def mask_data(
@@ -444,7 +448,9 @@ class PhotolysisPlotWidget(ipw.VBox):
             f.y_range.start = 0
             f.y_range.end = end
 
-    def add_log_axis(self, x: np.ndarray, level: int, label: str, update=True, **args):
+    def add_log_axis(
+        self, x: np.ndarray, flux_type: ActinicFlux, label: str, update=True, **args
+    ):
         """
         Add a log axis to the figure.
 
@@ -458,7 +464,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         line = f.select_one({"name": label})
         if line is not None:
             self.remove_line(label)
-        y = self.flux_data[level]
+        y = self.flux_data[flux_type]
         f.line(x, y, y_range_name="V", name=label, color="red")
         if update:
             self.figure.update()

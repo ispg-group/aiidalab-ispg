@@ -7,15 +7,17 @@ Authors:
 
 import base64
 import io
+from typing import Optional
 
 import ipywidgets as ipw
 import traitlets
 import nglview
+import numpy as np
 
 import ase
 from ase import Atoms
 
-from aiida.orm import load_node, Node, Data
+from aiida.orm import load_node, Node, Data, StructureData, CifData, TrajectoryData
 from aiida.plugins import DataFactory
 
 from aiidalab_widgets_base import register_viewer_widget
@@ -24,10 +26,6 @@ from aiidalab_widgets_base.viewers import StructureDataViewer
 
 from .qeapp.process import WorkChainSelector
 from .utils import get_formula
-
-StructureData = DataFactory("core.structure")
-CifData = DataFactory("core.cif")
-TrajectoryData = DataFactory("core.array.trajectory")
 
 __all__ = [
     "TrajectoryDataViewer",
@@ -80,9 +78,9 @@ class TrajectoryDataViewer(StructureDataViewer):
     trajectory = traitlets.Instance(Node, allow_none=True)
     selected_structure_id = traitlets.Int(allow_none=True)
 
-    _structures = []
-    _energies = None
-    _boltzmann_weights = None
+    _structures: list[StructureData] = []
+    _energies: Optional[np.ndarray] = None
+    _boltzmann_weights: Optional[np.ndarray] = None
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
         if configuration_tabs is None:
