@@ -49,7 +49,7 @@ class WorkChainSelector(ipw.HBox):
         )
 
         if self.extra_fields is not None:
-            fmt_extra = "".join([f"{{wc.{field[0]}}}" for field in self.extra_fields])
+            fmt_extra = "".join([f"{{wc.{field[0]}}}\t" for field in self.extra_fields])
             self.fmt_workchain = self.BASE_FMT_WORKCHAIN + "\t" + fmt_extra
         else:
             self.fmt_workchain = self.BASE_FMT_WORKCHAIN

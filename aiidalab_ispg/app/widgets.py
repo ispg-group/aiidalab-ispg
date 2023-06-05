@@ -35,7 +35,12 @@ __all__ = [
 
 
 class ISPGWorkChainSelector(WorkChainSelector):
-    extra_fields = [("formula", str)]
+    extra_fields = [
+        ("formula", str),
+        ("method", str),
+        ("label", str),
+        ("description", str),
+    ]
 
     def __init__(self, process_label: str, **kwargs):
         super().__init__(process_label=process_label, **kwargs)
@@ -45,9 +50,27 @@ class ISPGWorkChainSelector(WorkChainSelector):
 
         :param pk: the pk of the workchain to parse
         :return: the parsed extra information"""
-        structure = load_node(pk).inputs.structure
+        process = load_node(pk)
+        structure = process.inputs.structure
+        formula = get_formula(structure)
+
+        method = ""
+        if bp := process.base.extras.get("builder_parameters", None):
+            method = f"{bp['method']}/{bp['basis']}"
+
+        description = structure.description
+        if len(description) > 20:
+            description = f"{description[0:19]}…"
+
+        # By default, the label is the formula of the generated molecule.
+        # In that case we do not want to show it twice so let's hide it.
+        label = structure.label if structure.label != formula else ""
+
         return {
-            "formula": get_formula(structure),
+            "formula": formula,
+            "method": method,
+            "label": label,
+            "description": description,
         }
 
 
