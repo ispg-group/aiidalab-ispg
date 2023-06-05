@@ -311,7 +311,6 @@ class PhotolysisPlotWidget(ipw.VBox):
                 self.figure,
             ]
         )
-        layout = ipw.Layout(justify_content="flex-start")
 
     # **********************************************************************
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
@@ -413,7 +412,8 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.add_log_axis(wavelengths, 3, label="log")
 
         else:
-            raise ValueError(f"Unexpected value for toggle: {plot_type}")
+            msg = f"Unexpected value for j-plot toggle: {plot_type}"
+            raise ValueError(msg)
 
         self.number.value = f"{np.format_float_scientific(np.trapz(j_values, dx=1),3)}"
         return j_values, wavelengths
@@ -473,20 +473,17 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param quantum_yield: The quantum yield value to use in the calculation.
         :return: np.ndarray of smoothed J values.
         """
-        du = level
-        interpolated_cross_section = self.prepare_for_plot()
-        j_vals = self.prepare_for_plot() * self.flux_data[du] * quantum_yield
+        j_vals = self.prepare_for_plot() * self.flux_data[level] * quantum_yield
         kernel_size = 3
         kernel = np.ones(kernel_size) / kernel_size
         j_smoothed = np.convolve(j_vals, kernel, mode="valid")
         return j_smoothed
 
-    def prepare_for_plot(self):
+    def prepare_for_plot(self) -> np.ndarray:
         """
         Prepare the molecular intensity data for plotting by interpolating cross section onto actinic flux x values.
 
         :return: The interpolated cross section data.
-        :rtype: np.ndarray
         """
         wavelengths, cross_section = self.cross_section_nm
         x = np.flip(wavelengths)
@@ -526,7 +523,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         # Cut the intensities array to maximum of wavelength array
         else:
             high_cutoff = np.where(np.asarray(cross_section) > maximum)[0][0]
-            cross_section = array_intensites[:high_cuttoff]
+            cross_section = cross_section[:high_cutoff]
         return wavelengths, cross_section
 
     # **********************************************************************

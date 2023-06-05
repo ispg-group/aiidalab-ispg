@@ -528,7 +528,7 @@ class SpectrumWidget(ipw.VBox):
         if energy_unit != EnergyUnit.NM:
             total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
-            for conf_id, conformer in enumerate(self.conformer_transitions):
+            for conformer in self.conformer_transitions:
                 spec = Spectrum(conformer["transitions"], conformer["nsample"])
                 x_nm, y_nm, xs_nm, ys_nm = spec.get_spectrum(
                     kernel, width, EnergyUnit.NM, x_min=x_min, x_max=x_max
