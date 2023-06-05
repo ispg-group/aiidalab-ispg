@@ -10,42 +10,25 @@ Authors:
     * Emily Wright
 """
 
-from dataclasses import dataclass
 from pathlib import Path
 
 import bokeh.plotting as plt
-import bokeh.palettes
 from bokeh.models import Range1d, LogAxis, LogScale
-
 import ipywidgets as ipw
-import traitlets
-import scipy
 import numpy as np
+import traitlets as tl
 
 from .utils import BokehFigureContext
-
-
-@dataclass
-class Density2D:
-    # https://stackoverflow.com/questions/60876995/how-to-declare-numpy-array-of-particular-type-as-type-in-dataclass
-    # TODO: Improve typing to include only 1D arrays if possible
-    xi: np.ndarray
-    yi: np.ndarray
-    zi: np.ndarray
 
 
 class SpectrumAnalysisWidget(ipw.VBox):
     """A container class for organizing various analysis widgets"""
 
-    conformer_transitions = traitlets.List(
-        trait=traitlets.Dict, allow_none=True, default=None
-    )
+    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
 
-    cross_section_nm = traitlets.List(
-        trait=traitlets.List, allow_none=True, default=None
-    )
+    cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
 
-    disabled = traitlets.Bool(default=True)
+    disabled = tl.Bool(default=True)
 
     def __init__(self):
         title = ipw.HTML("<h3>Spectrum analysis</h3>")
@@ -85,28 +68,15 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
 class DensityPlotWidget(ipw.VBox):
     """A widget for analyzing the correlation between excitation energies
-    and oscillator strenghts, seen either as a scatter plot or a 2D density map
+    and oscillator strenghts.
     """
 
-    conformer_transitions = traitlets.List(
-        trait=traitlets.Dict, allow_none=True, default=None
-    )
-    disabled = traitlets.Bool(default=True)
+    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
+    disabled = tl.Bool(default=True)
 
-    _density: Density2D = None
     _BOKEH_LABEL = "energy-osc"
 
     def __init__(self):
-        # We currently disable the 2D density toggle as it may produce misleading maps
-        self.density_toggle = ipw.ToggleButtons(
-            options=[
-                ("Scatterplot", "SCATTER"),
-                # ("2D Density", "DENSITY"),
-            ],
-            value="SCATTER",
-        )
-        # self.density_toggle.observe(self._observe_density_toggle, names="value")
-
         # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
         bokeh_tools = "save"
         figure_size = {
@@ -127,29 +97,20 @@ class DensityPlotWidget(ipw.VBox):
         f.yaxis.axis_label = "Oscillator strength (-)"
         return figure
 
-    @traitlets.observe("conformer_transitions")
+    @tl.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
-        self._update_density_plot(plot_type=self.density_toggle.value)
+        self._update_density_plot()
         self.disabled = False
 
-    def _observe_density_toggle(self, change: dict):
-        self._update_density_plot(plot_type=change["new"])
-
-    def _update_density_plot(self, plot_type: str):
+    def _update_density_plot(self):
         if self.conformer_transitions is None:
             return
         energies, osc_strengths = self._flatten_transitions()
-        if plot_type == "SCATTER":
-            self.plot_scatter(energies, osc_strengths)
-        elif plot_type == "DENSITY":
-            self.plot_density(energies, osc_strengths)
-        else:
-            msg = f"Unexpected value for toggle: {plot_type}"
-            raise ValueError(msg)
+        self.plot_scatter(energies, osc_strengths)
 
     def _flatten_transitions(self) -> tuple:
         # Flatten transitions for all conformers.
@@ -179,72 +140,16 @@ class DensityPlotWidget(ipw.VBox):
         f.circle(
             energies, osc_strengths, name=self._BOKEH_LABEL, fill_color="black", size=5
         )
-
         self.figure.update()
-
-    def plot_density(self, energies: np.ndarray, osc_strengths: np.ndarray):
-        self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
-        # TODO: Don't do any density estimation for small number of samples,
-        # Instead just do a 2D histogram.
-        min_nsample = 3
-        if len(energies) < min_nsample:
-            return
-        nbins = 40
-        if self._density is None:
-            self._density = self.get_kde(energies, osc_strengths, nbins=nbins)
-
-        xi, yi, zi = self._density.xi, self._density.yi, self._density.zi
-        f = self.figure.get_figure()
-        f.x_range.range_padding = f.y_range.range_padding = 0
-        dw = max(energies) - min(energies)
-        dh = max(osc_strengths) - min(osc_strengths)
-        f.image(
-            image=[zi.transpose()],
-            x=min(xi[0]),
-            y=min(yi[0]),
-            dw=dw,
-            dh=dh,
-            name=self._BOKEH_LABEL,
-            palette=bokeh.palettes.mpl["Magma"][256][::-1],
-            level="image",
-        )
-        f.grid.grid_line_width = 0.5
-        self.figure.update()
-
-    # TODO: The rule-of-thumb approach to estimating the bandwidths can fail miserably,
-    # see for example formaldehyde with three states.
-    # We could provide a user with a scaling factor to adjust...
-    # Crucially, we should not attempt to do this if we do not have enough data.
-    @staticmethod
-    def get_kde(x: np.ndarray, y: np.ndarray, nbins=20) -> Density2D:
-        """Evaluate a gaussian kernel density estimate (KDE)
-        on a regular grid of nbins x nbins over data extents
-
-        https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-        """
-        xy = np.vstack((x, y))
-        # TODO: This call may raise LinAlgError if the matrix is singular!
-        k = scipy.stats.gaussian_kde(xy)
-        xi, yi = np.mgrid[
-            x.min() : x.max() : nbins * 1j, y.min() : y.max() : nbins * 1j
-        ]
-        zi = k(np.vstack([xi.flatten(), yi.flatten()]))
-        return Density2D(xi, yi, zi.reshape(xi.shape))
 
     def reset(self):
         with self.hold_trait_notifications():
             self.disabled = True
-            self._density = None
             self.figure.clean()
-            self.density_toggle.value = "SCATTER"
 
-    @traitlets.observe("disabled")
-    def _observe_disabled(self, change: dict):
-        disabled = change["new"]
-        if disabled:
-            self.density_toggle.disabled = True
-        else:
-            self.density_toggle.disabled = False
+    @tl.observe("disabled")
+    def _observe_disabled(self, _: dict):
+        pass
 
 
 class PhotolysisPlotWidget(ipw.VBox):
@@ -256,11 +161,9 @@ class PhotolysisPlotWidget(ipw.VBox):
     The total integrated photolysis rate constant is calculated as well.
     """
 
-    disabled = traitlets.Bool(default=True)
+    disabled = tl.Bool(default=True)
 
-    cross_section_nm = traitlets.List(
-        trait=traitlets.List, allow_none=True, default=None
-    )
+    cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
 
     def __init__(self):
         self.flux_toggle = ipw.ToggleButtons(
@@ -337,7 +240,7 @@ class PhotolysisPlotWidget(ipw.VBox):
 
         return figure
 
-    @traitlets.observe("cross_section_nm")
+    @tl.observe("cross_section_nm")
     def _observe_cross_section_nm(self, change: dict):
         """Observe changes to the spectrum data and update the J plot accordingly.
         Check that fluxdata overlaps with the spectrum data.
@@ -423,7 +326,7 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.total_rate.value = ""
             self.autoscale_yaxis.value = True
 
-    @traitlets.observe("disabled")
+    @tl.observe("disabled")
     def _observe_disabled(self, change: dict):
         disabled = change["new"]
         if disabled:
