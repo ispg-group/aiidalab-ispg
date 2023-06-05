@@ -11,7 +11,7 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
 
 WINDOW_WIDTH = 1400
-WINDOW_HEIGHT = 1250
+WINDOW_HEIGHT = 1450
 
 
 # Copied over from aiidalab_widgets_base/wizard.py
