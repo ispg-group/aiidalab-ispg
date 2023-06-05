@@ -4,9 +4,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
-    branches: [main]
+    branches:
+      - "*"
 
 jobs:
 
@@ -89,7 +93,7 @@ jobs:
           tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
-        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR
+        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests/app/
 
       - name: Replace slashes in image name
         if: always()
@@ -102,3 +106,21 @@ jobs:
           name: Screenshots-${{env.IMAGE_NAME}}-${{ matrix.tag }}-${{ matrix.browser }}
           path: screenshots/
           if-no-files-found: error
+
+  release:
+    if: >-
+      github.repository == 'ispg-group/aiidalab-ispg'
+      && github.ref_type == 'tag'
+
+    needs: [pre-commit, test-app]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: softprops/action-gh-release@v0.1.15
+        name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          generate_release_notes: true
