@@ -1,5 +1,6 @@
 """Widgets related to process management."""
 from dataclasses import make_dataclass
+from typing import Optional
 
 import ipywidgets as ipw
 import traitlets as tl
@@ -31,7 +32,7 @@ class WorkChainSelector(ipw.HBox):
     BASE_FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
 
     BASE_FIELDS = [("pk", int), ("ctime", str), ("state", str)]
-    extra_fields = None
+    extra_fields: Optional[list] = None
 
     def __init__(self, process_label, **kwargs):
         self.process_label = process_label

@@ -5,23 +5,17 @@ Authors:
 """
 from enum import Enum, unique
 
-import ipywidgets as ipw
-import traitlets
-from scipy import constants
-import numpy as np
-
-from aiida.orm import load_node, QueryBuilder
-from aiida.plugins import DataFactory
-
 import bokeh.plotting as plt
+import ipywidgets as ipw
+import numpy as np
+from scipy import constants
+import traitlets
+
+from aiida.orm import load_node, QueryBuilder, StructureData, TrajectoryData, XyData
 
 from .widgets import TrajectoryDataViewer
 from .utils import AUtoEV, BokehFigureContext
 from .spectrum_analysis import SpectrumAnalysisWidget
-
-XyData = DataFactory("core.array.xy")
-StructureData = DataFactory("core.structure")
-TrajectoryData = DataFactory("core.array.trajectory")
 
 
 @unique
@@ -503,8 +497,8 @@ class SpectrumWidget(ipw.VBox):
 
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
-        x_stick = []
-        y_stick = []
+        x_stick = np.empty(1)
+        y_stick = np.empty(1)
         # Iterate over conformers, the total spectrum is a sum of
         # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
