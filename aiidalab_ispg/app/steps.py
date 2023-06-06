@@ -21,7 +21,7 @@ from aiidalab_widgets_base import (
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
 
-from .widgets import spinner
+from .widgets import HeaderWarning, spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula
 
@@ -60,6 +60,12 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
     disabled = traitlets.Bool()
 
     def __init__(self, components=None, **kwargs):
+        if components is None:
+            components = []
+
+        self.header_warning = HeaderWarning(dismissible=True)
+        self.header_warning.layout.width = "550px"
+
         self.submit_button = ipw.Button(
             description="Submit",
             tooltip="Submit the calculation with the selected parameters.",
@@ -72,11 +78,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
         self.submit_button.on_click(self._on_submit_button_clicked)
 
-        children = [self.submit_button]
-        if components is not None:
-            children = components + children
-
-        super().__init__(children=children)
+        super().__init__([self.header_warning, *components, self.submit_button])
 
     def _on_submit_button_clicked(self, _):
         self.submit_button.disabled = True
@@ -125,6 +127,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
 
     def reset(self):
         with self.hold_trait_notifications():
+            self.header_warning.hide()
             self.process = None
             self.input_structure = None
 

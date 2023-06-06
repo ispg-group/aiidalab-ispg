@@ -438,7 +438,7 @@ class HeaderWarning(ipw.HTML):
         self.dismissible = dismissible
         self.layout = ipw.Layout(
             display="none",
-            width="600px",
+            width="auto",
             height="auto",
             margin="0px 0px 0px 0px",
             padding="0px 0px 0px 0px",
@@ -452,7 +452,7 @@ class HeaderWarning(ipw.HTML):
             alert_classes = f"{alert_classes} alert-dismissible"
             dismiss = """<a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>"""
         self.value = (
-            f"""<div class={alert_classes} role="alert">{dismiss}{message}</div>"""
+            f"""<div class="{alert_classes}" role="alert">{dismiss}{message}</div>"""
         )
         self.layout.display = "block"
 
