@@ -258,6 +258,20 @@ class SpectrumWidget(ipw.VBox):
         )
         self.conformer_toggle.observe(self._handle_conformer_toggle, names="value")
 
+        self.download_btn = ipw.Button(
+            description="Download spectrum",
+            button_style="primary",
+            tooltip="Download spectrum as CSV file",
+            disabled=True,
+            icon="download",
+            layout=ipw.Layout(width="max-content"),
+        )
+        self.download_btn.on_click(self._download_spectrum)
+
+        self.show_controls = ipw.HBox(
+            [self.download_btn, self.conformer_toggle, self.stick_toggle]
+        )
+
         self.debug_output = ipw.HTML()
 
         # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
@@ -270,16 +284,6 @@ class SpectrumWidget(ipw.VBox):
             tools=self._TOOLS, tooltips=self._TOOLTIPS, **figure_size
         )
         self.figure.layout = ipw.Layout(overflow="initial")
-
-        self.download_btn = ipw.Button(
-            description="Download spectrum",
-            button_style="primary",
-            tooltip="Download spectrum as CSV file",
-            disabled=True,
-            icon="download",
-            layout=ipw.Layout(width="max-content"),
-        )
-        self.download_btn.on_click(self._download_spectrum)
 
         layout = ipw.Layout(justify_content="flex-start")
         self.conformer_header = ipw.HTML()
@@ -308,7 +312,7 @@ class SpectrumWidget(ipw.VBox):
         super().__init__(
             [
                 self.debug_output,
-                ipw.HBox([self.download_btn, self.conformer_toggle, self.stick_toggle]),
+                self.show_controls,
                 ipw.HBox(
                     [
                         self.figure,
@@ -641,21 +645,17 @@ class SpectrumWidget(ipw.VBox):
     @traitlets.observe("disabled")
     def _observe_disabled(self, change):
         disabled = change["new"]
-        if disabled:
-            self.download_btn.disabled = True
-            self.stick_toggle.disabled = True
-            self.conformer_toggle.disabled = True
-            self.energy_unit_selector.disabled = True
-            self.width_slider.disabled = True
-            self.kernel_selector.disabled = True
-        else:
-            self.download_btn.disabled = False
-            self.stick_toggle.disabled = False
-            self.energy_unit_selector.disabled = False
-            self.width_slider.disabled = False
-            self.kernel_selector.disabled = False
-            if len(self.conformer_transitions) > 1:
-                self.conformer_toggle.disabled = False
+        with self.hold_trait_notifications():
+            for child in [
+                *self.show_controls.children,
+                *self.spectrum_controls.children,
+            ]:
+                child.disabled = disabled
+            if (
+                self.conformer_transitions is None
+                or len(self.conformer_transitions) == 1
+            ):
+                self.conformer_toggle.disabled = True
 
     def reset(self):
         with self.hold_trait_notifications():
@@ -664,8 +664,8 @@ class SpectrumWidget(ipw.VBox):
             self.smiles = None
             self.set_trait("experimental_spectrum_uuid", None)
             self.analysis.reset()
+            self.disabled = True
 
-        self.disabled = True
         self.figure.clean()
         self.debug_output.value = ""
 

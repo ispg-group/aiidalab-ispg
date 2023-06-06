@@ -25,7 +25,7 @@ from .input_widgets import (
 )
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
-from .widgets import HeaderWarning, spinner
+from .widgets import spinner
 from .utils import MEMORY_PER_CPU
 
 AtmospecWorkChain = WorkflowFactory("ispg.atmospec")
@@ -62,8 +62,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     """Step for submission of a optimization workchain."""
 
     def __init__(self, **kwargs):
-        self.header_warning = HeaderWarning(dismissible=True)
-
         self.molecule_settings = MoleculeSettings()
         self.molecule_settings.multiplicity.disabled = True
 
@@ -106,7 +104,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         super().__init__(
             components=[
-                self.header_warning,
                 ipw.GridBox(children=settings, layout=grid_layout),
                 ipw.HTML("<hr>"),
                 ipw.HBox([self.codes_selector, self.resources_settings]),
@@ -387,7 +384,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def reset(self):
         # NOTE: We purposefully do not reset the workchain settings back to default,
         # in case one wants to submit a series of same workflows for different molecules.
-        self.header_warning.hide()
         super().reset()
 
 

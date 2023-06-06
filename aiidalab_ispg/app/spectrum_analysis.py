@@ -20,6 +20,7 @@ import numpy as np
 import traitlets as tl
 
 from .utils import BokehFigureContext
+from .widgets import HeaderWarning
 
 
 @unique
@@ -174,6 +175,9 @@ class PhotolysisPlotWidget(ipw.VBox):
     cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
 
     def __init__(self):
+        self.header_warning = HeaderWarning(dismissible=False)
+        self.header_warning.layout.width = "500px"
+
         self.flux_toggle = ipw.ToggleButtons(
             options=[(flux.value, flux) for flux in ActinicFlux],
             value=ActinicFlux.HIGH,
@@ -216,11 +220,18 @@ class PhotolysisPlotWidget(ipw.VBox):
         self.figure = self._init_figure(tools=bokeh_tools, **figure_size)
         self.figure.layout = ipw.Layout(overflow="initial")
 
-        super().__init__(
+        self.controls = ipw.VBox(
             children=[
+                self.header_warning,
                 self.flux_toggle,
                 self.yield_slider,
                 self.autoscale_yaxis,
+            ]
+        )
+
+        super().__init__(
+            children=[
+                self.controls,
                 self.total_rate,
                 self.figure,
             ]
@@ -232,7 +243,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         f = figure.get_figure()
         f.xaxis.axis_label = r"$$λ \text{(nm)}$$"
         f.yaxis.axis_label = r"$$j (\text{s}^{-1} \text{nm}^{-1})$$"
-        # TODO: What should be the x-axis range?
         f.x_range = Range1d(280, 749)
         f.y_range = Range1d(0, 3.5e-05)
 
@@ -263,13 +273,15 @@ class PhotolysisPlotWidget(ipw.VBox):
         spectrum_min = min(self.cross_section_nm[0])
 
         # Check end of spectrum data overlaps with flux data
-        if spectrum_max >= flux_min and spectrum_min < flux_max:
-            self._update_j_plot(
-                flux_type=self.flux_toggle.value, quantumY=self.yield_slider.value
-            )
-        else:
+        if spectrum_max <= flux_min or spectrum_min >= flux_max:
             self.reset()
+            self.header_warning.show("Spectrum outside of actinic range.")
             return
+
+        self.header_warning.hide()
+        self._update_j_plot(
+            flux_type=self.flux_toggle.value, quantumY=self.yield_slider.value
+        )
         self.disabled = False
 
     def _observe_flux_toggle(self, change: dict):
@@ -318,19 +330,14 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.yield_slider.value = 1
             self.total_rate.value = ""
             self.autoscale_yaxis.value = True
+            self.header_warning.hide()
 
     @tl.observe("disabled")
     def _observe_disabled(self, change: dict):
         disabled = change["new"]
         with self.hold_trait_notifications():
-            if disabled:
-                self.flux_toggle.disabled = True
-                self.yield_slider.disabled = True
-                self.autoscale_yaxis.disabled = True
-            else:
-                self.flux_toggle.disabled = False
-                self.yield_slider.disabled = False
-                self.autoscale_yaxis.disabled = False
+            for child in self.controls.children:
+                child.disabled = disabled
 
     def read_actinic_fluxes(self) -> dict:
         """Read in actinic flux data from a CSV file.

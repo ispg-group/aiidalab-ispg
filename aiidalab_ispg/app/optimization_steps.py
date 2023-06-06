@@ -107,6 +107,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     @traitlets.observe("process")
     def _observe_process(self, change):
         with self.hold_trait_notifications():
+            self.header_warning.hide()
             process = change["new"]
             if process is not None:
                 self.input_structure = process.inputs.structure
@@ -117,8 +118,9 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
                     )
                 except (AttributeError, KeyError, TypeError):
                     # extras do not exist or are incompatible, ignore this problem
-                    # TODO: Maybe display warning?
-                    pass
+                    self.header_warning.show(
+                        f"WARNING: Workflow parameters could not be loaded from process pk: {process.pk}"
+                    )
             self._update_state()
 
     def submit(self, _=None):
