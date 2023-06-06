@@ -472,7 +472,8 @@ class SpectrumWidget(ipw.VBox):
         for label in filter(lambda label: label.startswith("conformer_"), labels):
             # NOTE: Hiding does not seem to work
             # Removing without immediate figure update also does not work
-            self.remove_line(label, update=True)
+            self.remove_line(label, update=False)
+        self.figure.update()
 
     def _plot_conformer(self, x, y, conf_id, update=True, line_dash="dashed"):
         line_options = {
@@ -537,11 +538,15 @@ class SpectrumWidget(ipw.VBox):
         else:
             self.cross_section_nm = [x.tolist(), total_cross_section.tolist()]
 
+        # Plot total spectrum
+        self.plot_line(
+            x, total_cross_section, self.THEORY_SPEC_LABEL, update=False, line_width=2
+        )
+
         if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
             self._highlight_conformer(self.selected_conformer_id, update=False)
 
-        # Plot total spectrum
-        self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
+        self.figure.update()
 
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
@@ -584,7 +589,7 @@ class SpectrumWidget(ipw.VBox):
         line = f.select_one({"name": label})
         if line is not None:
             # line.data_source.data = {"x": x, "y": y}
-            self.remove_line(label)
+            self.remove_line(label, update=update)
         f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
