@@ -286,7 +286,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         """
         Update the J plot based on the given flux type and quantum yield
 
-        :param flux_type: Which of the predefined actinic fluxes should is used.
+        :param flux_type: Which of the predefined actinic fluxes should be used.
         :param quantumY: The quantum yield value to use in the calculation.
 
         :return: A tuple containing the J values and wavelengths used in the plot.
@@ -299,11 +299,9 @@ class PhotolysisPlotWidget(ipw.VBox):
         wavelengths = self.flux_data["wavelengths"]
         j_values = self.calculation(flux_type, quantum_yield=quantumY)
 
-        # Plot calculated differential photolysis rate constant
-        self.plot_line(wavelengths, j_values, label="rate")
-
-        # Plot flux
-        self.add_log_axis(wavelengths, flux_type, label="log_flux")
+        self.plot_photolysis_rate(wavelengths, j_values, update=False)
+        self.plot_flux(flux_type, update=False)
+        self.figure.update()
 
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
@@ -424,50 +422,51 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param x: The x data for the line.
         :param y: The y data for the line.
         :param label: The label for the line.
-        :param update: Whether to update the figure after plotting the line. Defaults to True.
-        :param args: Additional arguments to pass to the line plot function."""
+        :param update: Whether to update the figure after plotting the line.
+        :param args: Additional arguments to pass to the line plot function.
+        """
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
         if line is not None:
             self.remove_line(label)
 
-        f.line(x, y, name=label, **args, line_width=2)
-        y_range_max = y.max() + y.max() * 0.2
-        self.update_y_axis(y_range_max)
-
+        f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
 
-    def update_y_axis(self, end: float):
+    def plot_photolysis_rate(
+        self, wavelengths: np.ndarray, j_values: np.ndarray, update=True
+    ):
+        self.plot_line(wavelengths, j_values, label="rate", update=update, line_width=2)
+        y_range_max = 1.2 * j_values.max()
+        self.update_y_axis(y_range_max, update=update)
+
+    def update_y_axis(self, end: float, update=True):
         """Update the y-axis range of the figure.
 
         :param end: The new end value for the y-axis range.
         """
+        if not self.autoscale_yaxis.value:
+            return
         f = self.figure.get_figure()
-        if self.autoscale_yaxis.value:
-            f.y_range.start = 0
-            f.y_range.end = end
+        f.y_range.start = 0
+        f.y_range.end = end
+        if update:
+            self.figure.update()
 
-    def add_log_axis(
-        self, x: np.ndarray, flux_type: ActinicFlux, label: str, update=True, **args
-    ):
+    def plot_flux(self, flux_type: ActinicFlux, update=True, **args):
         """
-        Add a log axis to the figure.
+        Plot flux data in logarithmic axis.
 
-        :param x: The x values for the line to be plotted.
         :param level: The level of the flux data to be plotted.
-        :param label: The name of the line to be plotted.
         :param update: Whether to update the figure after adding the line. Default is True.
         :param args: Additional arguments to be passed to the line function.
         """
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
-            self.remove_line(label)
+        x = self.flux_data["wavelengths"]
         y = self.flux_data[flux_type]
-        f.line(x, y, y_range_name="V", name=label, color="red")
-        if update:
-            self.figure.update()
+        self.plot_line(
+            x, y, label="log_flux", update=update, y_range_name="V", color="red", **args
+        )
 
     def remove_line(self, label: str, update=True):
         """

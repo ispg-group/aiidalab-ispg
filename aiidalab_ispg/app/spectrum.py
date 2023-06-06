@@ -449,10 +449,10 @@ class SpectrumWidget(ipw.VBox):
             node = load_node(self.experimental_spectrum_uuid)
             self.plot_experimental_spectrum(spectrum_node=node, energy_unit=energy_unit)
 
-    def _unhighlight_conformer(self):
-        self.remove_line("conformer_selected")
+    def _unhighlight_conformer(self, update=True):
+        self.remove_line("conformer_selected", update=update)
 
-    def _highlight_conformer(self, conf_id: int):
+    def _highlight_conformer(self, conf_id: int, update=True):
         f = self.figure.get_figure()
         label = f"conformer_{conf_id}"
         if line := f.select_one({"name": label}):
@@ -461,10 +461,12 @@ class SpectrumWidget(ipw.VBox):
             # line.glyph.update(line_dash="solid")
             x = line.data_source.data["x"]
             y = line.data_source.data["y"]
-            self.plot_line(x, y, label="conformer_selected", line_color="red")
+            self.plot_line(
+                x, y, label="conformer_selected", update=update, line_color="red"
+            )
 
     def _hide_all_conformers(self):
-        self._unhighlight_conformer()
+        self._unhighlight_conformer(update=False)
         f = self.figure.get_figure()
         labels = [r.name for r in f.renderers]
         for label in filter(lambda label: label.startswith("conformer_"), labels):
@@ -535,11 +537,11 @@ class SpectrumWidget(ipw.VBox):
         else:
             self.cross_section_nm = [x.tolist(), total_cross_section.tolist()]
 
+        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
+            self._highlight_conformer(self.selected_conformer_id, update=False)
+
         # Plot total spectrum
         self.plot_line(x, total_cross_section, self.THEORY_SPEC_LABEL, line_width=2)
-
-        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
-            self._highlight_conformer(self.selected_conformer_id)
 
         if self.stick_toggle.value:
             self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
