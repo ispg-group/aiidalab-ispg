@@ -253,7 +253,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         """Observe changes to the spectrum data and update the J plot accordingly.
         Check that fluxdata overlaps with the spectrum data.
         """
-        self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
             return
@@ -271,7 +270,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         else:
             self.reset()
             return
-
         self.disabled = False
 
     def _observe_flux_toggle(self, change: dict):
@@ -324,14 +322,15 @@ class PhotolysisPlotWidget(ipw.VBox):
     @tl.observe("disabled")
     def _observe_disabled(self, change: dict):
         disabled = change["new"]
-        if disabled:
-            self.flux_toggle.disabled = True
-            self.yield_slider.disabled = True
-            self.autoscale_yaxis.disabled = True
-        else:
-            self.flux_toggle.disabled = False
-            self.yield_slider.disabled = False
-            self.autoscale_yaxis.disabled = False
+        with self.hold_trait_notifications():
+            if disabled:
+                self.flux_toggle.disabled = True
+                self.yield_slider.disabled = True
+                self.autoscale_yaxis.disabled = True
+            else:
+                self.flux_toggle.disabled = False
+                self.yield_slider.disabled = False
+                self.autoscale_yaxis.disabled = False
 
     def read_actinic_fluxes(self) -> dict:
         """Read in actinic flux data from a CSV file.
@@ -428,7 +427,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
         if line is not None:
-            self.remove_line(label)
+            self.remove_line(label, update=update)
 
         f.line(x, y, name=label, **args)
         if update:
