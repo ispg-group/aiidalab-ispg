@@ -208,7 +208,6 @@ class PhotolysisPlotWidget(ipw.VBox):
         self.total_rate = ipw.HTML(
             description="Photolysis rate constant (s$^{-1}$) =",
             style={"description_width": "initial"},
-            disabled=True,
         )
 
         bokeh_tools = "pan,wheel_zoom,box_zoom,reset,save"

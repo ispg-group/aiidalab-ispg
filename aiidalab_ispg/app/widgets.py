@@ -7,6 +7,7 @@ Authors:
 
 import base64
 import io
+import re
 from typing import Optional
 
 import ipywidgets as ipw
@@ -17,12 +18,24 @@ import numpy as np
 import ase
 from ase import Atoms
 
-from aiida.orm import load_node, Node, Data, StructureData, CifData, TrajectoryData
+from aiida.cmdline.utils.ascii_vis import calc_info
+from aiida.engine import ProcessState
+from aiida.orm import (
+    load_node,
+    Node,
+    CalcFunctionNode,
+    Data,
+    StructureData,
+    CifData,
+    TrajectoryData,
+)
 from aiida.plugins import DataFactory
 
 from aiidalab_widgets_base import register_viewer_widget
 from aiidalab_widgets_base import StructureManagerWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
+from aiidalab_widgets_base.process import ProcessNodesTreeWidget
+from aiidalab_widgets_base.nodes import AiidaProcessNodeTreeNode, NodesTreeWidget
 
 from .qeapp.process import WorkChainSelector
 from .utils import get_formula
@@ -70,6 +83,80 @@ class ISPGWorkChainSelector(WorkChainSelector):
             "label": label,
             "description": description,
         }
+
+
+class ISPGNodesTreeWidget(NodesTreeWidget):
+    """A tree widget for the structured representation of a nodes graph.
+
+    ISPG modifications:
+     - do not display calcfunctions to make Tree view less confusing for non-expert user
+     - do not include current function in the Process name.
+    """
+
+    @staticmethod
+    def include_node(node):
+        # To make the Workflow tree less confusing, we do not display calcfunctions.
+        if isinstance(node, CalcFunctionNode):
+            return False
+        try:
+            if node.process_label in ("ConcatInputsToList",):
+                return False
+        except AttributeError:
+            pass
+        return True
+
+    @staticmethod
+    def extract_node_name(node):
+        try:
+            name = calc_info(node)
+        except AttributeError:
+            return str(node)
+
+        m = re.match(r".*\[[0-9*]\]", name)
+        # Filter out junk at the end of the string
+        if m is not None:
+            name = m[0]
+        return name
+
+    @classmethod
+    def _find_called(cls, root):
+        process_node = load_node(root.pk)
+        called = process_node.called
+        called.sort(key=lambda p: p.ctime)
+        for node in called:
+            if not cls.include_node(node):
+                continue
+            if node.pk not in root.nodes_registry:
+                name = cls.extract_node_name(node)
+                root.nodes_registry[node.pk] = cls._to_tree_node(node, name=name)
+            yield root.nodes_registry[node.pk]
+
+    def _update_tree_node(self, tree_node):
+        if isinstance(tree_node, AiidaProcessNodeTreeNode):
+            process_node = load_node(tree_node.pk)
+            tree_node.name = self.extract_node_name(process_node)
+            # Override the process state in case that the process node has failed:
+            # (This could be refactored with structural pattern matching with py>=3.10.)
+            process_state = (
+                ProcessState.EXCEPTED
+                if process_node.is_failed
+                else process_node.process_state
+            )
+            tree_node.icon_style = self.PROCESS_STATE_STYLE.get(
+                process_state, self.PROCESS_STATE_STYLE_DEFAULT
+            )
+
+
+class ISPGProcessNodesTreeWidget(ProcessNodesTreeWidget):
+    """A tree widget for the structured representation of a process graph."""
+
+    def __init__(self, title="Process Tree", **kwargs):
+        self.title = title  # needed for ProcessFollowerWidget
+
+        self._tree = ISPGNodesTreeWidget()
+        self._tree.observe(self._observe_tree_selected_nodes, ["selected_nodes"])
+        super(ipw.VBox, self).__init__(children=[self._tree], **kwargs)
+        self.update()
 
 
 @register_viewer_widget("data.core.array.trajectory.TrajectoryData.")
