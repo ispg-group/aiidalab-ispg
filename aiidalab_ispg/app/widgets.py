@@ -95,14 +95,19 @@ class ISPGNodesTreeWidget(NodesTreeWidget):
 
     @staticmethod
     def include_node(node):
-        # To make the Workflow tree less confusing, we do not display calcfunctions.
-        if isinstance(node, CalcFunctionNode):
-            return False
         try:
-            if node.process_label in ("ConcatInputsToList",):
+            if node.process_label == "ConcatInputsToList":
                 return False
+            if node.process_label == "generate_wigner_structures":
+                return True
         except AttributeError:
             pass
+
+        # To make the Workflow tree less confusing, we do not display calcfunctions.
+        # The only exception to this is the calcfunction for generating Wigner sampling,
+        # which is handled above.
+        if isinstance(node, CalcFunctionNode):
+            return False
         return True
 
     @staticmethod
