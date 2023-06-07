@@ -15,13 +15,12 @@ from aiida.orm import WorkChainNode, StructureData, TrajectoryData
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ProcessMonitor,
-    ProcessNodesTreeWidget,
     WizardAppWidgetStep,
 )
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
 
-from .widgets import HeaderWarning, spinner
+from .widgets import ISPGProcessNodesTreeWidget, HeaderWarning, spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula
 
@@ -138,7 +137,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, progress_bar=None, children=None, **kwargs):
-        self.process_tree = ProcessNodesTreeWidget()
+        self.process_tree = ISPGProcessNodesTreeWidget()
         self.tree_toggle = ipw.ToggleButton(
             value=False,
             description="Show workflow details",
