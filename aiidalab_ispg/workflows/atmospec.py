@@ -1,6 +1,6 @@
 """Base work chain to run an ORCA calculation"""
 
-from aiida.engine import WorkChain, ExitCode
+from aiida.engine import WorkChain, ExitCode, process_handler
 from aiida.engine import append_, ToContext, if_
 
 # Not sure if this is needed? Can we use self.run()?
@@ -33,6 +33,40 @@ OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
+class OrcaExcitationWorkChain(OrcaBaseWorkChain):
+    """A simple shim for UV/vis excitation in ORCA."""
+
+    def _build_process_label(self) -> str:
+        return "Excitation workflow"
+
+    @classmethod
+    def define(cls, spec):
+        super().define(spec)
+        spec.output(
+            "excitations",
+            valid_type=Dict,
+            required=True,
+            help="Excitation energies and oscillator strengths from a single-point excitations",
+        )
+
+    def extract_transitions_from_orca_output(self, orca_output_params):
+        return {
+            "oscillator_strengths": orca_output_params["etoscs"],
+            # Orca returns excited state energies in cm^-1
+            # Perhaps we should do the conversion here,
+            # to make this less ORCA specific.
+            "excitation_energies_cm": orca_output_params["etenergies"],
+        }
+
+    @process_handler(exit_codes=ExitCode(0), priority=600)
+    def add_excitation_output(self, calculation):
+        """Extract excitation energies and osc. strengths into a separate output node"""
+        transitions = self.extract_transitions_from_orca_output(
+            calculation.outputs.output_parameters
+        )
+        self.out("excitations", Dict(transitions).store())
+
+
 class OrcaWignerSpectrumWorkChain(WorkChain):
     """Top level workchain for Nuclear Ensemble Approach UV/vis
     spectrum for a single conformer"""
@@ -49,7 +83,9 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             exclude=["orca.structure", "orca.code"],
         )
         spec.expose_inputs(
-            OrcaBaseWorkChain, namespace="exc", exclude=["orca.structure", "orca.code"]
+            OrcaExcitationWorkChain,
+            namespace="exc",
+            exclude=["orca.structure", "orca.code"],
         )
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
         spec.input("code", valid_type=Code)
@@ -74,9 +110,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             serializer=to_aiida_type,
         )
 
-        spec.output("relaxed_structure", valid_type=StructureData, required=False)
         spec.output(
-            "single_point_excitations",
+            "franck_condon_excitations",
             valid_type=Dict,
             required=True,
             help="Output parameters from a single-point excitations",
@@ -84,7 +119,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         spec.expose_outputs(
             RobustOptimizationWorkChain,
             namespace="opt",
-            include=["output_parameters"],
+            include=["output_parameters", "relaxed_structure"],
             namespace_options={"required": False},
         )
 
@@ -107,7 +142,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 cls.wigner_excite,
                 cls.inspect_wigner_excitation,
             ),
-            cls.results,
         )
 
         spec.exit_code(
@@ -122,7 +156,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def excite(self):
         """Calculate excited states for a single geometry"""
         inputs = self.exposed_inputs(
-            OrcaBaseWorkChain, namespace="exc", agglomerate=False
+            OrcaExcitationWorkChain, namespace="exc", agglomerate=False
         )
         inputs.orca.code = self.inputs.code
 
@@ -141,8 +175,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             self.report("Calculating spectrum for input geometry")
             inputs.orca.structure = self.inputs.structure
 
-        calc_exc = self.submit(OrcaBaseWorkChain, **inputs)
-        calc_exc.label = "single-point-excitation"
+        calc_exc = self.submit(OrcaExcitationWorkChain, **inputs)
+        calc_exc.label = "franck-condon-excitation"
         return ToContext(calc_exc=calc_exc)
 
     def wigner_sampling(self):
@@ -166,7 +200,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
     def wigner_excite(self):
         inputs = self.exposed_inputs(
-            OrcaBaseWorkChain, namespace="exc", agglomerate=False
+            OrcaExcitationWorkChain, namespace="exc", agglomerate=False
         )
         inputs.orca.code = self.inputs.code
         # Pass in SCF wavefunction from minimum geometry
@@ -180,8 +214,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             inputs.orca.structure = pick_structure_from_trajectory(
                 self.ctx.wigner_structures, Int(i)
             )
-            calc = self.submit(OrcaBaseWorkChain, **inputs)
-            calc.label = "wigner-excitation"
+            calc = self.submit(OrcaExcitationWorkChain, **inputs)
+            calc.label = f"wigner-excitation-{i}"
             self.to_context(wigner_calcs=append_(calc))
 
     def optimize(self):
@@ -201,6 +235,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if not self.ctx.calc_opt.is_finished_ok:
             self.report("Optimization failed :-(")
             return self.exit_codes.ERROR_OPTIMIZATION_FAILED
+
         self.out_many(
             self.exposed_outputs(
                 self.ctx.calc_opt,
@@ -210,25 +245,13 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             )
         )
 
-    def extract_transitions_from_orca_output(self, orca_output_params):
-        return {
-            "oscillator_strengths": orca_output_params["etoscs"],
-            # Orca returns excited state energies in cm^-1
-            # Perhaps we should do the conversion here,
-            # to make this less ORCA specific.
-            "excitation_energies_cm": orca_output_params["etenergies"],
-        }
-
     def inspect_excitation(self):
         """Check whether excitation succeeded"""
-        if not self.ctx.calc_exc.is_finished_ok:
+        calc = self.ctx.calc_exc
+        if not calc.is_finished_ok:
             self.report("Single point excitation failed :-(")
             return self.exit_codes.ERROR_EXCITATION_FAILED
-
-        transitions = self.extract_transitions_from_orca_output(
-            self.ctx.calc_exc.outputs.output_parameters
-        )
-        self.out("single_point_excitations", Dict(transitions).store())
+        self.out("franck_condon_excitations", calc.outputs.excitations)
 
     def inspect_wigner_excitation(self):
         """Check whether all wigner excitations succeeded"""
@@ -237,24 +260,16 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 self.report("Wigner excitation failed :-(")
                 return self.exit_codes.ERROR_EXCITATION_FAILED
 
+        all_wigner_data = [
+            wc.outputs.excitations.get_dict() for wc in self.ctx.wigner_calcs
+        ]
+        self.out("wigner_excitations", List(all_wigner_data).store())
+
     def should_optimize(self):
         return self.inputs.optimize.value
 
     def should_run_wigner(self):
         return self.should_optimize() and self.inputs.nwigner > 0
-
-    def results(self):
-        """Expose results from child workchains"""
-
-        if self.should_optimize():
-            self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
-
-        if self.should_run_wigner():
-            all_wigner_data = [
-                self.extract_transitions_from_orca_output(wc.outputs.output_parameters)
-                for wc in self.ctx.wigner_calcs
-            ]
-            self.out("wigner_excitations", List(all_wigner_data).store())
 
 
 class AtmospecWorkChain(WorkChain):
@@ -314,7 +329,7 @@ class AtmospecWorkChain(WorkChain):
             }
         else:
             data = {
-                str(i): [outputs.single_point_excitations.get_dict()]
+                str(i): [outputs.franck_condon_excitations.get_dict()]
                 for i, outputs in enumerate(conf_outputs)
             }
         all_results = run(ConcatInputsToList, ns=data)
@@ -325,7 +340,7 @@ class AtmospecWorkChain(WorkChain):
             relaxed_structures = {}
             orca_output_params = {}
             for i, outputs in enumerate(conf_outputs):
-                relaxed_structures[f"struct_{i}"] = outputs.relaxed_structure
+                relaxed_structures[f"struct_{i}"] = outputs.opt.relaxed_structure
                 orca_output_params[f"params_{i}"] = outputs.opt.output_parameters
 
             # For multiple conformers, we're appending relative energies and Boltzmann weights
