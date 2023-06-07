@@ -65,7 +65,6 @@ class OrcaExcitationWorkChain(OrcaBaseWorkChain):
             calculation.outputs.output_parameters
         )
         self.out("excitations", Dict(transitions).store())
-        # return ProcessHandlerReport(do_break=True, exit_code=ExitCode(0))
 
 
 class OrcaWignerSpectrumWorkChain(WorkChain):
@@ -111,7 +110,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             serializer=to_aiida_type,
         )
 
-        spec.output("relaxed_structure", valid_type=StructureData, required=False)
         spec.output(
             "franck_condon_excitations",
             valid_type=Dict,
@@ -121,7 +119,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         spec.expose_outputs(
             RobustOptimizationWorkChain,
             namespace="opt",
-            include=["output_parameters"],
+            include=["output_parameters", "relaxed_structure"],
             namespace_options={"required": False},
         )
 
@@ -144,7 +142,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                 cls.wigner_excite,
                 cls.inspect_wigner_excitation,
             ),
-            cls.results,
         )
 
         spec.exit_code(
@@ -238,6 +235,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         if not self.ctx.calc_opt.is_finished_ok:
             self.report("Optimization failed :-(")
             return self.exit_codes.ERROR_OPTIMIZATION_FAILED
+
         self.out_many(
             self.exposed_outputs(
                 self.ctx.calc_opt,
@@ -272,12 +270,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
     def should_run_wigner(self):
         return self.should_optimize() and self.inputs.nwigner > 0
-
-    def results(self):
-        """Expose results from child workchains"""
-
-        if self.should_optimize():
-            self.out("relaxed_structure", self.ctx.calc_opt.outputs.relaxed_structure)
 
 
 class AtmospecWorkChain(WorkChain):
@@ -348,7 +340,7 @@ class AtmospecWorkChain(WorkChain):
             relaxed_structures = {}
             orca_output_params = {}
             for i, outputs in enumerate(conf_outputs):
-                relaxed_structures[f"struct_{i}"] = outputs.relaxed_structure
+                relaxed_structures[f"struct_{i}"] = outputs.opt.relaxed_structure
                 orca_output_params[f"params_{i}"] = outputs.opt.output_parameters
 
             # For multiple conformers, we're appending relative energies and Boltzmann weights
