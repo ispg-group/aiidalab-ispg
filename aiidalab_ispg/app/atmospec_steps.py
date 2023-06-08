@@ -431,9 +431,9 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
                     # TODO: This needs to be properly implemented, the tricky part is
                     # how to do it when there are multiple conformers
                     # AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
-                    AtmospecWorkflowStatus.IN_PROGRESS: f"Workflow is running {spinner}",
-                    AtmospecWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
-                    AtmospecWorkflowStatus.FAILED: "Workflow failed! 😧",
+                    AtmospecWorkflowStatus.IN_PROGRESS: f"Running {spinner}",
+                    AtmospecWorkflowStatus.FINISHED: "Finished successfully! 🎉",
+                    AtmospecWorkflowStatus.FAILED: "Failed! 😧",
                 }.get(change["new"], change["new"].name)
 
                 self._progress_bar.value = change["new"].value

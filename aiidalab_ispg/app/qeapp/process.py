@@ -36,9 +36,7 @@ class WorkChainSelector(ipw.HBox):
 
     def __init__(self, process_label, **kwargs):
         self.process_label = process_label
-        self.work_chains_prompt = ipw.HTML(
-            "<b>Select computed workflow or start a new one:</b>&nbsp;"
-        )
+        self.work_chains_prompt = ipw.HTML("<b>Select computed workflow:</b>&nbsp;")
         self.work_chains_selector = ipw.Dropdown(
             options=[("New workflow...", self._NO_PROCESS)],
             layout=ipw.Layout(min_width="300px", flex="1 1 auto"),

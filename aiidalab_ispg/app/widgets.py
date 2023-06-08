@@ -70,8 +70,8 @@ class ISPGWorkChainSelector(WorkChainSelector):
             method = f"{bp['method']}/{bp['basis']}"
 
         description = structure.description
-        if len(description) > 20:
-            description = f"{description[0:19]}…"
+        if len(description) > 35:
+            description = f"{description[0:34]}…"
 
         # By default, the label is the formula of the generated molecule.
         # In that case we do not want to show it twice so let's hide it.
