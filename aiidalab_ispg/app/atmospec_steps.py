@@ -387,13 +387,13 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         super().reset()
 
 
-# TODO: Disambiguate between optimizing conformers,
-# computing single point spectra and Wigner spectra
-class AtmospecWorkflowStatus(enum.Enum):
+class AtmospecWorkflowStatus(enum.IntEnum):
     INIT = 0
-    IN_PROGRESS = 1
-    FINISHED = 2
-    FAILED = 3
+    OPT = 1
+    FC = 2
+    WIGNER = 3
+    FINISHED = 4
+    FAILED = 5
 
 
 class AtmospecWorkflowProgressWidget(ipw.HBox):
@@ -407,7 +407,7 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
             description="Workflow progress:",
             value=0,
             min=0,
-            max=2,
+            max=4,
             disabled=False,
             orientations="horizontal",
         )
@@ -424,23 +424,23 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
     @traitlets.observe("status")
     def _observe_status(self, change):
+        status = change["new"]
         with self.hold_trait_notifications():
-            if change["new"]:
+            if status:
                 self._status_text.value = {
                     AtmospecWorkflowStatus.INIT: "Workflow started",
-                    # TODO: This needs to be properly implemented, the tricky part is
-                    # how to do it when there are multiple conformers
-                    # AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
-                    AtmospecWorkflowStatus.IN_PROGRESS: f"Running {spinner}",
+                    AtmospecWorkflowStatus.OPT: f"Optimizing conformers {spinner}",
+                    AtmospecWorkflowStatus.FC: f"Computing Franck-Condon spectrum {spinner}",
+                    AtmospecWorkflowStatus.WIGNER: f"Computing NEA spectrum {spinner}",
                     AtmospecWorkflowStatus.FINISHED: "Finished successfully! 🎉",
                     AtmospecWorkflowStatus.FAILED: "Failed! 😧",
-                }.get(change["new"], change["new"].name)
+                }.get(status, status.name)
 
-                self._progress_bar.value = change["new"].value
+                self._progress_bar.value = status.value
                 self._progress_bar.bar_style = {
                     AtmospecWorkflowStatus.FINISHED: "success",
                     AtmospecWorkflowStatus.FAILED: "danger",
-                }.get(change["new"], "info")
+                }.get(status, "info")
             else:
                 self._status_text.value = ""
                 self._progress_bar.value = 0
@@ -458,23 +458,22 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         )
         super().__init__(progress_bar=self.progress_bar, **kwargs)
 
-    def _update_workflow_state(self):
+    def _get_workflow_state(self, process_uuid):
         if self.process_uuid is None:
-            self.workflow_status = None
-            return
+            return None
 
         process = load_node(self.process_uuid)
         process_state = process.process_state
-        if process_state in (
-            ProcessState.CREATED,
-            ProcessState.RUNNING,
-            ProcessState.WAITING,
-        ):
-            self.workflow_status = AtmospecWorkflowStatus.IN_PROGRESS
-        elif (
+        if (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
             or process.is_failed
         ):
-            self.workflow_status = AtmospecWorkflowStatus.FAILED
+            return AtmospecWorkflowStatus.FAILED
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
-            self.workflow_status = AtmospecWorkflowStatus.FINISHED
+            return AtmospecWorkflowStatus.FINISHED
+
+        # Process still running, determine where it is currently
+        return AtmospecWorkflowStatus.OPT
+
+    def _update_workflow_state(self):
+        self.workflow_status = self._get_workflow_state(self.process_uuid)
