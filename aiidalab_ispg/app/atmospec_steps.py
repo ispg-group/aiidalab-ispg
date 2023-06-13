@@ -458,12 +458,10 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         )
         super().__init__(progress_bar=self.progress_bar, **kwargs)
 
-    def _get_workflow_state(self, process_uuid):
-        if self.process_uuid is None:
-            return None
-
-        process = load_node(self.process_uuid)
+    @staticmethod
+    def _get_conformer_workflow_state(process):
         process_state = process.process_state
+
         if (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
             or process.is_failed
@@ -472,8 +470,45 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
             return AtmospecWorkflowStatus.FINISHED
 
-        # Process still running, determine where it is currently
-        return AtmospecWorkflowStatus.OPT
+        called_labels = [p.label for p in process.called]
+        if "wigner-excitation-0" in called_labels:
+            return AtmospecWorkflowStatus.WIGNER
+        elif "franck-condon-excitation" in called_labels:
+            return AtmospecWorkflowStatus.FC
+        elif "optimization" in called_labels:
+            return AtmospecWorkflowStatus.OPT
+        else:
+            return AtmospecWorkflowStatus.INIT
+
+    def _get_workflow_state(self, process_uuid):
+        if self.process_uuid is None:
+            return None
+
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
+
+        if (
+            process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
+            or process.is_failed
+        ):
+            return AtmospecWorkflowStatus.FAILED
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
+            return AtmospecWorkflowStatus.FINISHED
+
+        # Process is still running. Determine its progress.
+        # Collect statuses from individual conformers separately.
+        conf_workflows = filter(
+            lambda x: x.label.startswith("atmospec-conf-"), process.called
+        )
+        statuses = [self._get_conformer_workflow_state(wc) for wc in conf_workflows]
+
+        # Verify that all conformers started
+        nconf = len(process.inputs.structure.get_stepids())
+        if nconf != len(statuses):
+            return AtmospecWorkflowStatus.INIT
+
+        # Take the slowest conformer as the status of the whole workflow.
+        return min(statuses)
 
     def _update_workflow_state(self):
         self.workflow_status = self._get_workflow_state(self.process_uuid)
