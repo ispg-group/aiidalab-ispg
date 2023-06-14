@@ -137,6 +137,8 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     process_uuid = traitlets.Unicode(allow_none=True)
 
     def __init__(self, progress_bar=None, children=None, **kwargs):
+        if children is None:
+            children = []
         self.process_tree = ISPGProcessNodesTreeWidget()
         self.tree_toggle = ipw.ToggleButton(
             value=False,
@@ -171,12 +173,11 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             workflow_state = ipw.VBox([progress_bar, self.tree_toggle])
         else:
             workflow_state = ipw.VBox([self.tree_toggle])
-        workflow_state.layout.width = "52%"
-        components = [workflow_state, self.process_tree, self.node_view]
-        if children is not None:
-            components = components + children
-
-        super().__init__(children=components, **kwargs)
+        workflow_state.layout.width = "60%"
+        super().__init__(
+            children=[workflow_state, self.process_tree, self.node_view, *children],
+            **kwargs,
+        )
 
     def reset(self):
         self.process_uuid = None

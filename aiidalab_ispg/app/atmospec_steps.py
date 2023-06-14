@@ -387,17 +387,23 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         super().reset()
 
 
-# TODO: Disambiguate between optimizing conformers,
-# computing single point spectra and Wigner spectra
-class AtmospecWorkflowStatus(enum.Enum):
+class AtmospecWorkflowStatus(enum.IntEnum):
     INIT = 0
-    IN_PROGRESS = 1
-    FINISHED = 2
-    FAILED = 3
+    OPT = 1
+    FC = 2
+    WIGNER = 3
+    FINISHED = 4
+    FAILED = 5
 
 
 class AtmospecWorkflowProgressWidget(ipw.HBox):
     """Widget for user friendly representation of the workflow status."""
+
+    # TODO: Display number of finished and total calculations (e.g. Calculation 2/100)
+    # The following code counts the number of finished subworkchains for Wigner excitations
+    # sum(1 if wc.is_finished_ok else 0 for wc in filter(lambda x: x.label.startswith('wigner'), subp.called))
+    # Unfortunately, it is too slow, for 500 Wigner samples it takes 1.73 seconds.
+    # Maybe using QueryBuilder would improve the performance.
 
     status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
@@ -407,7 +413,7 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
             description="Workflow progress:",
             value=0,
             min=0,
-            max=2,
+            max=4,
             disabled=False,
             orientations="horizontal",
         )
@@ -424,23 +430,23 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
     @traitlets.observe("status")
     def _observe_status(self, change):
+        status = change["new"]
         with self.hold_trait_notifications():
-            if change["new"]:
+            if status:
                 self._status_text.value = {
                     AtmospecWorkflowStatus.INIT: "Workflow started",
-                    # TODO: This needs to be properly implemented, the tricky part is
-                    # how to do it when there are multiple conformers
-                    # AtmospecWorkflowStatus.IN_PROGRESS: f"Optimizing conformers {spinner}",
-                    AtmospecWorkflowStatus.IN_PROGRESS: f"Workflow is running {spinner}",
-                    AtmospecWorkflowStatus.FINISHED: "Worflow finished successfully! 🎉",
-                    AtmospecWorkflowStatus.FAILED: "Workflow failed! 😧",
-                }.get(change["new"], change["new"].name)
+                    AtmospecWorkflowStatus.OPT: f"Optimizing conformers {spinner}",
+                    AtmospecWorkflowStatus.FC: f"Computing Franck-Condon spectrum {spinner}",
+                    AtmospecWorkflowStatus.WIGNER: f"Computing NEA spectrum {spinner}",
+                    AtmospecWorkflowStatus.FINISHED: "Finished successfully! 🎉",
+                    AtmospecWorkflowStatus.FAILED: "Failed! 😧",
+                }.get(status, status.name)
 
-                self._progress_bar.value = change["new"].value
+                self._progress_bar.value = status.value
                 self._progress_bar.bar_style = {
                     AtmospecWorkflowStatus.FINISHED: "success",
                     AtmospecWorkflowStatus.FAILED: "danger",
-                }.get(change["new"], "info")
+                }.get(status, "info")
             else:
                 self._status_text.value = ""
                 self._progress_bar.value = 0
@@ -448,6 +454,8 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
+    """Shows progress bar and displays workflow tree"""
+
     workflow_status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):
@@ -458,23 +466,57 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         )
         super().__init__(progress_bar=self.progress_bar, **kwargs)
 
-    def _update_workflow_state(self):
-        if self.process_uuid is None:
-            self.workflow_status = None
-            return
-
-        process = load_node(self.process_uuid)
+    @staticmethod
+    def _get_conformer_workflow_state(process):
         process_state = process.process_state
-        if process_state in (
-            ProcessState.CREATED,
-            ProcessState.RUNNING,
-            ProcessState.WAITING,
-        ):
-            self.workflow_status = AtmospecWorkflowStatus.IN_PROGRESS
-        elif (
+
+        if (
             process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
             or process.is_failed
         ):
-            self.workflow_status = AtmospecWorkflowStatus.FAILED
+            return AtmospecWorkflowStatus.FAILED
         elif process_state is ProcessState.FINISHED and process.is_finished_ok:
-            self.workflow_status = AtmospecWorkflowStatus.FINISHED
+            return AtmospecWorkflowStatus.FINISHED
+
+        called_labels = [p.label for p in process.called]
+        if "wigner-excitation-0" in called_labels:
+            return AtmospecWorkflowStatus.WIGNER
+        elif "franck-condon-excitation" in called_labels:
+            return AtmospecWorkflowStatus.FC
+        elif "optimization" in called_labels:
+            return AtmospecWorkflowStatus.OPT
+        else:
+            return AtmospecWorkflowStatus.INIT
+
+    def _get_workflow_state(self, process_uuid):
+        if self.process_uuid is None:
+            return None
+
+        process = load_node(self.process_uuid)
+        process_state = process.process_state
+
+        if (
+            process_state in (ProcessState.EXCEPTED, ProcessState.KILLED)
+            or process.is_failed
+        ):
+            return AtmospecWorkflowStatus.FAILED
+        elif process_state is ProcessState.FINISHED and process.is_finished_ok:
+            return AtmospecWorkflowStatus.FINISHED
+
+        # Process is still running. Determine its progress.
+        # Collect statuses from individual conformers separately.
+        conf_workflows = filter(
+            lambda x: x.label.startswith("atmospec-conf-"), process.called
+        )
+        statuses = [self._get_conformer_workflow_state(wc) for wc in conf_workflows]
+
+        # Verify that all conformers started
+        nconf = len(process.inputs.structure.get_stepids())
+        if nconf != len(statuses):
+            return AtmospecWorkflowStatus.INIT
+
+        # Take the slowest conformer as the status of the whole workflow.
+        return min(statuses)
+
+    def _update_workflow_state(self):
+        self.workflow_status = self._get_workflow_state(self.process_uuid)
