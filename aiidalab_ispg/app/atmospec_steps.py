@@ -399,6 +399,12 @@ class AtmospecWorkflowStatus(enum.IntEnum):
 class AtmospecWorkflowProgressWidget(ipw.HBox):
     """Widget for user friendly representation of the workflow status."""
 
+    # TODO: Display number of finished and total calculations (e.g. Calculation 2/100)
+    # The following code counts the number of finished subworkchains for Wigner excitations
+    # sum(1 if wc.is_finished_ok else 0 for wc in filter(lambda x: x.label.startswith('wigner'), subp.called))
+    # Unfortunately, it is too slow, for 500 Wigner samples it takes 1.73 seconds.
+    # Maybe using QueryBuilder would improve the performance.
+
     status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):
@@ -448,6 +454,8 @@ class AtmospecWorkflowProgressWidget(ipw.HBox):
 
 
 class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
+    """Shows progress bar and displays workflow tree"""
+
     workflow_status = traitlets.Instance(AtmospecWorkflowStatus, allow_none=True)
 
     def __init__(self, **kwargs):
