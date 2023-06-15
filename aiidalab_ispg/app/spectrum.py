@@ -504,8 +504,8 @@ class SpectrumWidget(ipw.VBox):
 
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
-        x_stick = np.empty(1)
-        y_stick = np.empty(1)
+        x_stick = np.array([])
+        y_stick = np.array([])
         # Iterate over conformers, the total spectrum is a sum of
         # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
@@ -550,21 +550,21 @@ class SpectrumWidget(ipw.VBox):
         if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
             self._highlight_conformer(self.selected_conformer_id, update=False)
 
-        self.figure.update()
-
         if self.stick_toggle.value:
-            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL)
+            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL, update=False)
         else:
-            self.remove_line(self.STICK_SPEC_LABEL)
+            self.remove_line(self.STICK_SPEC_LABEL, update=False)
+
+        self.figure.update()
         self.download_btn.disabled = False
 
     def debug_print(self, *args):
-        self.debug_output.value = "<br>".join(*args)
+        self.debug_output.value = "<br>".join([str(x) for x in args])
 
-    def plot_sticks(self, x, y, label: str, **args):
+    def plot_sticks(self, x, y, label: str, update=True, **args):
         """Plot stick spectrum"""
         f = self.figure.get_figure()
-        # First remove existing sticks (for now we only support one sets of sticks)
+        # First remove existing sticks.
         if sticks := f.select_one({"name": label}):
             f.renderers.remove(sticks)
         sticks = f.segment(
@@ -577,7 +577,8 @@ class SpectrumWidget(ipw.VBox):
             name=label,
             **args,
         )
-        self.figure.update()
+        if update:
+            self.figure.update()
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
