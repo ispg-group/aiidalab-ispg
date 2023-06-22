@@ -35,7 +35,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
     conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
 
-    cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
+    cross_section_nm = tl.List(allow_none=True, default=None)
 
     disabled = tl.Bool(default=True)
 
@@ -242,7 +242,8 @@ class PhotolysisPlotWidget(ipw.VBox):
         f = figure.get_figure()
         f.xaxis.axis_label = r"$$λ \text{(nm)}$$"
         f.yaxis.axis_label = r"$$j (\text{s}^{-1} \text{nm}^{-1})$$"
-        f.x_range = Range1d(280, 749)
+        # DH temporary change
+        f.x_range = Range1d(280, 340)
         f.y_range = Range1d(0, 3.5e-05)
 
         f.extra_y_ranges = {"V": Range1d(start=1.0, end=1e15)}
@@ -306,17 +307,18 @@ class PhotolysisPlotWidget(ipw.VBox):
             return
 
         wavelengths = self.flux_data["wavelengths"]
-        j_values = self.calculation(flux_type, quantum_yield=quantumY)
+        j_diff = self.calculation(flux_type, quantum_yield=quantumY)
 
-        self.plot_photolysis_rate(wavelengths, j_values, update=False)
+        self.plot_photolysis_rate(wavelengths, j_diff, update=False)
         self.plot_flux(flux_type, update=False)
         self.figure.update()
 
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
-        total_rate = np.trapz(j_values, dx=1)
+        # TODO: This assumes 1nm differences in flux data!!!
+        total_rate = np.trapz(j_diff, x=wavelengths)
         self.total_rate.value = f"<b>{np.format_float_scientific(total_rate, 3)}</b>"
-        return j_values, wavelengths
+        return j_diff, wavelengths
 
     def reset(self):
         """
@@ -366,25 +368,40 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param quantum_yield: The quantum yield value to use in the calculation.
         :return: np.ndarray of smoothed J values.
         """
-        j_vals = self.prepare_for_plot() * self.flux_data[flux_type] * quantum_yield
+        j_vals = (
+            self.interpolate_cross_section() * self.flux_data[flux_type] * quantum_yield
+        )
+        self.plot_line(
+            self.flux_data["wavelengths"],
+            j_vals,
+            label="rate_rough",
+            update=False,
+            line_width=2,
+            line_color="orange",
+        )
         kernel_size = 3
         kernel = np.ones(kernel_size) / kernel_size
-        j_smoothed = np.convolve(j_vals, kernel, mode="valid")
+        j_smoothed = np.convolve(j_vals, kernel, mode="same")
         return j_smoothed
 
-    def prepare_for_plot(self) -> np.ndarray:
+    def interpolate_cross_section(self) -> np.ndarray:
         """
         Prepare the molecular intensity data for plotting by interpolating cross section onto actinic flux x values.
 
         :return: The interpolated cross section data.
         """
         wavelengths, cross_section = self.cross_section_nm
-        x = np.flip(wavelengths)
-        y = np.flip(cross_section)
-        x_max = max(wavelengths)
-        x_masked, y_masked = self.mask_data(x, y, 280, np.floor(x_max))
+        # x = np.flip(wavelengths)
+        # y = np.flip(cross_section)
+        # x_max = max(wavelengths)
+        # x_masked, y_masked = self.mask_data(x, y, 280, np.floor(x_max))
         cross_section_interpolated = np.interp(
-            self.flux_data["wavelengths"], x_masked, y_masked
+            # self.flux_data["wavelengths"], x_masked, y_masked
+            self.flux_data["wavelengths"],
+            wavelengths,
+            cross_section,
+            left=0.0,
+            right=0.0,
         )
         return cross_section_interpolated
 
@@ -440,10 +457,10 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.figure.update()
 
     def plot_photolysis_rate(
-        self, wavelengths: np.ndarray, j_values: np.ndarray, update=True
+        self, wavelengths: np.ndarray, j_diff: np.ndarray, update=True
     ):
-        self.plot_line(wavelengths, j_values, label="rate", update=update, line_width=2)
-        y_range_max = 1.2 * j_values.max()
+        self.plot_line(wavelengths, j_diff, label="rate", update=update, line_width=2)
+        y_range_max = 1.2 * j_diff.max()
         self.update_y_axis(y_range_max, update=update)
 
     def update_y_axis(self, end: float, update=True):

@@ -177,9 +177,7 @@ class SpectrumWidget(ipw.VBox):
 
     selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
 
-    cross_section_nm = traitlets.List(
-        trait=traitlets.List, allow_none=True, default=None
-    )
+    cross_section_nm = traitlets.List(allow_none=True, default=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
@@ -538,9 +536,15 @@ class SpectrumWidget(ipw.VBox):
                 y_nm *= conformer["weight"]
                 total_cross_section_nm += y_nm
 
-            self.cross_section_nm = [x_nm.tolist(), total_cross_section_nm.tolist()]
+            self.cross_section_nm = [
+                np.flip(x_nm).tolist(),
+                np.flip(total_cross_section_nm).tolist(),
+            ]
         else:
-            self.cross_section_nm = [x.tolist(), total_cross_section.tolist()]
+            self.cross_section_nm = [
+                np.flip(x).tolist(),
+                np.flip(total_cross_section).tolist(),
+            ]
 
         # Plot total spectrum
         self.plot_line(
