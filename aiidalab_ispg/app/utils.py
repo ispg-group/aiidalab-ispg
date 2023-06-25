@@ -87,6 +87,7 @@ class BokehFigureContext(ipw.Output):
             bokeh.io.push_notebook(handle=self._handle)
 
     def remove_renderer(self, label: str, update=True):
+        # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
         f = self.get_figure()
         renderer = f.select_one({"name": label})
         if renderer is None:

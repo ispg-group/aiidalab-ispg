@@ -525,20 +525,14 @@ class SpectrumWidget(ipw.VBox):
 
         # Energy unit not nm needs converting for spectrum analysis
         if energy_unit != EnergyUnit.NM:
-            total_cross_section_nm = np.zeros(Spectrum.N_SAMPLE_POINTS)
-
-            for conformer in self.conformer_transitions:
-                spec = Spectrum(conformer["transitions"], conformer["nsample"])
-                x_nm, y_nm, xs_nm, ys_nm = spec.get_spectrum(
-                    kernel, width, EnergyUnit.NM, x_min=x_min, x_max=x_max
-                )
-
-                y_nm *= conformer["weight"]
-                total_cross_section_nm += y_nm
-
+            x_nm = (
+                spec.get_energy_unit_factor(EnergyUnit.NM)
+                * spec.get_energy_unit_factor(energy_unit)
+                / x
+            )
             self.cross_section_nm = {
                 "wavelengths": np.flip(x_nm),
-                "cross_section": np.flip(total_cross_section_nm),
+                "cross_section": np.flip(total_cross_section),
             }
         else:
             self.cross_section_nm = {
@@ -611,8 +605,6 @@ class SpectrumWidget(ipw.VBox):
             self.figure.update()
 
     def remove_line(self, label: str, update=True):
-        # This approach is potentially britle, see:
-        # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
         # Observation: Removing and adding lines via
         # plot_line() and remove_line() works well. However, doing
         # updates on existing lines only works for lines defined in _init_figure()
