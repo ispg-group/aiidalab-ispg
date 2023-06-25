@@ -313,7 +313,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         j_total = np.trapz(j_diff, x=wavelengths)
         self.total_rate.value = f"<b>{np.format_float_scientific(j_total, 3)}</b>"
 
-        # Plot smoothed j_diff to make it a bit less janky
+        # Plot slightly smoothed j_diff to make it less rugged.
         # Our theoretical spectra do not have 1nm resolution anyway.
         j_smoothed = self.smooth_j_diff(j_diff)
 
