@@ -35,7 +35,7 @@ class SpectrumAnalysisWidget(ipw.VBox):
 
     conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
 
-    cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
+    cross_section_nm = tl.Dict(allow_none=True, default=None)
 
     disabled = tl.Bool(default=True)
 
@@ -172,7 +172,7 @@ class PhotolysisPlotWidget(ipw.VBox):
 
     disabled = tl.Bool(default=True)
 
-    cross_section_nm = tl.List(trait=tl.List, allow_none=True, default=None)
+    cross_section_nm = tl.Dict(allow_none=True, default=None)
 
     def __init__(self):
         self.header_warning = HeaderWarning(dismissible=False)
@@ -268,10 +268,10 @@ class PhotolysisPlotWidget(ipw.VBox):
 
         flux_min = min(self.flux_data["wavelengths"])
         flux_max = max(self.flux_data["wavelengths"])
-        spectrum_max = max(self.cross_section_nm[0])
-        spectrum_min = min(self.cross_section_nm[0])
+        spectrum_max = max(self.cross_section_nm["wavelengths"])
+        spectrum_min = min(self.cross_section_nm["wavelengths"])
 
-        # Check end of spectrum data overlaps with flux data
+        # Check whether spectrum data overlap with flux data
         if spectrum_max <= flux_min or spectrum_min >= flux_max:
             self.reset()
             self.header_warning.show("Spectrum outside of actinic range.")
@@ -305,18 +305,20 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.total_rate.value = ""
             return
 
-        wavelengths = self.flux_data["wavelengths"]
-        j_values = self.calculation(flux_type, quantum_yield=quantumY)
-
-        self.plot_photolysis_rate(wavelengths, j_values, update=False)
-        self.plot_flux(flux_type, update=False)
-        self.figure.update()
-
+        wavelengths, j_diff = self.calculate_j_diff(
+            self.cross_section_nm, flux_type, quantum_yield=quantumY
+        )
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
-        total_rate = np.trapz(j_values, dx=1)
-        self.total_rate.value = f"<b>{np.format_float_scientific(total_rate, 3)}</b>"
-        return j_values, wavelengths
+        j_total = np.trapz(j_diff, x=wavelengths)
+        self.total_rate.value = f"<b>{np.format_float_scientific(j_total, 3)}</b>"
+
+        # Plot slightly smoothed j_diff to make it less rugged.
+        # Our theoretical spectra do not have 1nm resolution anyway.
+        j_smoothed = self.smooth_j_diff(j_diff)
+
+        self.plot_photolysis_rate(wavelengths, j_smoothed, update=False)
+        self.plot_flux(flux_type, update=True)
 
     def reset(self):
         """
@@ -357,7 +359,15 @@ class PhotolysisPlotWidget(ipw.VBox):
             ActinicFlux.HIGH: high_flux,
         }
 
-    def calculation(self, flux_type: ActinicFlux, quantum_yield: float):
+    @staticmethod
+    def smooth_j_diff(j_diff: np.ndarray) -> np.ndarray:
+        kernel_size = 3
+        kernel = np.ones(kernel_size) / kernel_size
+        return np.convolve(j_diff, kernel, mode="same")
+
+    def calculate_j_diff(
+        self, cross_section_nm: dict, flux_type: ActinicFlux, quantum_yield: float
+    ):
         """
         Calculate the J values for the given level and quantum yield.
         Smooth the curve using np.convolve(x, kernel = 3, mode = "valid")
@@ -366,60 +376,32 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param quantum_yield: The quantum yield value to use in the calculation.
         :return: np.ndarray of smoothed J values.
         """
-        j_vals = self.prepare_for_plot() * self.flux_data[flux_type] * quantum_yield
-        kernel_size = 3
-        kernel = np.ones(kernel_size) / kernel_size
-        j_smoothed = np.convolve(j_vals, kernel, mode="valid")
-        return j_smoothed
+        wavelengths = self.flux_data["wavelengths"]
+        cross_section_interp = self.interpolate_cross_section(
+            wavelengths, cross_section_nm
+        )
+        j_diff = cross_section_interp * self.flux_data[flux_type] * quantum_yield
+        return wavelengths, j_diff
 
-    def prepare_for_plot(self) -> np.ndarray:
+    def interpolate_cross_section(
+        self, flux_wavelengths: np.ndarray, cross_section_nm: dict
+    ) -> np.ndarray:
         """
         Prepare the molecular intensity data for plotting by interpolating cross section onto actinic flux x values.
 
+        :param flux_wavelengths: wavelengths corresponding to flux data
+        :param cross_section_nm: theoretical cross section data, packed in dict
         :return: The interpolated cross section data.
         """
-        wavelengths, cross_section = self.cross_section_nm
-        x = np.flip(wavelengths)
-        y = np.flip(cross_section)
-        x_max = max(wavelengths)
-        x_masked, y_masked = self.mask_data(x, y, 280, np.floor(x_max))
-        cross_section_interpolated = np.interp(
-            self.flux_data["wavelengths"], x_masked, y_masked
+        wavelengths = cross_section_nm["wavelengths"]
+        cross_section = cross_section_nm["cross_section"]
+        return np.interp(
+            flux_wavelengths,
+            wavelengths,
+            cross_section,
+            left=0.0,
+            right=0.0,
         )
-        return cross_section_interpolated
-
-    def mask_data(
-        self,
-        wavelengths: np.ndarray,
-        cross_section: np.ndarray,
-        minimum: float,
-        maximum: float,
-    ):
-        """
-        Mask the given wavelength and intensity data arrays based on the given minimum and maximum values.
-        If maximum value is not in wavelengths,
-
-        :param wavelengths: The wavelength data array to mask.
-        :param cross_section: The intensity data array to mask
-        :param minimum: The minimum wavelength value to include in the masked data.
-        :param maximum: The maximum wavelength value to include in the masked data.
-        :return: A tuple containing the masked wavelength and intensity data arrays.
-        """
-        low_cutoff = np.where(np.asarray(wavelengths) > minimum)[0][0] - 1
-        wavelengths = wavelengths[low_cutoff:]
-        cross_section = cross_section[low_cutoff:]
-        high_cutoff = np.where(np.asarray(wavelengths) > maximum)[0]
-        # max(wavelengths > max(cross_section)
-        if high_cutoff.size > 0:
-            high_cutoff = high_cutoff[0]
-            wavelengths = wavelengths[:high_cutoff]
-            cross_section = cross_section[:high_cutoff]
-        # max(wavelengths < max(cross_section)
-        # Cut the intensities array to maximum of wavelength array
-        else:
-            high_cutoff = np.where(np.asarray(cross_section) > maximum)[0][0]
-            cross_section = cross_section[:high_cutoff]
-        return wavelengths, cross_section
 
     def plot_line(self, x: np.ndarray, y: np.ndarray, label: str, update=True, **args):
         """Plot a line on the figure with the given x and y data and label.
@@ -430,20 +412,18 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param update: Whether to update the figure after plotting the line.
         :param args: Additional arguments to pass to the line plot function.
         """
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
-            self.remove_line(label, update=update)
+        self.remove_line(label, update=update)
 
+        f = self.figure.get_figure()
         f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
 
     def plot_photolysis_rate(
-        self, wavelengths: np.ndarray, j_values: np.ndarray, update=True
+        self, wavelengths: np.ndarray, j_diff: np.ndarray, update=True
     ):
-        self.plot_line(wavelengths, j_values, label="rate", update=update, line_width=2)
-        y_range_max = 1.2 * j_values.max()
+        self.plot_line(wavelengths, j_diff, label="rate", update=update, line_width=2)
+        y_range_max = 1.2 * j_diff.max()
         self.update_y_axis(y_range_max, update=update)
 
     def update_y_axis(self, end: float, update=True):
@@ -480,10 +460,4 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param label: The name of the line to be removed.
         :param update: Whether to update the figure after removing the line. Default is True.
         """
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None:
-            return
-        f.renderers.remove(line)
-        if update:
-            self.figure.update()
+        self.figure.remove_renderer(label, update=update)
