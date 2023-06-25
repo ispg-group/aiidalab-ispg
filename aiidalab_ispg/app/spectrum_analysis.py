@@ -271,7 +271,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         spectrum_max = max(self.cross_section_nm["wavelengths"])
         spectrum_min = min(self.cross_section_nm["wavelengths"])
 
-        # Check end of spectrum data overlaps with flux data
+        # Check whether spectrum data overlap with flux data
         if spectrum_max <= flux_min or spectrum_min >= flux_max:
             self.reset()
             self.header_warning.show("Spectrum outside of actinic range.")
@@ -305,18 +305,20 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.total_rate.value = ""
             return
 
-        wavelengths = self.flux_data["wavelengths"]
-        j_diff = self.calculate_j_diff(
+        wavelengths, j_diff = self.calculate_j_diff(
             self.cross_section_nm, flux_type, quantum_yield=quantumY
         )
-
-        self.plot_photolysis_rate(wavelengths, j_diff, update=False)
-        self.plot_flux(flux_type, update=True)
-
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
-        total_rate = np.trapz(j_diff, x=wavelengths)
-        self.total_rate.value = f"<b>{np.format_float_scientific(total_rate, 3)}</b>"
+        j_total = np.trapz(j_diff, x=wavelengths)
+        self.total_rate.value = f"<b>{np.format_float_scientific(j_total, 3)}</b>"
+
+        # Plot smoothed j_diff to make it a bit less janky
+        # Our theoretical spectra do not have 1nm resolution anyway.
+        j_smoothed = self.smooth_j_diff(j_diff)
+
+        self.plot_photolysis_rate(wavelengths, j_smoothed, update=False)
+        self.plot_flux(flux_type, update=True)
 
     def reset(self):
         """
@@ -374,28 +376,27 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param quantum_yield: The quantum yield value to use in the calculation.
         :return: np.ndarray of smoothed J values.
         """
-        cross_section_interp = self.interpolate_cross_section(cross_section_nm)
+        wavelengths = self.flux_data["wavelengths"]
+        cross_section_interp = self.interpolate_cross_section(
+            wavelengths, cross_section_nm
+        )
         j_diff = cross_section_interp * self.flux_data[flux_type] * quantum_yield
-        # self.plot_line(
-        #    self.flux_data["wavelengths"],
-        #    j_vals,
-        #    label="rate_rough",
-        #    update=False,
-        #    line_width=2,
-        #    line_color="orange",
-        # )
-        return self.smooth_j_diff(j_diff)
+        return wavelengths, j_diff
 
-    def interpolate_cross_section(self, cross_section_nm: dict) -> np.ndarray:
+    def interpolate_cross_section(
+        self, flux_wavelengths: np.ndarray, cross_section_nm: dict
+    ) -> np.ndarray:
         """
         Prepare the molecular intensity data for plotting by interpolating cross section onto actinic flux x values.
 
+        :param flux_wavelengths: wavelengths corresponding to flux data
+        :param cross_section_nm: theoretical cross section data, packed in dict
         :return: The interpolated cross section data.
         """
         wavelengths = cross_section_nm["wavelengths"]
         cross_section = cross_section_nm["cross_section"]
         return np.interp(
-            self.flux_data["wavelengths"],
+            flux_wavelengths,
             wavelengths,
             cross_section,
             left=0.0,
@@ -411,11 +412,9 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param update: Whether to update the figure after plotting the line.
         :param args: Additional arguments to pass to the line plot function.
         """
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
-            self.remove_line(label, update=update)
+        self.remove_line(label, update=update)
 
+        f = self.figure.get_figure()
         f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
@@ -461,10 +460,4 @@ class PhotolysisPlotWidget(ipw.VBox):
         :param label: The name of the line to be removed.
         :param update: Whether to update the figure after removing the line. Default is True.
         """
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None:
-            return
-        f.renderers.remove(line)
-        if update:
-            self.figure.update()
+        self.figure.remove_renderer(label, update=update)

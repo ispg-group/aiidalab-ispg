@@ -594,11 +594,8 @@ class SpectrumWidget(ipw.VBox):
 
         **args additional arguments are passed into Figure.line()"""
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
+        self.remove_line(label, update=update)
         f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is not None:
-            # line.data_source.data = {"x": x, "y": y}
-            self.remove_line(label, update=update)
         f.line(x, y, name=label, **args)
         if update:
             self.figure.update()
@@ -619,13 +616,7 @@ class SpectrumWidget(ipw.VBox):
         # Observation: Removing and adding lines via
         # plot_line() and remove_line() works well. However, doing
         # updates on existing lines only works for lines defined in _init_figure()
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None:
-            return
-        f.renderers.remove(line)
-        if update:
-            self.figure.update()
+        self.figure.remove_renderer(label, update=update)
 
     def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
         """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
