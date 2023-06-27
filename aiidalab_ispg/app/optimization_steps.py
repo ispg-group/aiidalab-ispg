@@ -19,6 +19,7 @@ from .input_widgets import (
     MoleculeSettings,
     GroundStateSettings,
 )
+from .utils import MEMORY_PER_CPU
 from .widgets import TrajectoryDataViewer, spinner
 from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 
@@ -165,19 +166,28 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
 
     def _build_orca_params(self, params: OptimizationParameters) -> dict:
         """Prepare dictionary of ORCA parameters, as required by aiida-orca plugin"""
+        input_keywords = [params.basis, params.method, "Opt", "AnFreq"]
+        input_blocks = {
+            "scf": {"convergence": "tight", "ConvForced": "true"},
+        }
+
         # WARNING: Here we implicitly assume, that ORCA will automatically select
         # equilibrium solvation for ground state optimization,
         # and non-equilibrium solvation for single point excited state calculations.
         # This should be the default, but it would be better to be explicit.
-        input_keywords = [params.basis, params.method, "Opt", "AnFreq"]
         if params.solvent != "None":
             input_keywords.append(f"CPCM({params.solvent})")
+
+        # For MP2, analytical frequencies are only available without Frozen Core
+        if params.method.lower() in ("ri-mp2", "mp2"):
+            input_keywords.append("NoFrozenCore")
+            input_keywords.append(f"{params.basis}/C")
+            input_blocks["mp2"] = {"maxcore": MEMORY_PER_CPU}
+
         return {
             "charge": params.charge,
             "multiplicity": params.multiplicity,
-            "input_blocks": {
-                "scf": {"convergence": "tight", "ConvForced": "true"},
-            },
+            "input_blocks": input_blocks,
             "input_keywords": input_keywords,
         }
 
