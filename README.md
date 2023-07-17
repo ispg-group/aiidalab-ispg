@@ -80,8 +80,8 @@ it is much more convenient to use the [aiidalab-launch application](https://gith
 
 Let's first modify the default profile to include to ATMOSPEC app from this repo
 
-```sh
-aiidalab-launch profiles edit default
+```console
+aiidalab-launch profile edit default
 ```
 
 This should open your default text editor.
@@ -90,7 +90,7 @@ Copy-paste the following profile configuration (substitute path to ORCA and the 
 port = 8888
 default_apps = [ "aiidalab-ispg@git+https://github.com/ispg-group/aiidalab-ispg.git@main",]
 system_user = "jovyan"
-image = ghcr.io/ispg-group/atmospec:latest"
+image = "ghcr.io/ispg-group/atmospec:latest"
 home_mount = "aiidalab_atmospec_home"
 extra_mounts = ["/absolute/path/to/orca/:/opt/orca:ro",]
 ```
