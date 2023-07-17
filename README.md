@@ -80,8 +80,8 @@ it is much more convenient to use the [aiidalab-launch application](https://gith
 
 Let's first modify the default profile to include to ATMOSPEC app from this repo
 
-```sh
-aiidalab-launch profiles edit default
+```console
+aiidalab-launch profile edit default
 ```
 
 This should open your default text editor.
