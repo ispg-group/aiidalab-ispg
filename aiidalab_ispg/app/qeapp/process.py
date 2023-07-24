@@ -64,8 +64,10 @@ class WorkChainSelector(ipw.HBox):
             ],
             **kwargs,
         )
-
-        self.refresh_work_chains()
+        # WARNING: The on_displayed method has been removed in ipywidgets 8.0!!!
+        # https://github.com/jupyter-widgets/ipywidgets/issues/3451
+        # https://github.com/jupyter-widgets/ipywidgets/pull/2021
+        self.on_displayed(self.refresh_work_chains)
 
     def parse_extra_info(self, pk: int) -> dict:
         """Parse extra information about the work chain."""
