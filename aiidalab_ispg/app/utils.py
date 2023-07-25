@@ -69,6 +69,9 @@ class BokehFigureContext(ipw.Output):
         super().__init__()
         self._figure = fig
         self._handle = None
+        # WARNING: The on_displayed method has been removed in ipywidgets 8.0!!!
+        # https://github.com/jupyter-widgets/ipywidgets/issues/3451
+        # https://github.com/jupyter-widgets/ipywidgets/pull/2021
         self.on_displayed(lambda x: x.set_handle())
 
     def set_handle(self):
