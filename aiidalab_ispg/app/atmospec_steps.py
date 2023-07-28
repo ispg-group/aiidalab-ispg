@@ -77,6 +77,9 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.excited_state_settings.ground_state_sync.observe(
             self._observe_gs_sync, "value"
         )
+        self.excited_state_settings.excited_method.observe(
+            self._observe_es_method, "value"
+        )
 
         self.wigner_settings = WignerSamplingSettings()
 
@@ -121,12 +124,21 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             return False
         return True
 
+    def _wigner_allowed(self):
+        # Do not allow Wigner sampling for EOM-CCSD
+        if self.excited_state_settings.excited_method.value is ExcitedStateMethod.CCSD:
+            return False
+        # Can't do Wigner sampling if we don't have frequencies
+        if not self.geometry_settings.optimize.value:
+            return False
+        return True
+
     def _observe_optimize(self, change):
         # If we don't optimize the molecule, we cannot do Wigner sampling
-        if not change["new"]:
-            self.wigner_settings.disabled = True
-        else:
+        if self._wigner_allowed():
             self.wigner_settings.disabled = False
+        else:
+            self.wigner_settings.disabled = True
 
     def _observe_gs_sync(self, change):
         if change["new"]:
@@ -145,6 +157,14 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             and gs_method.lower() not in ("ri-mp2", "mp2")
         ):
             self.excited_state_settings.tddft_functional.value = gs_method
+
+    def _observe_es_method(self, change):
+        """Disallow NEA for EOM-CCSD"""
+        # TODO: Print a explanatory warning about the cost of EOM-CCSD
+        if self._wigner_allowed():
+            self.wigner_settings.disabled = False
+        else:
+            self.wigner_settings.disabled = True
 
     def _observe_gs_basis(self, change):
         """Update TDDFT functional if ground state functional is changed"""
