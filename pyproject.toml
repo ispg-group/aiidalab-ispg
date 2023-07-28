@@ -40,7 +40,7 @@ target-version = "py39"
 ignore = ["E501", "S101", "PT004", "PTH123"]
 
 [tool.bumpver]
-current_version = "v0.2.1"
+current_version = "v0.2.2"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
