@@ -16,7 +16,7 @@ See below for complete installation instructions on a local machine.
 
 ## Usage
 
-TODO: A few screenshots / animated gifs illustrating how to use the app.
+See the following screencast -- https://youtu.be/1ePj1hhOFdw
 
 ## License
 
@@ -24,7 +24,7 @@ MIT
 
 ## Acknowledgements
 
-This project has been funded by European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 803718, [project SINDAM](https://cordis.europa.eu/project/id/803718)).
+This project has been funded by European Research Council (ERC) under the European Union’s Horizon 2020 research and innovation programme (Grant agreement No. 803718, [project SINDAM](https://cordis.europa.eu/project/id/803718)), and the EPSRC Grant EP/V026690/1 [UPDICE](https://updiceproject.com).
 
 ## Local installation
 
