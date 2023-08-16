@@ -146,7 +146,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 self.ground_state_settings.basis.value
             )
             gs_method = self.ground_state_settings.method.value
-            if gs_method.lower() not in ("ri-mp2", "mp2"):
+            if "mp2" not in gs_method.lower():
                 self.excited_state_settings.tddft_functional.value = gs_method
 
     def _observe_gs_method(self, change):
@@ -154,7 +154,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         gs_method = change["new"]
         if gs_method is not None and (
             self.excited_state_settings.ground_state_sync.value
-            and gs_method.lower() not in ("ri-mp2", "mp2")
+            and "mp2" not in gs_method.lower()
         ):
             self.excited_state_settings.tddft_functional.value = gs_method
 
@@ -311,7 +311,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         opt_params["input_keywords"].append("AnFreq")
         # For MP2, analytical frequencies are only available without Frozen Core
         # TODO: Add this to optimization workflow
-        if gs_method.lower() in ("ri-mp2", "mp2"):
+        if "mp2" in gs_method.lower():
             opt_params["input_keywords"].append("NoFrozenCore")
             opt_params["input_keywords"].append(f"{basis}/C")
             opt_params["input_blocks"]["mp2"] = {"maxcore": MEMORY_PER_CPU}

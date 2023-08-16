@@ -179,7 +179,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
             input_keywords.append(f"CPCM({params.solvent})")
 
         # For MP2, analytical frequencies are only available without Frozen Core
-        if params.method.lower() in ("ri-mp2", "mp2"):
+        if "mp2" in params.method.lower():
             input_keywords.append("NoFrozenCore")
             input_keywords.append(f"{params.basis}/C")
             input_blocks["mp2"] = {"maxcore": MEMORY_PER_CPU}
