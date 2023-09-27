@@ -20,7 +20,7 @@ CONDA_ENV_NAME="orca-mpi"
 CONDA_ENV_PATH="~/.conda/envs/${CONDA_ENV_NAME}"
 
 mamba create --yes -c conda-forge \
-  --name ${CONDA_ENV_ORCA} openmpi=${OPENMPI_VERSION}
+  --name ${CONDA_ENV_NAME} openmpi=${OPENMPI_VERSION}
 # TODO: AUTODETECT CONDA_ENV_PATH after the environment is created by `mamba env list`
 
 PREPEND_TEXT="conda activate ${CONDA_ENV_NAME};\
