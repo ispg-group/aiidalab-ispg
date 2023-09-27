@@ -16,16 +16,16 @@ fi
 if [[ -z ${OPENMPI_VERSION-} ]]; then
   OPENMPI_VERSION=4.1.1
 fi
-CONDA_ENV_ORCA="orca"
-# TODO: Not sure if this variable is necessary anymore
-OPENMPI_LIB="~/.conda/envs/$CONDA_ENV_ORCA/lib"
+CONDA_ENV_NAME="orca-mpi"
+CONDA_ENV_PATH="~/.conda/envs/${CONDA_ENV_NAME}"
 
-conda create --yes --override-channels -c conda-forge \
+mamba create --yes -c conda-forge \
   --name ${CONDA_ENV_ORCA} openmpi=${OPENMPI_VERSION}
+# TODO: AUTODETECT CONDA_ENV_PATH after the environment is created by `mamba env list`
 
-PREPEND_TEXT="conda activate ${CONDA_ENV_ORCA};\
-  export PATH=${ORCA_PATH}:\$PATH;\
-  export LD_LIBRARY_PATH=${ORCA_PATH}:${OPENMPI_LIB}:\$LD_LIBRARY_PATH"
+PREPEND_TEXT="conda activate ${CONDA_ENV_NAME};\
+  export PATH=${ORCA_PATH}:${CONDA_ENV_PATH}/bin:\$PATH;\
+  export LD_LIBRARY_PATH=${ORCA_PATH}:${CONDA_ENV_PATH}/lib:\$LD_LIBRARY_PATH"
 
 function create_orca_code() {
     computer=$1
