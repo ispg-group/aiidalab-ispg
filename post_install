@@ -11,21 +11,34 @@ set -euo pipefail
 if [[ -z ${ORCA_PATH-} ]]; then
   ORCA_PATH=/opt/orca
 fi
+if [[ ! -d "${ORCA_PATH}" || ! -f "${ORCA_PATH}"/orca ]];then
+  echo "WARNING: Could not find ORCA installation at \"${ORCA_PATH}\", you will need to create a code node on a remote computer."
+  exit 0
+fi
 
 ### CREATE CONDA CHANNEL FOR OPENMPI ###
 if [[ -z ${OPENMPI_VERSION-} ]]; then
   OPENMPI_VERSION=4.1.1
 fi
-CONDA_ENV_NAME="orca-mpi"
-CONDA_ENV_PATH="~/.conda/envs/${CONDA_ENV_NAME}"
 
-mamba create --yes -c conda-forge \
-  --name ${CONDA_ENV_NAME} openmpi=${OPENMPI_VERSION}
-# TODO: AUTODETECT CONDA_ENV_PATH after the environment is created by `mamba env list`
+# Do not create a new env if we already have correct OpenMPI version installed
+CONDA_ENV_PATH="/opt/conda"
+if ! mpirun --version 2>/dev/null | grep -q "Open MPI) ${OPENMPI_VERSION}"; then
+  CONDA_ENV_NAME="orca-mpi"
+  mamba create --yes -c conda-forge \
+    --name ${CONDA_ENV_NAME} openmpi=${OPENMPI_VERSION}
+  CONDA_ENV_PATH=$(mamba env list | grep ${CONDA_ENV_NAME} | awk '{print $NF}')
+  MPIBIN=${CONDA_ENV_PATH}/bin
+  MPILIB=${CONDA_ENV_PATH}/lib
+else
+  mpirun=`which mpirun`
+  MPIBIN=`dirname $mpirun`
+  MPILIB=`dirname $MPIBIN`"/lib"
+  echo "Detected OpenMPI v${OPENMPI_VERSION} in ${MPIBIN}"
+fi
 
-PREPEND_TEXT="conda activate ${CONDA_ENV_NAME};\
-  export PATH=${ORCA_PATH}:${CONDA_ENV_PATH}/bin:\$PATH;\
-  export LD_LIBRARY_PATH=${ORCA_PATH}:${CONDA_ENV_PATH}/lib:\$LD_LIBRARY_PATH"
+PREPEND_TEXT="export PATH=${ORCA_PATH}:${MPIBIN}:\$PATH;\
+  export LD_LIBRARY_PATH=${ORCA_PATH}:${MPILIB}:\$LD_LIBRARY_PATH"
 
 function create_orca_code() {
     computer=$1
@@ -48,11 +61,6 @@ function create_orca_code() {
             --prepend-text "${PREPEND_TEXT}" \
     )
 }
-
-if [[ ! -d "${ORCA_PATH}" || ! -f "${ORCA_PATH}"/orca ]];then
-  echo "WARNING: Could not find ORCA installation at \"${ORCA_PATH}\", you will need to create a code node on a remote computer."
-  exit 0
-fi
 
 # Create orca code node on computer localhost,
 # which is created by default in aiidalab Docker image
