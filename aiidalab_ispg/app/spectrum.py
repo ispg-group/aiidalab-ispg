@@ -279,7 +279,7 @@ class SpectrumWidget(ipw.VBox):
             "width": 500,
         }
         self.figure = self._init_figure(
-            tools=self._TOOLS, tooltips=self._TOOLTIPS, **figure_size
+            tools=self._TOOLS, tooltips=list(self._TOOLTIPS), **figure_size
         )
         self.figure.layout = ipw.Layout(overflow="initial")
 
