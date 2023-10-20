@@ -46,12 +46,12 @@ __all__ = [
 
 
 class ISPGWorkChainSelector(WorkChainSelector):
-    extra_fields = [
+    extra_fields = (
         ("formula", str),
         ("method", str),
         ("label", str),
         ("description", str),
-    ]
+    )
 
     def __init__(self, process_label: str, **kwargs):
         super().__init__(process_label=process_label, **kwargs)
@@ -170,7 +170,8 @@ class TrajectoryDataViewer(StructureDataViewer):
     trajectory = traitlets.Instance(Node, allow_none=True)
     selected_structure_id = traitlets.Int(allow_none=True)
 
-    _structures: list[StructureData] = []
+    # TODO: Should probably be tuple instead
+    _structures: list[StructureData] = []  # noqa: RUF012
     _energies: Optional[np.ndarray] = None
     _boltzmann_weights: Optional[np.ndarray] = None
 
@@ -316,7 +317,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 # NOTE: TrajectoryManagerWidget will hopefully note be necessary once
 # the trajectory viewer is merged to AWB
 class TrajectoryManagerWidget(StructureManagerWidget):
-    SUPPORTED_DATA_FORMATS = {
+    SUPPORTED_DATA_FORMATS = {  # noqa: RUF012
         "CifData": "core.cif",
         "StructureData": "core.structure",
         "TrajectoryData": "core.array.trajectory",

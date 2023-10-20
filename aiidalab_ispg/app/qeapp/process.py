@@ -31,8 +31,8 @@ class WorkChainSelector(ipw.HBox):
 
     BASE_FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
 
-    BASE_FIELDS = [("pk", int), ("ctime", str), ("state", str)]
-    extra_fields: Optional[list] = None
+    _BASE_FIELDS = (("pk", int), ("ctime", str), ("state", str))
+    extra_fields: Optional[tuple] = None
 
     def __init__(self, process_label, **kwargs):
         self.process_label = process_label
@@ -48,7 +48,7 @@ class WorkChainSelector(ipw.HBox):
         )
 
         if self.extra_fields is not None:
-            fmt_extra = "".join([f"{{wc.{field[0]}}}\t" for field in self.extra_fields])
+            fmt_extra = "\t".join(f"{{wc.{field[0]}}}" for field in self.extra_fields)
             self.fmt_workchain = self.BASE_FMT_WORKCHAIN + "\t" + fmt_extra
         else:
             self.fmt_workchain = self.BASE_FMT_WORKCHAIN
@@ -95,11 +95,11 @@ class WorkChainSelector(ipw.HBox):
                 pk = process_info["pk"]
                 extra_info = self.parse_extra_info(pk)
 
-                yield make_dataclass("WorkChain", self.BASE_FIELDS + self.extra_fields)(
-                    **process_info, **extra_info
-                )
+                yield make_dataclass(
+                    "WorkChain", self._BASE_FIELDS + self.extra_fields
+                )(**process_info, **extra_info)
             else:
-                yield make_dataclass("WorkChain", self.BASE_FIELDS)(**process_info)
+                yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
 
     @tl.default("busy")
     def _default_busy(self):
