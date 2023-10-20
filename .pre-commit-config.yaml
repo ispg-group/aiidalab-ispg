@@ -8,6 +8,8 @@ repos:
       - id: no-commit-to-branch
       - id: check-executables-have-shebangs
       - id: check-shebang-scripts-are-executable
+      - id: check-added-large-files
+        args: ['--maxkb=500', '--enforce-all']
       - id: end-of-file-fixer
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
