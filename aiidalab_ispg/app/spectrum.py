@@ -196,7 +196,9 @@ class SpectrumWidget(ipw.VBox):
     # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
     _TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
     # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
-    _TOOLTIPS = (("(energy, cross_section)", "($x,$y)"),)
+    _TOOLTIPS = [  # noqa: RUF012
+        ("(energy, cross_section)", "($x,$y)"),
+    ]
 
     def __init__(self, **kwargs):
         self.width_slider = ipw.FloatSlider(
