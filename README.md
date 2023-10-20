@@ -1,3 +1,5 @@
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+
 # AiiDAlab ISPG applications
 
 ATMOSPEC - ab initio workflow for UV/VIS spectroscopy of organic molecules.

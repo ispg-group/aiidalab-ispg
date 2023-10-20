@@ -4,7 +4,7 @@ smiles: "COO"
 source_file: methylhydroperoxide.txt
 y_axis_scaling: 1e-20
 metadata:
-  description: 'H3OOH absorption spectrum from IUPAC97, originally from Vaghjiani and Ravishankara (1989)' 
+  description: 'H3OOH absorption spectrum from IUPAC97, originally from Vaghjiani and Ravishankara (1989)'
   license: '?'
   source:
     db_name: 'Andrew`s data'

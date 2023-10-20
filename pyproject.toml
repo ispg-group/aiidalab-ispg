@@ -8,27 +8,29 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
-# Enable pyflakes and pyf-builtins, pyflakes, f=bugbear 
+# Enable pyflakes and pyf-builtins, pyflakes, f=bugbear
 select = [
-    "A", # flake8-builtins
-    "B", # flake8-bugbear
-    "E", # pycodestyle
-    "F", # pyflakes
-    "C90", # McCabe code complexity
-    "UP", # pyupgrade
-    "S", # bandit
-    "C4", # comprehensiosn 
-    "EM", # errormsg
-    "ISC", # implicit concatenation
-    "ICN", # import convention
-    "INP", # no implicite namespace package
-    "PIE", # 
-    "PT", # pytest style
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "C90",  # McCabe code complexity
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "C4",   # comprehensions
+    "EM",   # errormsg
+    "ISC",  # implicit concatenation
+    "ICN",  # import convention
+    "INP",  # no implicite namespace package
+    "PIE",  #
+    "PT",   # pytest style
     "PTH",
-    # "PL", # pylint, for now disabled
+    "PLC",
+    "PLE",
+    "PLW",
+    "RUF",
+    # "PL",  # pylint, disabled for now
     # "PLR", # pylint refactor
-    "PLC", "PLE", "PLW",
-    "RUF", # ruff
 ]
 line-length = 120
 src = ["aiidalab_ispg", "tests"]
