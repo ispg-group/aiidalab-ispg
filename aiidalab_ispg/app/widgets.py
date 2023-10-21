@@ -286,9 +286,7 @@ class TrajectoryDataViewer(StructureDataViewer):
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
-            for (
-                comp_id
-            ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
             self.selection = []
             if change["new"] is not None:
@@ -399,9 +397,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         """Convert structure of any type to the StructureNode object."""
         if structure is None:
             return None
-        structure_node_type = DataFactory(
-            self.SUPPORTED_DATA_FORMATS[self.node_class]
-        )  # pylint: disable=invalid-name
+        structure_node_type = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):

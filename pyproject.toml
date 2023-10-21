@@ -8,6 +8,11 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
+line-length = 88
+# TODO: Enable ruff for notebooks
+src = ["aiidalab_ispg", "tests"]
+target-version = "py39"
+
 # Enable pyflakes and pyf-builtins, pyflakes, f=bugbear
 select = [
     "A",    # flake8-builtins
@@ -32,9 +37,6 @@ select = [
     # "PL",  # pylint, disabled for now
     # "PLR", # pylint refactor
 ]
-line-length = 120
-src = ["aiidalab_ispg", "tests"]
-target-version = "py39"
 
 # Never enforce `E501` (line length violations).
 # TODO: Remove all asserts from the codebase and enable this rule
