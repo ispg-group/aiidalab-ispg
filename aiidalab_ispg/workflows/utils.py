@@ -118,8 +118,7 @@ def extract_trajectory_arrays(**orca_output_parameters) -> ArrayData:
     en0 = min(gibbs_energies)
     relative_gibbs_energies_kj = AUtoKJ * (gibbs_energies - en0)
 
-    # TODO: Verify this code change
-    temperature = next(orca_output_parameters.values())["temperature"]
+    temperature = next(iter(orca_output_parameters.values()))["temperature"]
 
     boltzmann_weights = calc_boltzmann_weights(relative_gibbs_energies_kj, temperature)
 
