@@ -60,7 +60,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
                 self.message_area,
                 self.confirm_button,
             ],
-            **kwargs
+            **kwargs,
         )
 
     @traitlets.default("state")

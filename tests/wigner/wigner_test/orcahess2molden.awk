@@ -9,7 +9,7 @@ BEGIN {
   nmode_total=0
   row=-1
   print "[Molden Format]"
-} 
+}
 
 $1 == "$vibrational_frequencies" {
   print "[FREQ]"

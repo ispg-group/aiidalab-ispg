@@ -46,12 +46,12 @@ __all__ = [
 
 
 class ISPGWorkChainSelector(WorkChainSelector):
-    extra_fields = [
+    extra_fields = (
         ("formula", str),
         ("method", str),
         ("label", str),
         ("description", str),
-    ]
+    )
 
     def __init__(self, process_label: str, **kwargs):
         super().__init__(process_label=process_label, **kwargs)
@@ -170,7 +170,8 @@ class TrajectoryDataViewer(StructureDataViewer):
     trajectory = traitlets.Instance(Node, allow_none=True)
     selected_structure_id = traitlets.Int(allow_none=True)
 
-    _structures: list[StructureData] = []
+    # TODO: Should probably be tuple instead
+    _structures: list[StructureData] = []  # noqa: RUF012
     _energies: Optional[np.ndarray] = None
     _boltzmann_weights: Optional[np.ndarray] = None
 
@@ -285,9 +286,7 @@ class TrajectoryDataViewer(StructureDataViewer):
     def _update_structure_viewer(self, change):
         """Update the view if displayed_structure trait was modified."""
         with self.hold_trait_notifications():
-            for (
-                comp_id
-            ) in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
+            for comp_id in self._viewer._ngl_component_ids:  # pylint: disable=protected-access
                 self._viewer.remove_component(comp_id)
             self.selection = []
             if change["new"] is not None:
@@ -316,7 +315,7 @@ class TrajectoryDataViewer(StructureDataViewer):
 # NOTE: TrajectoryManagerWidget will hopefully note be necessary once
 # the trajectory viewer is merged to AWB
 class TrajectoryManagerWidget(StructureManagerWidget):
-    SUPPORTED_DATA_FORMATS = {
+    SUPPORTED_DATA_FORMATS = {  # noqa: RUF012
         "CifData": "core.cif",
         "StructureData": "core.structure",
         "TrajectoryData": "core.array.trajectory",
@@ -398,9 +397,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         """Convert structure of any type to the StructureNode object."""
         if structure is None:
             return None
-        structure_node_type = DataFactory(
-            self.SUPPORTED_DATA_FORMATS[self.node_class]
-        )  # pylint: disable=invalid-name
+        structure_node_type = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
         if isinstance(structure, Atoms):

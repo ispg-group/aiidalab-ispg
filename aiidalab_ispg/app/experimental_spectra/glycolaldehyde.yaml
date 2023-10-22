@@ -1,5 +1,5 @@
 ---
-molecule: glycolaldehyde 
+molecule: glycolaldehyde
 smiles: "O=CCO"
 source_file: glycolaldehyde.txt
 metadata:
@@ -11,7 +11,7 @@ metadata:
       - "Tyndall, G.S."
       - "Orlando, J.J."
     title: "The Atmospheric Chemistry of Glycolaldehyde"
-    journal:  "J. Atmos. Chem." 
+    journal:  "J. Atmos. Chem."
     issue: "39"
     pages: "171-189"
     year: "2001"

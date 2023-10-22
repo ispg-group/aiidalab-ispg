@@ -9,8 +9,6 @@ on:
     tags:
       - "v*"
   pull_request:
-    branches:
-      - "*"
 
 jobs:
 
@@ -18,15 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out app
-        uses: actions/checkout@v3
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-            python-version: "3.10"
-            cache: "pip"
-            cache-dependency-path: |
-              **/setup.cfg
-              **/pyproject.toml
+        uses: actions/checkout@v4
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
 
@@ -60,7 +50,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check out app
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4

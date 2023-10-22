@@ -1,3 +1,7 @@
+[![CI](https://github.com/ispg-group/aiidalab-ispg/workflows/CI/badge.svg?branch=main&event=push)](https://github.com/ispg-group/aiidalab-ispg/actions?query=workflow%3ACI)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 # AiiDAlab ISPG applications
 
 ATMOSPEC - ab initio workflow for UV/VIS spectroscopy of organic molecules.
