@@ -20,10 +20,10 @@ jobs:
       - name: Check out app
         uses: actions/checkout@v4
       - name: Set up Python with cache
-        with:
-            cache: pip
-            python-version: "3.11"
         uses: actions/setup-python@v4
+        with:
+            python-version: '3.11'
+            cache: pip
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
 
