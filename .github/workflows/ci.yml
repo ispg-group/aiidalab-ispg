@@ -13,13 +13,19 @@ on:
 jobs:
 
   pre-commit:
+    env:
+      SKIP: 'no-commit-to-branch'
     runs-on: ubuntu-latest
     steps:
       - name: Check out app
         uses: actions/checkout@v4
+      - name: Set up Python with cache
+        uses: actions/setup-python@v4
+        with:
+            python-version: '3.11'
+            cache: pip
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
-
 
   test-app:
 
