@@ -13,6 +13,8 @@ on:
 jobs:
 
   pre-commit:
+    env:
+      SKIP: 'no-commit-to-branch'
     runs-on: ubuntu-latest
     steps:
       - name: Check out app
