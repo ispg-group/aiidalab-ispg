@@ -1,15 +1,14 @@
 # ruff: noqa: INP001
 # This script needs to be run with `verdi run`
 import argparse
-from pprint import pprint
 import sys
-import yaml
+from pprint import pprint
 
 import numpy as np
-from rdkit import Chem
-
+import yaml
 from aiida.orm import QueryBuilder
 from aiida.plugins import DataFactory
+from rdkit import Chem
 
 XyData = DataFactory("array.xy")
 

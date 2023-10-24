@@ -2,6 +2,7 @@
 
 from aiida.engine import calcfunction
 from aiida.orm import StructureData, TrajectoryData
+
 from aiidalab_ispg.wigner import Wigner
 
 __all__ = [

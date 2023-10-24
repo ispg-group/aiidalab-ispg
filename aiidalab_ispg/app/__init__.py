@@ -1,13 +1,13 @@
-from .conformers import ConformerSmilesWidget
-from .widgets import TrajectoryDataViewer, ISPGWorkChainSelector
-from .steps import (
-    StructureSelectionStep,
-    ViewSpectrumStep,
-)
 from .atmospec_steps import (
     SubmitAtmospecAppWorkChainStep,
     ViewAtmospecAppWorkChainStatusAndResultsStep,
 )
+from .conformers import ConformerSmilesWidget
+from .steps import (
+    StructureSelectionStep,
+    ViewSpectrumStep,
+)
+from .widgets import ISPGWorkChainSelector, TrajectoryDataViewer
 
 __all__ = [
     "ConformerSmilesWidget",

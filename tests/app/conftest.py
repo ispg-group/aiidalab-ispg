@@ -6,10 +6,10 @@ from urllib.parse import urljoin
 
 import pytest
 import requests
-from requests.exceptions import ConnectionError
 import selenium.webdriver.support.expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
+from requests.exceptions import ConnectionError
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
 
 
 def is_responsive(url):

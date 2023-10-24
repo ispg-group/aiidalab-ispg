@@ -4,24 +4,21 @@ import enum
 from dataclasses import dataclass
 
 import ipywidgets as ipw
-from IPython.display import clear_output, display
 import traitlets
-
-from aiida.engine import submit, ProcessState
-from aiida.orm import Bool
-from aiida.orm import load_code, load_node
+from aiida.engine import ProcessState, submit
+from aiida.orm import Bool, load_code, load_node
 from aiida.plugins import WorkflowFactory
-
+from IPython.display import clear_output, display
 
 from .input_widgets import (
-    ResourceSelectionWidget,
     CodeSettings,
-    MoleculeSettings,
     GroundStateSettings,
+    MoleculeSettings,
+    ResourceSelectionWidget,
 )
+from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .utils import MEMORY_PER_CPU
 from .widgets import TrajectoryDataViewer, spinner
-from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 
 ConformerOptimizationWorkChain = WorkflowFactory("ispg.conformer_opt")
 

@@ -1,32 +1,29 @@
 """Steps specific for the ATMOSPEC workflow"""
 
+import enum
 from copy import deepcopy
 from dataclasses import dataclass
-import enum
 
 import ipywidgets as ipw
 import traitlets
-
-from aiida.engine import submit, ProcessState
-from aiida.orm import Bool
-from aiida.orm import load_code, load_node
+from aiida.engine import ProcessState, submit
+from aiida.orm import Bool, load_code, load_node
 from aiida.plugins import WorkflowFactory
 
-
 from .input_widgets import (
+    CodeSettings,
     ExcitedStateMethod,
+    ExcitedStateSettings,
+    GroundStateSettings,
     MolecularGeometrySettings,
     MoleculeSettings,
-    GroundStateSettings,
-    ExcitedStateSettings,
-    WignerSamplingSettings,
-    CodeSettings,
     ResourceSelectionWidget,
+    WignerSamplingSettings,
 )
-from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .optimization_steps import OptimizationParameters
-from .widgets import spinner
+from .steps import SubmitWorkChainStepBase, ViewWorkChainStatusStep
 from .utils import MEMORY_PER_CPU
+from .widgets import spinner
 
 AtmospecWorkChain = WorkflowFactory("ispg.atmospec")
 

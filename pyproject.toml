@@ -19,6 +19,7 @@ select = [
     "B",    # flake8-bugbear
     "E",    # pycodestyle
     "F",    # pyflakes
+    "I",    # isort
     "C90",  # McCabe code complexity
     "UP",   # pyupgrade
     "S",    # bandit

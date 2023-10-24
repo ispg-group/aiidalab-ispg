@@ -4,7 +4,6 @@ from enum import Enum, unique
 
 import ipywidgets as ipw
 import traitlets
-
 from aiida.common import NotExistent
 from aiida.orm import load_code
 from aiidalab_widgets_base import ComputationalResourcesWidget
