@@ -16,6 +16,8 @@ import ipywidgets as ipw
 import nglview
 import numpy as np
 import traitlets
+from ase import Atoms
+
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiida.engine import ProcessState
 from aiida.orm import (
@@ -32,7 +34,6 @@ from aiidalab_widgets_base import StructureManagerWidget, register_viewer_widget
 from aiidalab_widgets_base.nodes import AiidaProcessNodeTreeNode, NodesTreeWidget
 from aiidalab_widgets_base.process import ProcessNodesTreeWidget
 from aiidalab_widgets_base.viewers import StructureDataViewer
-from ase import Atoms
 
 from .qeapp.process import WorkChainSelector
 from .utils import get_formula

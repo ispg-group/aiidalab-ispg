@@ -2,6 +2,7 @@
 import math
 
 import numpy as np
+
 from aiida.engine import WorkChain, calcfunction
 from aiida.orm import (
     ArrayData,

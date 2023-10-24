@@ -5,10 +5,11 @@ from dataclasses import dataclass
 
 import ipywidgets as ipw
 import traitlets
+from IPython.display import clear_output, display
+
 from aiida.engine import ProcessState, submit
 from aiida.orm import Bool, load_code, load_node
 from aiida.plugins import WorkflowFactory
-from IPython.display import clear_output, display
 
 from .input_widgets import (
     CodeSettings,

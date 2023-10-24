@@ -8,6 +8,7 @@ import re
 
 import ipywidgets as ipw
 import traitlets
+
 from aiida.engine import ProcessState
 from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
 from aiidalab_widgets_base import (

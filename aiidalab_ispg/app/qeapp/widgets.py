@@ -13,9 +13,10 @@ from threading import Event, Lock, Thread
 
 import ipywidgets as ipw
 import traitlets
+from IPython.display import HTML, Javascript, display
+
 from aiida.orm import CalcJobNode, load_node
 from aiidalab_widgets_base import register_viewer_widget
-from IPython.display import HTML, Javascript, display
 
 __all__ = [
     "CalcJobOutputFollower",

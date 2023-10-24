@@ -2,6 +2,7 @@ import math
 
 import bokeh.io
 import ipywidgets as ipw
+
 from aiida.plugins import DataFactory
 
 StructureData = DataFactory("core.structure")

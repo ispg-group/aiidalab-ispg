@@ -18,13 +18,14 @@ Authors:
 from enum import Enum, unique
 
 import numpy as np
-from aiida.plugins import DataFactory
-from aiidalab_widgets_base import SmilesWidget
 from ase import Atoms
 from ase.optimize import GPMin  # BFGS
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from traitlets import Bool, Instance, Union
+
+from aiida.plugins import DataFactory
+from aiidalab_widgets_base import SmilesWidget
 
 from .utils import EVtoKJ, KCALtoKJ, argsort, calc_boltzmann_weights
 

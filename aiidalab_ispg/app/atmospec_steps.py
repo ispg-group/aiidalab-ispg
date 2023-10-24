@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import ipywidgets as ipw
 import traitlets
+
 from aiida.engine import ProcessState, submit
 from aiida.orm import Bool, load_code, load_node
 from aiida.plugins import WorkflowFactory

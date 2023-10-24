@@ -9,8 +9,9 @@ import bokeh.plotting as plt
 import ipywidgets as ipw
 import numpy as np
 import traitlets
-from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 from scipy import constants
+
+from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
 from .spectrum_analysis import SpectrumAnalysisWidget
 from .utils import AUtoEV, BokehFigureContext
