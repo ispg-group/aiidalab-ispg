@@ -42,7 +42,7 @@ select = [
 # Never enforce `E501` (line length violations).
 # TODO: Remove all asserts from the codebase and enable this rule
 # Use of assert detected (S101)
-ignore = ["E501", "S101", "PT004", "PTH123"]
+ignore = ["E501", "S101", "PT004"]
 
 [tool.bumpver]
 current_version = "v0.2.2"

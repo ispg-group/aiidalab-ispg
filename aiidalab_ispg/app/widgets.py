@@ -8,6 +8,7 @@ Authors:
 import base64
 import io
 import re
+from pathlib import Path
 from typing import Optional
 
 import ase
@@ -304,7 +305,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         for struct in self._structures:
             struct.get_ase().write(tmp.name, format=file_format, append=True)
 
-        with open(tmp.name, "rb") as raw:
+        with Path(tmp.name).open("rb") as raw:
             return base64.b64encode(raw.read()).decode()
 
 

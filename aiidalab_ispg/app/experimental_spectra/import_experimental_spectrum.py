@@ -2,6 +2,7 @@
 # This script needs to be run with `verdi run`
 import argparse
 import sys
+from pathlib import Path
 from pprint import pprint
 
 import numpy as np
@@ -46,7 +47,7 @@ def canonicalize_smiles(smiles):
 
 
 def main(input_file, dry_run=True):
-    with open(opts.input_file) as f:
+    with Path(opts.input_file).open("r") as f:
         data = yaml.safe_load(f)
 
     pprint(data)
