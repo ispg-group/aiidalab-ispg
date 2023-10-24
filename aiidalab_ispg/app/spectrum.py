@@ -8,14 +8,14 @@ from enum import Enum, unique
 import bokeh.plotting as plt
 import ipywidgets as ipw
 import numpy as np
-from scipy import constants
 import traitlets
+from scipy import constants
 
-from aiida.orm import load_node, QueryBuilder, StructureData, TrajectoryData, XyData
+from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
-from .widgets import TrajectoryDataViewer
-from .utils import AUtoEV, BokehFigureContext
 from .spectrum_analysis import SpectrumAnalysisWidget
+from .utils import AUtoEV, BokehFigureContext
+from .widgets import TrajectoryDataViewer
 
 
 @unique

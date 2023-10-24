@@ -4,14 +4,13 @@
 Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
 """
-import ipywidgets as ipw
 import re
+
+import ipywidgets as ipw
 import traitlets
 
 from aiida.engine import ProcessState
-from aiida.orm import load_node
-from aiida.orm import WorkChainNode, StructureData, TrajectoryData
-
+from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ProcessMonitor,
@@ -19,10 +18,9 @@ from aiidalab_widgets_base import (
 )
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
-
-from .widgets import ISPGProcessNodesTreeWidget, HeaderWarning, spinner
 from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
 from .utils import get_formula
+from .widgets import HeaderWarning, ISPGProcessNodesTreeWidget, spinner
 
 
 class StructureSelectionStep(QeAppStructureSelectionStep):

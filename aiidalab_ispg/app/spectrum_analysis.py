@@ -14,10 +14,10 @@ from enum import Enum, unique
 from pathlib import Path
 
 import bokeh.plotting as plt
-from bokeh.models import Range1d, LogAxis, LogScale
 import ipywidgets as ipw
 import numpy as np
 import traitlets as tl
+from bokeh.models import LogAxis, LogScale, Range1d
 
 from .utils import BokehFigureContext
 from .widgets import HeaderWarning

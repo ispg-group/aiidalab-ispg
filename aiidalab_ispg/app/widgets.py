@@ -8,34 +8,32 @@ Authors:
 import base64
 import io
 import re
+from pathlib import Path
 from typing import Optional
 
+import ase
 import ipywidgets as ipw
-import traitlets
 import nglview
 import numpy as np
-
-import ase
+import traitlets
 from ase import Atoms
 
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiida.engine import ProcessState
 from aiida.orm import (
-    load_node,
-    Node,
     CalcFunctionNode,
-    Data,
-    StructureData,
     CifData,
+    Data,
+    Node,
+    StructureData,
     TrajectoryData,
+    load_node,
 )
 from aiida.plugins import DataFactory
-
-from aiidalab_widgets_base import register_viewer_widget
-from aiidalab_widgets_base import StructureManagerWidget
-from aiidalab_widgets_base.viewers import StructureDataViewer
-from aiidalab_widgets_base.process import ProcessNodesTreeWidget
+from aiidalab_widgets_base import StructureManagerWidget, register_viewer_widget
 from aiidalab_widgets_base.nodes import AiidaProcessNodeTreeNode, NodesTreeWidget
+from aiidalab_widgets_base.process import ProcessNodesTreeWidget
+from aiidalab_widgets_base.viewers import StructureDataViewer
 
 from .qeapp.process import WorkChainSelector
 from .utils import get_formula
@@ -308,7 +306,7 @@ class TrajectoryDataViewer(StructureDataViewer):
         for struct in self._structures:
             struct.get_ase().write(tmp.name, format=file_format, append=True)
 
-        with open(tmp.name, "rb") as raw:
+        with Path(tmp.name).open("rb") as raw:
             return base64.b64encode(raw.read()).decode()
 
 

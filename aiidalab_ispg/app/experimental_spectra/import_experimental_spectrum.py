@@ -1,11 +1,12 @@
 # ruff: noqa: INP001
 # This script needs to be run with `verdi run`
 import argparse
-from pprint import pprint
 import sys
-import yaml
+from pathlib import Path
+from pprint import pprint
 
 import numpy as np
+import yaml
 from rdkit import Chem
 
 from aiida.orm import QueryBuilder
@@ -47,7 +48,7 @@ def canonicalize_smiles(smiles):
 
 
 def main(input_file, dry_run=True):
-    with open(opts.input_file) as f:
+    with Path(opts.input_file).open("r") as f:
         data = yaml.safe_load(f)
 
     pprint(data)

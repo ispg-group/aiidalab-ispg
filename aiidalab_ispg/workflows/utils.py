@@ -1,5 +1,6 @@
 """Small utility workflows and functions"""
 import math
+
 import numpy as np
 
 from aiida.engine import WorkChain, calcfunction

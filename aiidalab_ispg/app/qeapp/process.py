@@ -4,6 +4,7 @@ from typing import Optional
 
 import ipywidgets as ipw
 import traitlets as tl
+
 from aiida.tools.query.calculation import CalculationQueryBuilder
 
 

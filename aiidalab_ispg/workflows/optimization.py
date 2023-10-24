@@ -1,15 +1,15 @@
 """AiiDA workflows for optimization of molecules."""
 
-from aiida.engine import WorkChain
 from aiida.engine import (
-    append_,
     ExitCode,
     ProcessHandlerReport,
+    WorkChain,
+    append_,
     process_handler,
 )
-from aiida.plugins import WorkflowFactory, DataFactory
+from aiida.plugins import DataFactory, WorkflowFactory
 
-from .utils import structures_to_trajectory, extract_trajectory_arrays
+from .utils import extract_trajectory_arrays, structures_to_trajectory
 
 StructureData = DataFactory("core.structure")
 TrajectoryData = DataFactory("core.array.trajectory")

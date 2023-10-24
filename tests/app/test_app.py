@@ -1,14 +1,14 @@
 # ruff: noqa: INP001
-import requests
 from enum import Enum
 from pathlib import Path
 
 import pytest
+import requests
 
 # https://selenium-python.readthedocs.io/locating-elements.html
 import selenium.webdriver.support.expected_conditions as EC
-from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.wait import WebDriverWait
 
 WINDOW_WIDTH = 1400
 WINDOW_HEIGHT = 1450

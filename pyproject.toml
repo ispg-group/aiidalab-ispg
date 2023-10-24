@@ -19,6 +19,7 @@ select = [
     "B",    # flake8-bugbear
     "E",    # pycodestyle
     "F",    # pyflakes
+    "I",    # isort
     "C90",  # McCabe code complexity
     "UP",   # pyupgrade
     "S",    # bandit
@@ -41,7 +42,10 @@ select = [
 # Never enforce `E501` (line length violations).
 # TODO: Remove all asserts from the codebase and enable this rule
 # Use of assert detected (S101)
-ignore = ["E501", "S101", "PT004", "PTH123"]
+ignore = ["E501", "S101", "PT004"]
+
+[tool.ruff.isort]
+known-first-party = ["aiida", "aiidalab_widgets_base"]
 
 [tool.bumpver]
 current_version = "v0.2.2"

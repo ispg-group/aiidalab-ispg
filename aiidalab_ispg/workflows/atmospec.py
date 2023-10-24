@@ -1,28 +1,33 @@
 """Base work chain to run an ORCA calculation"""
 
-from aiida.engine import WorkChain, ExitCode, process_handler
-from aiida.engine import append_, ToContext, if_
-
 # Not sure if this is needed? Can we use self.run()?
-from aiida.engine import run
-from aiida.plugins import CalculationFactory, WorkflowFactory, DataFactory
-from aiida.orm import to_aiida_type
+from aiida.engine import (
+    ExitCode,
+    ToContext,
+    WorkChain,
+    append_,
+    if_,
+    process_handler,
+    run,
+)
 from aiida.orm import (
+    Bool,
+    Dict,
+    Float,
+    Int,
+    List,
+    SinglefileData,
     StructureData,
     TrajectoryData,
-    SinglefileData,
-    Int,
-    Float,
-    Bool,
-    List,
-    Dict,
+    to_aiida_type,
 )
+from aiida.plugins import CalculationFactory, DataFactory, WorkflowFactory
 
 from .harmonic_wigner import generate_wigner_structures
 from .optimization import RobustOptimizationWorkChain
 from .utils import (
-    add_orca_wf_guess,
     ConcatInputsToList,
+    add_orca_wf_guess,
     extract_trajectory_arrays,
     pick_structure_from_trajectory,
     structures_to_trajectory,
