@@ -27,22 +27,23 @@ select = [
     "EM",   # errormsg
     "ISC",  # implicit concatenation
     "ICN",  # import convention
-    "INP",  # no implicite namespace package
+    "INP",  # no implicit namespace package
     "PIE",  #
     "PT",   # pytest style
-    "PTH",
+    "PTH",  # use Pathlib
     "PLC",
     "PLE",
     "PLW",
     "RUF",
-    # "PL",  # pylint, disabled for now
-    # "PLR", # pylint refactor
+    "PL",   # pylint, disabled for now
+    "PLR",  # pylint refactor
 ]
 
-# Never enforce `E501` (line length violations).
-# TODO: Remove all asserts from the codebase and enable this rule
-# Use of assert detected (S101)
-ignore = ["E501", "S101", "PT004"]
+# E501 line length violation
+# S101 Use of assert detected
+# PLR0913 Too many arguments in function definition
+# PLR2004 Magic value used in comparison
+ignore = ["E501", "S101", "PT004", "PLR0913", "PLR2004",]
 
 [tool.ruff.isort]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
