@@ -74,7 +74,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
                 self.state = self.State.READY
             else:
                 self.state = self.State.SUCCESS
-        else:
+        else:  #  noqa: PLR5501
             if self.confirmed_structure is None:
                 self.state = self.State.CONFIGURED
             else:
