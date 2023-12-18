@@ -296,17 +296,20 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # Number of Wigner geometries per conformer
         nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
 
-        boltzmann_weights = [1.0 for i in range(nconf)]
+        # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
         if nconf > 1 and process.inputs.optimize:
-            boltzmann_weights = process.outputs.relaxed_structures.get_array(
+            conformer_weights = process.outputs.relaxed_structures.get_array(
                 "boltzmann_weights"
             )
+        else:
+            equal_weight = 1.0 / nconf
+            conformer_weights = [equal_weight for i in range(nconf)]
 
         conformer_transitions = [
             {
                 "transitions": self._wigner_output_to_transitions(conformer),
                 "nsample": nsample,
-                "weight": boltzmann_weights[i],
+                "weight": conformer_weights[i],
             }
             for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
         ]
