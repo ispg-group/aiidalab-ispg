@@ -43,7 +43,7 @@ select = [
 # S101 Use of assert detected
 # PLR0913 Too many arguments in function definition
 # PLR2004 Magic value used in comparison
-ignore = ["E501", "S101", "PT004", "PLR0913", "PLR2004",]
+ignore = ["E501", "ISC001", "S101", "PT004", "PLR0913", "PLR2004",]
 
 [tool.ruff.isort]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
