@@ -143,3 +143,38 @@ class Wigner:
         oscillator and P contains the corresponding momentum.
         The function returns a probability for this set of parameters."""
         return (math.exp(-(Q**2)) * math.exp(-(P**2)), 0.0)
+
+
+# Below are functions for CLI standalone use
+def parse_cmd():
+    # In first iteration, we need:
+    #  - ORCA output filename
+    #  - seed
+    #  - cutoff threshold
+    #  - nsample
+    return opts
+
+
+def read_orca_output(fname: str) -> dict:
+    return {}
+
+
+if __name__ == "__main__":
+    opts = parse_cmd()
+    # TODO: Read the ORCA output
+    # TODO: Can cclib provide minimum structure as well?
+    ase_mol = None
+    orca = read_orca_output(opts.fname)
+    frequencies = orca["vibfreqs"]
+    normal_modes = orca["vibdisps"]
+
+    wigner = Wigner(
+        ase_mol,
+        frequencies,
+        normal_modes,
+        seed=opts.seed,
+        low_freq_thr=opts.low_freq_thr,
+    )
+
+    wigner_list = [wigner.get_ase_sample() for i in range(opts.nsample)]
+    # TODO: Output as XYZ file, possibly with velocities
