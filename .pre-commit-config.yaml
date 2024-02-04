@@ -16,10 +16,10 @@ repos:
       - id: check-toml
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.13
+    rev: v0.2.0
     hooks:
     - id: ruff
-      args: [--show-source, --fix]
+      args: [--output-format=full, --fix]
     - id: ruff-format
 
   - repo: https://github.com/kynan/nbstripout
