@@ -13,6 +13,7 @@ line-length = 88
 src = ["aiidalab_ispg", "tests"]
 target-version = "py39"
 
+[tool.ruff.lint]
 # Enable pyflakes and pyf-builtins, pyflakes, f=bugbear
 select = [
     "A",    # flake8-builtins
@@ -43,9 +44,9 @@ select = [
 # S101 Use of assert detected
 # PLR0913 Too many arguments in function definition
 # PLR2004 Magic value used in comparison
-ignore = ["E501", "S101", "PT004", "PLR0913", "PLR2004",]
+ignore = ["ISC001", "E501", "S101", "PT004", "PLR0913", "PLR2004",]
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
 
 [tool.bumpver]
