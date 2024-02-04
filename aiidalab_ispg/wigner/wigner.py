@@ -184,6 +184,14 @@ def parse_cmd():
         help="Format of the output file",
     )
 
+    parser.add_argument(
+        "-o",
+        "--output-file",
+        dest="output_fname",
+        default="harmonic_samples.xyz",
+        help="Output file name",
+    )
+
     return parser.parse_args()
 
 
@@ -249,13 +257,13 @@ if __name__ == "__main__":
 
     wigner_samples = []
     fname_out = "harmonic_samples.xyz"
-    print(f"Generating {opts.nsamples} samples to {fname_out}")
+    print(f"Generating {opts.nsamples} samples to {opts.output_fname}")
     barfmt = "{l_bar}{bar}|{n_fmt}/{total_fmt}    "
-    for i in tqdm(range(opts.nsamples), delay=0.3, colour="green", bar_format=barfmt):
+    for _ in tqdm(range(opts.nsamples), delay=0.3, colour="green", bar_format=barfmt):
         wigner_samples.append(wigner.get_ase_sample())
 
     ase.io.write(
-        fname_out,
+        opts.output_fname,
         images=wigner_samples,
         format="extxyz",
     )
