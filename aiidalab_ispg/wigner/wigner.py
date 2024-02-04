@@ -149,7 +149,7 @@ class Wigner:
 def parse_cmd():
     import argparse
 
-    desc = "Program for syncing subtitles to Khan Academy Team Amara."
+    desc = "Program for harmonic Wigner sampling"
     prog = "HarmonWig"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
     parser.add_argument(
@@ -177,17 +177,24 @@ def parse_cmd():
         help="Low-frequency threshold",
     )
 
+    parser.add_argument(
+        "--file-format",
+        dest="file_fmt",
+        default="auto",
+        help="Format of the output file",
+    )
+
     return parser.parse_args()
 
 
 def error(msg):
     import sys
 
-    print("ERROR: {msg}")
+    print(f"ERROR: {msg}")
     sys.exit(1)
 
 
-def read_orca_output(fname: str) -> dict:
+def read_qm_output(fname: str, fmt="auto") -> dict:
     from pathlib import Path
 
     from cclib.io import ccread
@@ -199,6 +206,8 @@ def read_orca_output(fname: str) -> dict:
     except FileNotFoundError as e:
         error(str(e))
 
+    if parsed_obj is None:
+        error("Could not read ORCA output")
     d = parsed_obj.getattributes()
     return d
 
@@ -213,31 +222,40 @@ def validate(out: dict):
 
 
 if __name__ == "__main__":
-    import sys
-
     opts = parse_cmd()
-    print(opts)
-    # TODO: Read the ORCA output
-    # TODO: Can cclib provide minimum structure as well?
-    ase_mol = None
-    out = read_orca_output(opts.input_file)
-    freqs = out["vibfreqs"]
-    normal_modes = out["vibdisps"]
-    masses = out["atommasses"]
+
+    import ase
+    from tqdm import tqdm
+
+    out = read_qm_output(opts.input_file, fmt=opts.file_fmt)
+    # We assume that the last coordinates are the optimized ones
+    coords = out["atomcoords"][0]
+    ase_mol = ase.Atoms(
+        numbers=out["atomnos"], positions=coords, masses=out["atommasses"], pbc=False
+    )
 
     print("Normal mode frequencies [cm^-1]:")
-    print(freqs)
+    print(out["vibfreqs"])
     print("Atom masses:")
-    print(masses)
-    sys.exit(0)
+    print(out["atommasses"])
 
     wigner = Wigner(
         ase_mol,
-        freqs,
-        normal_modes,
+        out["vibfreqs"],
+        out["vibdisps"],
         seed=opts.seed,
         low_freq_thr=opts.low_freq_thr,
     )
 
-    wigner_list = [wigner.get_ase_sample() for i in range(opts.nsample)]
-    # TODO: Output as XYZ file, possibly with velocities
+    wigner_samples = []
+    fname_out = "harmonic_samples.xyz"
+    print(f"Generating {opts.nsamples} samples to {fname_out}")
+    barfmt = "{l_bar}{bar}|{n_fmt}/{total_fmt}    "
+    for i in tqdm(range(opts.nsamples), delay=0.3, colour="green", bar_format=barfmt):
+        wigner_samples.append(wigner.get_ase_sample())
+
+    ase.io.write(
+        fname_out,
+        images=wigner_samples,
+        format="extxyz",
+    )
