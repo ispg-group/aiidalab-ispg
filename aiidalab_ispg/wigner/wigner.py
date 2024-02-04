@@ -147,30 +147,93 @@ class Wigner:
 
 # Below are functions for CLI standalone use
 def parse_cmd():
-    # In first iteration, we need:
-    #  - ORCA output filename
-    #  - seed
-    #  - cutoff threshold
-    #  - nsample
-    return opts
+    import argparse
+
+    desc = "Program for syncing subtitles to Khan Academy Team Amara."
+    prog = "HarmonWig"
+    parser = argparse.ArgumentParser(description=desc, prog=prog)
+    parser.add_argument(
+        "input_file", metavar="INPUT_FILE", help="Output file from ab initio program."
+    )
+    parser.add_argument(
+        "-n",
+        "--nsamples",
+        type=int,
+        default=1,
+        help="Number of Wigner samples",
+    )
+    parser.add_argument(
+        "--seed",
+        dest="seed",
+        type=int,
+        default=42424242,
+        help="Random seed",
+    )
+    parser.add_argument(
+        "--freqthr",
+        dest="low_freq_thr",
+        default=0.0,
+        type=float,
+        help="Low-frequency threshold",
+    )
+
+    return parser.parse_args()
+
+
+def error(msg):
+    import sys
+
+    print("ERROR: {msg}")
+    sys.exit(1)
 
 
 def read_orca_output(fname: str) -> dict:
-    return {}
+    from pathlib import Path
+
+    from cclib.io import ccread
+
+    path = Path(fname)
+    try:
+        with path.open("r") as f:
+            parsed_obj = ccread(f)
+    except FileNotFoundError as e:
+        error(str(e))
+
+    d = parsed_obj.getattributes()
+    return d
+
+
+def validate(out: dict):
+    if not out["optdone"]:
+        error("Optimization did not finish!")
+    req_keys = ["atomcoords", "atommasses", "vibdisps", "vibfreqs"]
+    for key in req_keys:
+        if key not in out:
+            error("Could not find frequency data in ORCA output file")
 
 
 if __name__ == "__main__":
+    import sys
+
     opts = parse_cmd()
+    print(opts)
     # TODO: Read the ORCA output
     # TODO: Can cclib provide minimum structure as well?
     ase_mol = None
-    orca = read_orca_output(opts.fname)
-    frequencies = orca["vibfreqs"]
-    normal_modes = orca["vibdisps"]
+    out = read_orca_output(opts.input_file)
+    freqs = out["vibfreqs"]
+    normal_modes = out["vibdisps"]
+    masses = out["atommasses"]
+
+    print("Normal mode frequencies [cm^-1]:")
+    print(freqs)
+    print("Atom masses:")
+    print(masses)
+    sys.exit(0)
 
     wigner = Wigner(
         ase_mol,
-        frequencies,
+        freqs,
         normal_modes,
         seed=opts.seed,
         low_freq_thr=opts.low_freq_thr,
