@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+# Specification of standalone script dependencies according to PEP 723
+# /// script
+# dependencies = ['ase', 'tdqm', 'cclib>=1.8']
+# ///
+
 # Script for the calculation of Wigner distributions in coordinate space
 import copy
 import math
@@ -150,7 +155,7 @@ def parse_cmd():
     import argparse
 
     desc = "Program for harmonic Wigner sampling"
-    prog = "HarmonWig"
+    prog = "harmonwig"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
     parser.add_argument(
         "input_file", metavar="INPUT_FILE", help="Output file from ab initio program."
@@ -195,14 +200,14 @@ def parse_cmd():
     return parser.parse_args()
 
 
-def error(msg):
+def error(msg: str):
     import sys
 
     print(f"ERROR: {msg}")
     sys.exit(1)
 
 
-def read_qm_output(fname: str, fmt="auto") -> dict:
+def read_qm_output(fname: str, fmt: str = "auto") -> dict:
     from pathlib import Path
 
     from cclib.io import ccread
@@ -255,10 +260,9 @@ if __name__ == "__main__":
         low_freq_thr=opts.low_freq_thr,
     )
 
-    wigner_samples = []
-    fname_out = "harmonic_samples.xyz"
     print(f"Generating {opts.nsamples} samples to {opts.output_fname}")
     barfmt = "{l_bar}{bar}|{n_fmt}/{total_fmt}    "
+    wigner_samples = []
     for _ in tqdm(range(opts.nsamples), delay=0.3, colour="green", bar_format=barfmt):
         wigner_samples.append(wigner.get_ase_sample())
 
