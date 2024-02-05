@@ -1,15 +1,44 @@
 #!/bin/bash
-
+#
 # This script automatically creates required code Nodes in AiiDA database,
 # based on the assumption that the codes are accessible locally.
+# It also install OpenMPI for parallel ORCA execution in a separate conda environment.
+
+set -euo pipefail
 
 # This needs to match the path where you mounted the code!
-# Perhaps we could autodetermine this via find?
-ORCA_PATH=/opt/orca
+# TODO: Perhaps we should try to autodetermine this via find?
+if [[ -z ${ORCA_PATH-} ]]; then
+  ORCA_PATH=/opt/orca
+fi
+if [[ ! -d "${ORCA_PATH}" || ! -f "${ORCA_PATH}"/orca ]];then
+  echo "WARNING: Could not find ORCA installation at \"${ORCA_PATH}\", you will need to create a code node on a remote computer."
+  exit 0
+fi
 
-# We append LD_LIBRARY path since we install OpenMPI
-# via conda in ATMOSPEC Docker image
-OPENMPI_LIB=/opt/conda/lib
+### CREATE CONDA CHANNEL FOR OPENMPI ###
+if [[ -z ${OPENMPI_VERSION-} ]]; then
+  OPENMPI_VERSION=4.1.1
+fi
+
+# Do not create a new env if we already have correct OpenMPI version installed
+CONDA_ENV_PATH="/opt/conda"
+if ! mpirun --version 2>/dev/null | grep -q "Open MPI) ${OPENMPI_VERSION}"; then
+  CONDA_ENV_NAME="orca-mpi"
+  mamba create --yes -c conda-forge \
+    --name ${CONDA_ENV_NAME} openmpi=${OPENMPI_VERSION}
+  CONDA_ENV_PATH=$(mamba env list | grep ${CONDA_ENV_NAME} | awk '{print $NF}')
+  MPIBIN=${CONDA_ENV_PATH}/bin
+  MPILIB=${CONDA_ENV_PATH}/lib
+else
+  mpirun=`which mpirun`
+  MPIBIN=`dirname $mpirun`
+  MPILIB=`dirname $MPIBIN`"/lib"
+  echo "Detected OpenMPI v${OPENMPI_VERSION} in ${MPIBIN}"
+fi
+
+PREPEND_TEXT="export PATH=${ORCA_PATH}:${MPIBIN}:\$PATH;\
+  export LD_LIBRARY_PATH=${ORCA_PATH}:${MPILIB}:\$LD_LIBRARY_PATH"
 
 function create_orca_code() {
     computer=$1
@@ -20,6 +49,8 @@ function create_orca_code() {
     verdi code list -Y $computer -d $calcjob -P full_label | \
     grep -q "$full_label" || (\
         echo "Creating code node $full_label" && \
+        # NOTE: We need to add ORCA_PATH to LD_LIBRARY_PATH as well
+        # to support dynamically linked orca binaries.
         verdi code create core.code.installed \
             --non-interactive \
             --label ${code} \
@@ -27,7 +58,7 @@ function create_orca_code() {
             --default-calc-job-plugin ${calcjob} \
             --computer ${computer} \
             --filepath-executable ${ORCA_PATH}/orca \
-            --prepend-text "export PATH=${ORCA_PATH}:\$PATH;export LD_LIBRARY_PATH=${OPENMPI_LIB}:\$LD_LIBRARY_PATH" \
+            --prepend-text "${PREPEND_TEXT}" \
     )
 }
 

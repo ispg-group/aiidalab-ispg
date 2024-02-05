@@ -1,0 +1,69 @@
+[build-system]
+# Version 64.0.0 is needed for editable installs without setup.py file
+# https://setuptools.pypa.io/en/latest/references/keywords.html
+requires = [
+    "setuptools>=64.0.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 88
+# TODO: Enable ruff for notebooks
+src = ["aiidalab_ispg", "tests"]
+target-version = "py39"
+
+[tool.ruff.lint]
+# Enable pyflakes and pyf-builtins, pyflakes, f=bugbear
+select = [
+    "A",    # flake8-builtins
+    "B",    # flake8-bugbear
+    "E",    # pycodestyle
+    "F",    # pyflakes
+    "I",    # isort
+    "C90",  # McCabe code complexity
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "C4",   # comprehensions
+    "EM",   # errormsg
+    "ISC",  # implicit concatenation
+    "ICN",  # import convention
+    "INP",  # no implicit namespace package
+    "PIE",  #
+    "PT",   # pytest style
+    "PTH",  # use Pathlib
+    "PLC",
+    "PLE",
+    "PLW",
+    "RUF",
+    "PL",   # pylint, disabled for now
+    "PLR",  # pylint refactor
+]
+
+# E501 line length violation
+# S101 Use of assert detected
+# PLR0913 Too many arguments in function definition
+# PLR2004 Magic value used in comparison
+ignore = ["ISC001", "E501", "S101", "PT004", "PLR0913", "PLR2004",]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aiida", "aiidalab_widgets_base"]
+
+[tool.bumpver]
+current_version = "v0.2.3"
+version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
+commit_message = "bump version {old_version} -> {new_version}"
+commit = true
+tag = true
+push = true
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+    'current_version = "{version}"',
+]
+"setup.cfg" = [
+    'version = {pep440_version}',
+]
+"aiidalab_ispg/__init__.py" = [
+    '__version__ = "{pep440_version}"',
+]

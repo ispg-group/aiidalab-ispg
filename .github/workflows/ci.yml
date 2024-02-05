@@ -4,28 +4,28 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+    tags:
+      - "v*"
   pull_request:
-    branches: [main]
 
 jobs:
 
   pre-commit:
+    env:
+      SKIP: 'no-commit-to-branch'
     runs-on: ubuntu-latest
     steps:
       - name: Check out app
-        uses: actions/checkout@v3
-      - name: Set up Python
+        uses: actions/checkout@v4
+      - name: Set up Python with cache
         uses: actions/setup-python@v4
         with:
-            python-version: "3.10"
-            cache: "pip"
-            cache-dependency-path: |
-              **/setup.cfg
-              **/pyproject.toml
+            python-version: '3.11'
+            cache: pip
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.0
-
 
   test-app:
 
@@ -56,7 +56,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Check out app
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -89,7 +89,7 @@ jobs:
           tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
-        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR
+        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests/app/
 
       - name: Replace slashes in image name
         if: always()
@@ -102,3 +102,21 @@ jobs:
           name: Screenshots-${{env.IMAGE_NAME}}-${{ matrix.tag }}-${{ matrix.browser }}
           path: screenshots/
           if-no-files-found: error
+
+  release:
+    if: >-
+      github.repository == 'ispg-group/aiidalab-ispg'
+      && github.ref_type == 'tag'
+
+    needs: [pre-commit, test-app]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: softprops/action-gh-release@v0.1.15
+        name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          generate_release_notes: true

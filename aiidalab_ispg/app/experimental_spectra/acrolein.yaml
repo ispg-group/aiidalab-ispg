@@ -1,0 +1,28 @@
+---
+molecule: acrolein
+smiles: "C=CC=O"
+source_file: acrolein.txt
+y_axis_scaling: 1e-20
+metadata:
+  description': 'I. Magneron, R. Thévenet, A. Mellouki, G. Le Bras, G.K. Moortgat, and K. Wirtz, "A study of the photolysis and OH-initiated oxidation of acrolein and trans-crotonaldehyde", J. Phys. Chem. A 106, 2526-2537 (2002); DOI: 10.1021/jp013413a '
+  license': '?'
+  publication:
+    authors:
+      - "I. Magneron"
+      - "R. Thévenet"
+      - "A. Mellouki"
+      - "G. Le Bras"
+      - "G.K. Moortgat"
+      - "K. Wirtz"
+    title: "A study of the photolysis and OH-initiated oxidation of acrolein and trans-crotonaldehyde"
+    journal:  "J. Phys. Chem. A"
+    issue: "106"
+    pages: "2526-2537"
+    year: "2002"
+    doi: "10.1021/jp013413a"
+  source:
+    db_name: 'UV/VIS Spectral Atlas'
+    db_uri: 'http://satellite.mpic.de/spectral_atlas'
+    uri: 'http://satellite.mpic.de/spectral_atlas/cross_sections/Organics%20(carbonyls)/Aldehydes(aliphatic)/CH2=CHCHO_Magneron(2002)_298K_282-390nm.txt'
+    # inChi key
+    id: 'HGINCPLSRVDWNT-UHFFAOYSA-N'
