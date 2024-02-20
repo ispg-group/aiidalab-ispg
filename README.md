@@ -6,25 +6,13 @@
 
 ATMOSPEC - ab initio workflow for UV/VIS spectroscopy of organic molecules.
 
-## Installation
-
-This Jupyter-based app is intended to be run within the [AiiDAlab environment](https://www.materialscloud.org/aiidalab).
-
-If you already run AiiDAlab you can install the latest version from Github
-by running the following command from within the AiiDAlab Docker container.
-```
-aiidalab install aiidalab-ispg@git+https://github.com/danielhollas/aiidalab-ispg.git@main
-```
-
-See below for complete installation instructions on a local machine.
-
 ## Usage
 
 See the following screencast -- https://youtu.be/1ePj1hhOFdw
 
 ## License
 
-MIT
+MIT License, for full text see [LICENSE](LICENSE).
 
 ## Acknowledgements
 
