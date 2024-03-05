@@ -1,8 +1,8 @@
-"""Common Steps for AiiDAlab workflows.
+"""Common/Base Steps for AiiDAlab workflows.
    Code inspired by the QeApp.
 
 Authors:
-    * Daniel Hollas <daniel.hollas@durham.ac.uk>
+    * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
 import re
@@ -135,7 +135,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
     process_uuid = traitlets.Unicode(allow_none=True)
 
-    def __init__(self, progress_bar=None, children=None, **kwargs):
+    def __init__(self, progress_bar, children=None, **kwargs):
         if children is None:
             children = []
         self.process_tree = ISPGProcessNodesTreeWidget()
@@ -168,13 +168,29 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
-        if progress_bar is not None:
-            workflow_state = ipw.VBox([progress_bar, self.tree_toggle])
-        else:
-            workflow_state = ipw.VBox([self.tree_toggle])
-        workflow_state.layout.width = "60%"
+        self.kill_button = ipw.Button(
+            description="Kill workflow",
+            tooltip="Stop the running workflow",
+            button_style="danger",
+            icon="times-circle",
+            disabled=True,
+            # layout=ipw.Layout(width="120px", height="40px"),
+        )
+        self.kill_button.on_click(self._on_click_kill_button)
+
+        workflow_header = ipw.VBox([progress_bar, self.tree_toggle])
+        workflow_header.layout.width = "70%"
+
+        workflow_box = ipw.HBox(
+            [
+                workflow_header,
+                self.kill_button,
+            ]
+        )
+        workflow_header.layout.width = "85%"
+
         super().__init__(
-            children=[workflow_state, self.process_tree, self.node_view, *children],
+            children=[workflow_box, self.process_tree, self.node_view, *children],
             **kwargs,
         )
 
@@ -225,6 +241,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             self.tree_toggle.disabled = False
         self._update_step_state()
         self._update_workflow_state()
+        self._update_kill_button_layout()
 
     def _observe_tree_toggle(self, change):
         if change["new"] == change["old"]:
@@ -241,6 +258,36 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             # For large workflows, this might not be best
             self.process_tree.value = None
             self.tree_toggle.icon = "folder"
+
+    def _update_kill_button_layout(self):
+        """Update the layout of the kill button."""
+        # If no process is selected, hide the button.
+        if self.process_uuid is None:
+            self.kill_button.layout.display = "none"
+        else:
+            self.kill_button.layout.display = "block"
+
+        # Enable the button only if the process is still running
+        if self.state is self.State.ACTIVE:
+            self.kill_button.disabled = False
+        else:
+            self.kill_button.disabled = True
+
+    def _on_click_kill_button(self, _=None):
+        """Callback for the kill button.
+
+        First kill the process, then update the kill button layout.
+        """
+        from aiida.engine.processes.control import kill_processes
+
+        self.kill_button.disabled = True
+
+        workchain = [load_node(self.process_uuid)]
+        # TODO: Wait for a bit here
+        kill_processes(workchain, wait=False)
+
+        # update the kill button layout
+        self._update_kill_button_layout()
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
