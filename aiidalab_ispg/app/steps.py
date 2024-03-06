@@ -134,7 +134,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
     process_uuid = traitlets.Unicode(allow_none=True)
 
-    def __init__(self, progress_bar=None, children=None, **kwargs):
+    def __init__(self, progress_bar, children=None, **kwargs):
         if children is None:
             children = []
         self.process_tree = ISPGProcessNodesTreeWidget()
@@ -167,24 +167,22 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
-        if progress_bar is not None:
-            workflow_state = ipw.VBox([progress_bar, self.tree_toggle])
-        else:
-            workflow_state = ipw.VBox([self.tree_toggle])
-        workflow_state.layout.width = "60%"
-
         self.kill_button = ipw.Button(
-            description="Kill workchain",
-            tooltip="Kill the below workchain.",
+            description="Kill workflow",
+            tooltip="Stop the running workflow",
             button_style="danger",
-            icon="window-close",
+            icon="times-circle",
             disabled=True,
-            layout=ipw.Layout(width="120px", height="40px", display="none"),
+            #layout=ipw.Layout(width="120px", height="40px"),
         )
         self.kill_button.on_click(self._on_click_kill_button)
 
+        workflow_state = ipw.HBox([progress_bar, self.kill_button])
+        workflow_state.layout.width = "80%"
+        self.tree_toggle.layout.width = "60%"
+
         super().__init__(
-            children=[workflow_state, self.process_tree, self.node_view, *children],
+            children=[workflow_state, self.tree_toggle, self.process_tree, self.node_view, *children],
             **kwargs,
         )
 
