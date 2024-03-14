@@ -337,8 +337,7 @@ class SpectrumWidget(ipw.VBox):
         if self.smiles:
             filename = f"spectrum_{self.smiles}.tsv"
 
-        payload = self._prepare_payload()
-        if not payload:
+        if not (payload := self._prepare_tsv()):
             return
 
         js = Javascript(
@@ -353,30 +352,55 @@ class SpectrumWidget(ipw.VBox):
         )
         display(js)
 
-    def _prepare_payload(self):
+    def _prepare_tsv(self):
         import base64
         import csv
         from tempfile import SpooledTemporaryFile
 
-        # TODO: Download multiple spectra if available
-        line = self.figure.get_figure().select_one({"name": self.THEORY_SPEC_LABEL})
+        column_names = [
+            f"Energy / ({self.energy_unit_selector.value.value})",
+            f"Cross section / {self.intensity_unit}, "
+            f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
+        ]
+
+        f = self.figure.get_figure()
+
+        # Get the total cross section
+        line = f.select_one({"name": self.THEORY_SPEC_LABEL})
         x = line.data_source.data.get("x")
-        y = line.data_source.data.get("y")
+        y_total = line.data_source.data.get("y")
+
+        # Get cross sections of individual conformers, if available
+        # TODO: Currently this only works when the user activates the
+        # "Show conformers" button, otherwise we don't have access to the conformer data
+        # through the lines in the figure. One way to solve this would be to always
+        # add the conformer lines in the plot, but hide them by default (see hide_line)
+        # TODO: Relatedly above, currently there might be a race condition if the user pressed
+        # "Show conformers" and "Download spectrum" in a quick succession.
+        # The solution proposed above should solve this problem as well,
+        # since the conformer cross section would always be available.
+        # WARNING: Even without conformers, we might still have race condition
+        # in between user modification of the spectrum (e.g. changing kernel width)
+        # and downloading the data. We need to ensure that the Download button is always disabled
+        # when we're recomputing the spectra. This needs more investigation.
+        nconf = len(self.conformer_transitions)
+        y_confs = []
+        if nconf > 1:
+            for conf_id in range(nconf):
+                label = f"conformer_{conf_id}"
+                if line := f.select_one({"name": label}):
+                    y_confs.append(line.data_source.data["y"])
+                    column_names.append(f"Conformer {conf_id + 1}")
 
         # We're using a tab as a delimiter (TSV file) since the resulting file
         # should be readabale both by Excel and Xmgrace
         delimiter = "\t"
 
-        fieldnames = [
-            f"Energy ({self.energy_unit_selector.value.value})",
-            f"Intensity / {self.intensity_unit}",
-            f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
-        ]
         with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
-            header = delimiter.join(fieldnames)
+            header = delimiter.join(column_names)
             csvfile.write(f"# {header}\n")
             writer = csv.writer(csvfile, delimiter=delimiter)
-            writer.writerows(zip(x, y))
+            writer.writerows(zip(x, y_total, *y_confs))
             csvfile.seek(0)
             return base64.b64encode(csvfile.read().encode()).decode()
 
@@ -489,6 +513,7 @@ class SpectrumWidget(ipw.VBox):
     def _plot_spectrum(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
     ):
+        self.download_btn.disabled = True
         # Determine spectrum energy range based on all excitation energies
         all_exc_energies = np.array(
             [
