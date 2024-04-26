@@ -4,6 +4,7 @@ Authors:
 
     * Carl Simon Adorf <simon.adorf@epfl.ch>
 """
+
 import ipywidgets as ipw
 import traitlets
 

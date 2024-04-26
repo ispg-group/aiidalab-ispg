@@ -104,10 +104,8 @@ class Wigner:
             # calculate probability for this set of P and Q with Wigner distr.
             probability = self.wigner(random_Q, random_P)
             if probability[0] > 1.0 or probability[0] < 0.0:
-                raise ValueError(
-                    "Wrong probability %f detected in _sample_initial_condition()!"
-                    % (probability[0])
-                )
+                msg = f"Wrong probability {probability[0]:f} detected in _sample_initial_condition()!"
+                raise ValueError(msg)
             elif probability[0] > self.rnd.random():
                 return random_Q, random_P
 

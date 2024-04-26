@@ -23,7 +23,6 @@ select = [
     "I",    # isort
     "C90",  # McCabe code complexity
     "UP",   # pyupgrade
-    "S",    # bandit
     "C4",   # comprehensions
     "EM",   # errormsg
     "ISC",  # implicit concatenation
@@ -32,12 +31,9 @@ select = [
     "PIE",  #
     "PT",   # pytest style
     "PTH",  # use Pathlib
-    "PLC",
-    "PLE",
-    "PLW",
-    "RUF",
-    "PL",   # pylint, disabled for now
-    "PLR",  # pylint refactor
+    "RUF",  # ruff-specific rules
+    "PL",   # pylint
+    "NPY",  # numpy-specific rules
 ]
 
 # E501 line length violation

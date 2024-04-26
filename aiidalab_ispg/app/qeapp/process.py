@@ -1,4 +1,5 @@
 """Widgets related to process management."""
+
 from dataclasses import make_dataclass
 from typing import Optional
 
