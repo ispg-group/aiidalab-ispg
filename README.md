@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.11075300.svg)](https://doi.org/10.5281/zenodo.11075300)
 [![CI](https://github.com/ispg-group/aiidalab-ispg/workflows/CI/badge.svg?branch=main&event=push)](https://github.com/ispg-group/aiidalab-ispg/actions?query=workflow%3ACI)
 [![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
