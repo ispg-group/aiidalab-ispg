@@ -3,6 +3,7 @@
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
+
 from enum import Enum, unique
 
 import bokeh.plotting as plt

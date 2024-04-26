@@ -108,7 +108,7 @@ class DownloadButton(ipw.Button):
 
     def __on_click(self, _):
         # bypass browser cache
-        digest = hashlib.md5(self.payload).hexdigest()  # noqa: S324
+        digest = hashlib.md5(self.payload).hexdigest()
         payload = base64.b64encode(self.payload).decode()
 
         link_id = f"dl_{digest}"

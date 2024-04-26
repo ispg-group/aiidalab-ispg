@@ -4,6 +4,7 @@
 Authors:
     * Daniel Hollas <daniel.hollas@durham.ac.uk>
 """
+
 import re
 
 import ipywidgets as ipw

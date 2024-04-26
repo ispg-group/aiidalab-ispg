@@ -1,4 +1,5 @@
 """Small utility workflows and functions"""
+
 import math
 
 import numpy as np
