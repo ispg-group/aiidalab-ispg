@@ -3,7 +3,7 @@
 from enum import Enum, unique
 
 import ipywidgets as ipw
-import traitlets
+import traitlets as tl
 
 from aiida.common import NotExistent
 from aiida.orm import load_code
@@ -240,7 +240,7 @@ class ExcitedStateSettings(ipw.VBox):
 
 
 class WignerSamplingSettings(ipw.VBox):
-    disabled = traitlets.Bool(default=False)
+    disabled = tl.Bool(default=False)
 
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
@@ -279,7 +279,7 @@ class WignerSamplingSettings(ipw.VBox):
 
         super().__init__([self.title, self.nwigner, self.wigner_low_freq_thr])
 
-    @traitlets.observe("disabled")
+    @tl.observe("disabled")
     def _observer_disabled(self, change):
         if change["new"]:
             self.nwigner.disabled = True
@@ -332,6 +332,11 @@ class CodeSettings(ipw.VBox):
                 self.orca.value = load_code(code_label).uuid
                 return
             except (NotExistent, ValueError):
+                pass
+            except tl.TraitError:
+                # This can happen if one of the code/computers is not configured/enabled or hidden
+                # In practice, this happened to me locally when importing from production DB.
+                # https://github.com/ispg-group/aiidalab-ispg/issues/240
                 pass
 
         if not self.orca.value:
