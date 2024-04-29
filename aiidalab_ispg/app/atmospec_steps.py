@@ -7,7 +7,8 @@ from dataclasses import dataclass
 import ipywidgets as ipw
 import traitlets
 
-from aiida.engine import ProcessState, submit
+from aiida.engine import ProcessState, run_get_node, submit
+from aiida.manage import get_manager
 from aiida.orm import Bool, load_code, load_node
 from aiida.plugins import WorkflowFactory
 
@@ -390,7 +391,13 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.nwigner = bp.nwigner
         builder.wigner_low_freq_thr = bp.wigner_low_freq_thr
 
-        process = submit(builder)
+        # This is a horrible hack to allow for easy local development without RabbitMQ
+        if get_manager().get_runner().controller is None:
+            # TODO: Make this nicer, display as a widget with a spinner
+            print("WARNING: Could not submit job to daemon, running directly")
+            _result, process = run_get_node(builder)
+        else:
+            process = submit(builder)
         # NOTE: It is important to set_extra builder_parameters before we update the traitlet
         builder_parameters = vars(bp)
         builder_parameters["excited_method"] = builder_parameters[

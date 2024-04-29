@@ -3,7 +3,7 @@
 *.swp
 *pyc
 *~
-.*.ipynb
+*-[0-9].ipynb
 .DS_Store
 .ipynb_checkpoints/
 .vscode
