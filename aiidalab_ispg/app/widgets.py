@@ -245,6 +245,10 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._structures = [
                 trajectory.get_step_structure(i) for i in self.trajectory.get_stepids()
             ]
+            # NOTE: Unfortunately, when converting TrajectoryData to StructureData,
+            # PBC is always set to (True, True, True) so we need to correct.
+            for structure in self._structures:
+                structure.pbc = (False, False, False)
 
             if "energies" in trajectory.get_arraynames():
                 self._energies = trajectory.get_array("energies")
