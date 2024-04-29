@@ -317,17 +317,14 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         self.spectrum.conformer_transitions = conformer_transitions
 
-        if "smiles" in process.inputs.structure.extras:
-            self.spectrum.smiles = process.inputs.structure.extras["smiles"]
+        smiles = process.inputs.structure.base.extras.get("smiles", None)
+        self.spectrum.smiles = smiles
+        if smiles:
             # We're attaching smiles extra for the optimized structures as well
             # NOTE: You can distinguish between new / optimized geometries
             # by looking at the 'creator' attribute of the Structure node.
             if "relaxed_structures" in process.outputs:
-                process.outputs.relaxed_structures.base.extras.set(
-                    "smiles", self.spectrum.smiles
-                )
-        else:
-            self.spectrum.smiles = None
+                process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
         if process.inputs.optimize:
             assert nconf == len(process.outputs.relaxed_structures.get_stepids())
