@@ -8,6 +8,9 @@ on:
       - main
   pull_request:
 
+env:
+  FORCE_COLOR: 1
+
 jobs:
 
   pre-commit:
