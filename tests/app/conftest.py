@@ -1,5 +1,6 @@
 # ruff: noqa: INP001
 import os
+import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -89,7 +90,7 @@ def selenium_driver(selenium, notebook_service):
         selenium.find_element(By.ID, "ipython-main-app")
         selenium.find_element(By.ID, "notebook-container")
         selenium.find_element(By.CLASS_NAME, "jupyter-widgets-view")
-        WebDriverWait(selenium, 20).until(
+        WebDriverWait(selenium, timeout=20, poll_frequency=0.5).until(
             EC.invisibility_of_element((By.ID, "appmode-busy"))
         )
         return selenium
@@ -111,6 +112,7 @@ def generate_mol_from_smiles(selenium):
         WebDriverWait(selenium, timeout=20, poll_frequency=0.5).until(
             EC.invisibility_of_element((By.ID, "appmode-busy"))
         )
+        time.sleep(3.0)
 
     return _generate_mol
 
