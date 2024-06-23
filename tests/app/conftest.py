@@ -1,6 +1,5 @@
 # ruff: noqa: INP001
 import os
-import time
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -72,14 +71,14 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir)
     url = f"http://{docker_ip}:{port}"
     token = os.environ["JUPYTER_TOKEN"]
     docker_services.wait_until_responsive(
-        timeout=30.0, pause=0.1, check=lambda: is_responsive(url)
+        timeout=30.0, pause=0.5, check=lambda: is_responsive(url)
     )
     return url, token
 
 
 @pytest.fixture()
 def selenium_driver(selenium, notebook_service):
-    def _selenium_driver(nb_path, wait_time=5.0):
+    def _selenium_driver(nb_path, wait_time=30.0):
         url, token = notebook_service
         url_with_token = urljoin(
             url, f"apps/apps/aiidalab-ispg/notebooks/{nb_path}?token={token}"
@@ -109,7 +108,9 @@ def generate_mol_from_smiles(selenium):
                 (By.XPATH, "//button[text()='Generate molecule']")
             )
         ).click()
-        time.sleep(3)
+        WebDriverWait(selenium, timeout=20, poll_frequency=0.5).until(
+            EC.invisibility_of_element((By.ID, "appmode-busy"))
+        )
 
     return _generate_mol
 
