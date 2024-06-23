@@ -8,6 +8,9 @@ on:
       - main
   pull_request:
 
+env:
+  FORCE_COLOR: 1
+
 jobs:
 
   pre-commit:
@@ -35,12 +38,13 @@ jobs:
     strategy:
       matrix:
         tag: [latest]
-        image: ["docker.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
+        image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
       fail-fast: false
     env:
       IMAGE: ${{ matrix.image }}
-      TAG: ${{ matrix.tag }}
+      # Right now due to old AWB version we do not support the latest image with aiida-core=2.5.1
+      TAG: ${{ matrix.image == 'ghcr.io/aiidalab/full-stack' && 'aiida-2.4.3' || 'latest' }}
 
     steps:
 
