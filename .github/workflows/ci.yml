@@ -8,6 +8,9 @@ on:
       - main
   pull_request:
 
+env:
+  FORCE_COLOR: 1
+
 jobs:
 
   pre-commit:
@@ -35,12 +38,13 @@ jobs:
     strategy:
       matrix:
         tag: [latest]
-        image: ["aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
+        image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
       fail-fast: false
     env:
       IMAGE: ${{ matrix.image }}
-      TAG: ${{ matrix.tag }}
+      # Right now due to old AWB version we do not support the latest image with aiida-core=2.5.1
+      TAG: ${{ matrix.image == 'ghcr.io/aiidalab/full-stack' && 'aiida-2.4.3' || 'latest' }}
 
     steps:
 
@@ -69,20 +73,6 @@ jobs:
 
       - name: Set jupyter token env
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
-
-      # The Firefox and its engine geckodrive need do be installed manually to run
-      # selenium tests.
-      - name: Install Firefox
-        if: matrix.browser == 'Firefox'
-        uses: browser-actions/setup-firefox@latest
-        with:
-          firefox-version: "96.0"
-
-      - name: Install geckodriver
-        if: matrix.browser == 'Firefox'
-        run: |
-          wget -c https://github.com/mozilla/geckodriver/releases/download/v0.30.0/geckodriver-v0.30.0-linux64.tar.gz
-          tar xf geckodriver-v0.30.0-linux64.tar.gz -C /usr/local/bin
 
       - name: Run pytest
         run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests/app/
