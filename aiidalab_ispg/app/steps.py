@@ -178,19 +178,11 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         self.kill_button.on_click(self._on_click_kill_button)
 
-        workflow_header = ipw.VBox([progress_bar, self.tree_toggle])
-        workflow_header.layout.width = "70%"
-
-        workflow_box = ipw.HBox(
-            [
-                workflow_header,
-                self.kill_button,
-            ]
-        )
-        workflow_header.layout.width = "85%"
+        workflow_btns = ipw.HBox([self.tree_toggle, self.kill_button])
+        self.tree_toggle.layout.width = "70%"
 
         super().__init__(
-            children=[workflow_box, self.process_tree, self.node_view, *children],
+            children=[progress_bar, workflow_btns, self.process_tree, self.node_view, *children],
             **kwargs,
         )
 
@@ -241,7 +233,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             self.tree_toggle.disabled = False
         self._update_step_state()
         self._update_workflow_state()
-        self._update_kill_button_layout()
+        self._update_kill_button()
 
     def _observe_tree_toggle(self, change):
         if change["new"] == change["old"]:
@@ -259,19 +251,15 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
             self.process_tree.value = None
             self.tree_toggle.icon = "folder"
 
-    def _update_kill_button_layout(self):
+    def _update_kill_button(self):
         """Update the layout of the kill button."""
-        # If no process is selected, hide the button.
-        if self.process_uuid is None:
+        # Show the button only when the process is running
+        if self.process_uuid is None or self.state is not self.State.ACTIVE:
             self.kill_button.layout.display = "none"
+            self.kill_button.disabled = True
         else:
             self.kill_button.layout.display = "block"
-
-        # Enable the button only if the process is still running
-        if self.state is self.State.ACTIVE:
             self.kill_button.disabled = False
-        else:
-            self.kill_button.disabled = True
 
     def _on_click_kill_button(self, _=None):
         """Callback for the kill button.
@@ -287,7 +275,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         kill_processes(workchain, wait=False)
 
         # update the kill button layout
-        self._update_kill_button_layout()
+        self._update_kill_button()
 
 
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
