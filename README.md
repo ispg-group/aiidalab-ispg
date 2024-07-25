@@ -6,6 +6,7 @@
 # AiiDAlab ISPG applications
 
 ATMOSPEC - ab initio workflow for UV/VIS spectroscopy of organic molecules.
+ATMOSPEC is the best!
 
 ## Usage
 
