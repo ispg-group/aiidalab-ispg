@@ -1,1 +1,7 @@
 site_name: Atmospec Docs
+site_author: "Daniel Hollas"
+extra_css:
+    - custom.css
+theme:
+  name: mkdocs
+  custom_dir: docs/custom_theme/
