@@ -19,6 +19,7 @@ from .input_widgets import (
     GroundStateSettings,
     MolecularGeometrySettings,
     MoleculeSettings,
+    RepresentativeSamplingSettings,
     ResourceSelectionWidget,
     WignerSamplingSettings,
 )
@@ -39,6 +40,10 @@ class AtmospecParameters(OptimizationParameters):
     tddft_functional: str
     nwigner: int
     wigner_low_freq_thr: float
+    rep_sampling: bool
+    num_cycles: int
+    num_samples: int
+    exploratory_method: str
 
 
 DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
@@ -54,6 +59,10 @@ DEFAULT_ATMOSPEC_PARAMETERS = AtmospecParameters(
     tddft_functional="wB97X-D4",
     nwigner=0,
     wigner_low_freq_thr=100.0,
+    rep_sampling=False,
+    num_cycles=1200,
+    num_samples=10,
+    exploratory_method="ZIndo/S",
 )
 
 
@@ -82,6 +91,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         self.wigner_settings = WignerSamplingSettings()
 
+        self.repsample_settings = RepresentativeSamplingSettings()
+
         self.codes_selector = CodeSettings()
         self.resources_settings = ResourceSelectionWidget()
 
@@ -94,6 +105,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             self.geometry_settings,
             self.ground_state_settings,
             self.wigner_settings,
+            self.repsample_settings,
             self.molecule_settings,
             self.excited_state_settings,
         ]
@@ -188,6 +200,10 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         self.excited_state_settings.basis.value = parameters.es_basis
         self.wigner_settings.nwigner.value = parameters.nwigner
         self.wigner_settings.wigner_low_freq_thr.value = parameters.wigner_low_freq_thr
+        self.repsample_settings.enable_rep_sampling.value = parameters.rep_sampling
+        self.repsample_settings.num_cycles.value = parameters.num_cycles
+        self.repsample_settings.sample_size.value = parameters.num_samples
+        self.repsample_settings.exploratory_method.value = parameters.exploratory_method
 
         # Infer the value of the gs_sync checkbox
         if (
@@ -213,6 +229,10 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             nstates=self.excited_state_settings.nstates.value,
             nwigner=self.wigner_settings.nwigner.value,
             wigner_low_freq_thr=self.wigner_settings.wigner_low_freq_thr.value,
+            rep_sampling=self.repsample_settings.enable_rep_sampling.value,
+            num_cycles=self.repsample_settings.num_cycles.value,
+            num_samples=self.repsample_settings.sample_size.value,
+            exp_method=self.repsample_settings.exploratory_method.value,
         )
 
     @traitlets.observe("process")
