@@ -39,6 +39,7 @@ class ExcitedStateMethod(Enum):
     TDDFT = "TDDFT"
     CCSD = "EOM-CCSD"
     ADC2 = "ADC2"
+    ZINDO = "ZINDO/S"
 
 
 class MolecularGeometrySettings(ipw.VBox):

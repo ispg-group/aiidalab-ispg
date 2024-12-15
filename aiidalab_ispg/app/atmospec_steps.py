@@ -232,7 +232,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             rep_sampling=self.repsample_settings.enable_rep_sampling.value,
             num_cycles=self.repsample_settings.num_cycles.value,
             num_samples=self.repsample_settings.sample_size.value,
-            exp_method=self.repsample_settings.exploratory_method.value,
+            exploratory_method=self.repsample_settings.exploratory_method.value,
         )
 
     @traitlets.observe("process")
@@ -335,7 +335,22 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             opt_params["input_keywords"].append(f"{basis}/C")
             opt_params["input_blocks"]["mp2"] = {"maxcore": MEMORY_PER_CPU}
         return opt_params
-
+    
+    def _add_zindo_orca_params(
+        self, base_orca_parameters, basis, method, nroots
+    ):            
+        zindo_params = deepcopy(base_orca_parameters)
+        zindo_params["input_keywords"].append(method)
+        zindo_params["input_blocks"]["method"] = {
+            "Method": "INDO",
+            "Version": "ZINDO_S",
+        }
+        zindo_params["input_blocks"]["cis"] = {
+            "nroots": nroots,
+            "maxcore": MEMORY_PER_CPU,
+        }
+        return zindo_params
+   
     def submit(self, _=None):
         assert self.input_structure is not None
 
@@ -367,6 +382,15 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
                 base_orca_parameters,
                 basis=bp.es_basis,
                 mdci_method=bp.excited_method,
+                nroots=bp.nstates,
+            )
+        elif bp.excited_method in (
+            ExcitedStateMethod.ZINDO,
+        ):
+            es_parameters = self._add_zindo_orca_params(
+                base_orca_parameters,
+                basis=bp.es_basis,
+                method=bp.exploratory_method,
                 nroots=bp.nstates,
             )
         else:
