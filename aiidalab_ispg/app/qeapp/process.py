@@ -1,11 +1,13 @@
 """Widgets related to process management."""
 
+import threading
 from dataclasses import make_dataclass
 from typing import Optional
 
 import ipywidgets as ipw
 import traitlets as tl
 
+from aiida import load_node
 from aiida.tools.query.calculation import CalculationQueryBuilder
 
 
@@ -30,6 +32,7 @@ class WorkChainSelector(ipw.HBox):
     # widget to its default stage (no work chain selected), because we cannot
     # use `None` as setting the widget's value to None will lead to "no selection".
     _NO_PROCESS = object()
+    _refresh_lock = threading.Lock()
 
     BASE_FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
 
@@ -103,6 +106,20 @@ class WorkChainSelector(ipw.HBox):
             else:
                 yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
 
+    def _get_workchain_info_from_pk(self, pk: int):
+        proc = load_node(pk)
+        base_attrs = [attr for (attr, _) in self._BASE_FIELDS]
+        process_info = {attr: getattr(proc, attr) for attr in base_attrs}
+
+        if self.extra_fields is not None:
+            extra_info = self.parse_extra_info(pk)
+
+            yield make_dataclass("WorkChain", self._BASE_FIELDS + self.extra_fields)(
+                **process_info, **extra_info
+            )
+        else:
+            yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
+
     @tl.default("busy")
     def _default_busy(self):
         return True
@@ -113,6 +130,15 @@ class WorkChainSelector(ipw.HBox):
             child.disabled = change["new"]
 
     def refresh_work_chains(self, _=None):
+        # Return if we're already in the middle of refresh
+        if self._refresh_lock.locked():
+            return
+
+        thread = threading.Thread(target=self._refresh_work_chains)
+        thread.start()
+
+    def _refresh_work_chains(self):
+        self._refresh_lock.acquire()
         try:
             self.set_trait("busy", True)  # disables the widget
 
@@ -132,15 +158,26 @@ class WorkChainSelector(ipw.HBox):
                 self.work_chains_selector.value = original_value
         finally:
             self.set_trait("busy", False)  # reenable the widget
+            self._refresh_lock.release()
 
     @tl.observe("value")
     def _observe_value(self, change):
         if change["old"] == change["new"]:
             return
 
-        new = self._NO_PROCESS if change["new"] is None else change["new"]
+        new_pk = self._NO_PROCESS if change["new"] is None else change["new"]
 
-        if new not in {pk for _, pk in self.work_chains_selector.options}:
-            self.refresh_work_chains()
+        if new_pk in {pk for _, pk in self.work_chains_selector.options}:
+            self.work_chains_selector.value = new_pk
+        else:
+            # Instead of reloading the whole selector from scratch,
+            # we just add a new process at the top of it.
+            # This is to speed up the common case just after user submitted a new workchain.
+            with self.hold_trait_notifications():
+                no_proc = self.work_chains_selector.options[0]
+                all_procs = self.work_chains_selector.options[1:]
+                new_proc = self.get_workchain_info_from_pk(new_pk)
 
-        self.work_chains_selector.value = new
+                self.work_chains_selector.options = [no_proc, new_proc, all_procs]
+
+                self.work_chains_selector.value = new_pk
