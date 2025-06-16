@@ -7,7 +7,7 @@ from typing import Optional
 import ipywidgets as ipw
 import traitlets as tl
 
-from aiida import load_node
+from aiida.orm import load_node
 from aiida.tools.query.calculation import CalculationQueryBuilder
 
 
@@ -106,7 +106,8 @@ class WorkChainSelector(ipw.HBox):
             else:
                 yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
 
-    def _get_workchain_info_from_pk(self, pk: int):
+    def _get_work_chain_info_from_pk(self, pk: int):
+        # TODO: This currently does not work
         proc = load_node(pk)
         base_attrs = [attr for (attr, _) in self._BASE_FIELDS]
         process_info = {attr: getattr(proc, attr) for attr in base_attrs}
@@ -114,11 +115,11 @@ class WorkChainSelector(ipw.HBox):
         if self.extra_fields is not None:
             extra_info = self.parse_extra_info(pk)
 
-            yield make_dataclass("WorkChain", self._BASE_FIELDS + self.extra_fields)(
+            return make_dataclass("WorkChain", self._BASE_FIELDS + self.extra_fields)(
                 **process_info, **extra_info
             )
         else:
-            yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
+            return make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
 
     @tl.default("busy")
     def _default_busy(self):
@@ -129,15 +130,19 @@ class WorkChainSelector(ipw.HBox):
         for child in self.children:
             child.disabled = change["new"]
 
-    def refresh_work_chains(self, _=None):
+    def refresh_work_chains(self, _=None, new_pk=None):
+        """Refresh to work chain selector, and optionally set a new value"""
+
         # Return if we're already in the middle of refresh
         if self._refresh_lock.locked():
             return
 
-        thread = threading.Thread(target=self._refresh_work_chains)
+        thread = threading.Thread(
+            target=self._refresh_work_chains, kwargs={"new_pk": new_pk}
+        )
         thread.start()
 
-    def _refresh_work_chains(self):
+    def _refresh_work_chains(self, new_pk=None):
         self._refresh_lock.acquire()
         try:
             self.set_trait("busy", True)  # disables the widget
@@ -155,7 +160,10 @@ class WorkChainSelector(ipw.HBox):
                     for wc in self.find_work_chains()
                 ]
 
-                self.work_chains_selector.value = original_value
+                if new_pk is not None:
+                    self.work_chains_selector.value = new_pk
+                else:
+                    self.work_chains_selector.value = original_value
         finally:
             self.set_trait("busy", False)  # reenable the widget
             self._refresh_lock.release()
@@ -167,17 +175,20 @@ class WorkChainSelector(ipw.HBox):
 
         new_pk = self._NO_PROCESS if change["new"] is None else change["new"]
 
-        if new_pk in {pk for _, pk in self.work_chains_selector.options}:
-            self.work_chains_selector.value = new_pk
+        if new_pk not in {pk for _, pk in self.work_chains_selector.options}:
+            self.refresh_work_chains(new_pk=new_pk)
         else:
-            # Instead of reloading the whole selector from scratch,
-            # we just add a new process at the top of it.
-            # This is to speed up the common case just after user submitted a new workchain.
-            with self.hold_trait_notifications():
-                no_proc = self.work_chains_selector.options[0]
-                all_procs = self.work_chains_selector.options[1:]
-                new_proc = self.get_workchain_info_from_pk(new_pk)
+            self.work_chains_selector.value = new_pk
 
-                self.work_chains_selector.options = [no_proc, new_proc, all_procs]
-
-                self.work_chains_selector.value = new_pk
+        # TODO: Instead of reloading the whole selector from scratch,
+        # we just add a new process at the top of it.
+        # This is to speed up the common case just after user submitted a new workchain.
+        #    with self.hold_trait_notifications():
+        #        no_proc = self.work_chains_selector.options[0]
+        #        all_procs = self.work_chains_selector.options[1:]
+        #        new_proc = self._get_work_chain_info_from_pk(new_pk)
+        #        new_proc = (self.fmt_workchain.format(wc=new_proc), new_pk)
+        #
+        #        self.work_chains_selector.options = [no_proc, new_proc, all_procs]
+        #
+        #        self.work_chains_selector.value = new_pk
