@@ -1,5 +1,6 @@
 """Widgets related to process management."""
 
+import threading
 from dataclasses import make_dataclass
 from typing import Optional
 
@@ -30,6 +31,9 @@ class WorkChainSelector(ipw.HBox):
     # widget to its default stage (no work chain selected), because we cannot
     # use `None` as setting the widget's value to None will lead to "no selection".
     _NO_PROCESS = object()
+    # NOTE: In principle we shouldn't need reentrant lock,
+    # but we seem to be looping somewhere sometimes so this is safer.
+    _refresh_lock = threading.RLock()
 
     BASE_FMT_WORKCHAIN = "{wc.pk:6}{wc.ctime:>10}\t{wc.state:<16}"
 
@@ -66,14 +70,22 @@ class WorkChainSelector(ipw.HBox):
             ],
             **kwargs,
         )
-        # WARNING: The on_displayed method has been removed in ipywidgets 8.0!!!
-        # https://github.com/jupyter-widgets/ipywidgets/issues/3451
-        # https://github.com/jupyter-widgets/ipywidgets/pull/2021
-        self.on_displayed(self.refresh_work_chains)
+        self.refresh_work_chains()
 
     def parse_extra_info(self, pk: int) -> dict:
         """Parse extra information about the work chain."""
         return {}
+
+    def _make_workchain_dataclass(self, process_info):
+        if self.extra_fields is not None:
+            pk = process_info["pk"]
+            extra_info = self.parse_extra_info(pk)
+
+            return make_dataclass("WorkChain", self._BASE_FIELDS + self.extra_fields)(
+                **process_info, **extra_info
+            )
+        else:
+            return make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
 
     def find_work_chains(self):
         builder = CalculationQueryBuilder()
@@ -92,16 +104,22 @@ class WorkChainSelector(ipw.HBox):
 
         for result in projected[1:]:
             process_info = dict(zip(projections, result))
+            yield self._make_workchain_dataclass(process_info)
 
-            if self.extra_fields is not None:
-                pk = process_info["pk"]
-                extra_info = self.parse_extra_info(pk)
+    def _get_work_chain_info_from_pk(self, pk: int):
+        qb = CalculationQueryBuilder()
+        query_set = qb.get_query_set(
+            filters={"id": {"==": pk}},
+        )
+        projections = ["pk", "ctime", "state"]
+        projected = qb.get_projected(
+            query_set,
+            projections=projections,
+        )
 
-                yield make_dataclass(
-                    "WorkChain", self._BASE_FIELDS + self.extra_fields
-                )(**process_info, **extra_info)
-            else:
-                yield make_dataclass("WorkChain", self._BASE_FIELDS)(**process_info)
+        assert len(projected) == 2
+        process_info = dict(zip(projections, projected[1]))
+        return self._make_workchain_dataclass(process_info)
 
     @tl.default("busy")
     def _default_busy(self):
@@ -113,6 +131,17 @@ class WorkChainSelector(ipw.HBox):
             child.disabled = change["new"]
 
     def refresh_work_chains(self, _=None):
+        """Refresh to work chain selector, and optionally set a new value"""
+
+        # Return if we're already in the middle of refresh
+        # if self._refresh_lock.locked():
+        #    return
+
+        thread = threading.Thread(target=self._refresh_work_chains)
+        thread.start()
+
+    def _refresh_work_chains(self):
+        self._refresh_lock.acquire()
         try:
             self.set_trait("busy", True)  # disables the widget
 
@@ -130,7 +159,9 @@ class WorkChainSelector(ipw.HBox):
                 ]
 
                 self.work_chains_selector.value = original_value
+
         finally:
+            self._refresh_lock.release()
             self.set_trait("busy", False)  # reenable the widget
 
     @tl.observe("value")
@@ -140,7 +171,21 @@ class WorkChainSelector(ipw.HBox):
 
         new = self._NO_PROCESS if change["new"] is None else change["new"]
 
-        if new not in {pk for _, pk in self.work_chains_selector.options}:
-            self.refresh_work_chains()
+        if self.work_chains_selector.value == new:
+            return
 
-        self.work_chains_selector.value = new
+        with self._refresh_lock:
+            if new in {pk for _, pk in self.work_chains_selector.options}:
+                self.work_chains_selector.value = new
+            else:
+                # Instead of reloading the whole selector from scratch,
+                # we just add a new process at the top of it.
+                # This is to speed up the common case just after user submitted a new workchain.
+                with self.hold_trait_notifications():
+                    no_proc = self.work_chains_selector.options[0]
+                    all_procs = self.work_chains_selector.options[1:]
+                    wc = self._get_work_chain_info_from_pk(new)
+                    new_proc = (self.fmt_workchain.format(wc=wc), new)
+
+                    self.work_chains_selector.options = [no_proc, new_proc, *all_procs]
+                    self.work_chains_selector.value = new
