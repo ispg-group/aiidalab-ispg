@@ -12,7 +12,7 @@ https://www.rdkit.org/docs/source/rdkit.Chem.rdDistGeom.html?highlight=embedmult
 https://sourceforge.net/p/rdkit/mailman/rdkit-discuss/thread/CWLP265MB0818A57240D003F146E910798C680%40CWLP265MB0818.GBRP265.PROD.OUTLOOK.COM/#msg36584689
 
 Authors:
-    * Daniel Hollas <daniel.hollas@durham.ac.uk>
+    * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
 from enum import Enum, unique
