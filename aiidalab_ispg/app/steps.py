@@ -164,7 +164,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
                 self._update_step_state,
                 self._update_workflow_state,
             ],
-            on_sealed=[self._display_results],
+            on_sealed=[self._display_results, self._update_kill_button],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
