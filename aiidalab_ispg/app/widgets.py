@@ -314,7 +314,7 @@ class TrajectoryDataViewer(StructureDataViewer):
             return base64.b64encode(raw.read()).decode()
 
 
-# NOTE: TrajectoryManagerWidget will hopefully note be necessary once
+# NOTE: TrajectoryManagerWidget will hopefully not be necessary once
 # the trajectory viewer is merged to AWB
 class TrajectoryManagerWidget(StructureManagerWidget):
     SUPPORTED_DATA_FORMATS = {  # noqa: RUF012
