@@ -11,6 +11,7 @@ import ipywidgets as ipw
 import traitlets
 
 from aiida.engine import ProcessState
+from aiida.engine.processes.control import kill_processes
 from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
@@ -273,8 +274,6 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
         First kill the process, then update the kill button layout.
         """
-        from aiida.engine.processes.control import kill_processes
-
         self.kill_button.disabled = True
 
         workchain = [load_node(self.process_uuid)]

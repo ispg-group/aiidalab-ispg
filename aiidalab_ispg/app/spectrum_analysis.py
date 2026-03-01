@@ -22,6 +22,13 @@ from bokeh.models import LogAxis, LogScale, Range1d
 from .utils import BokehFigureContext
 from .widgets import HeaderWarning
 
+try:
+    # For numpy 1.x
+    from numpy import trapz as trapezoid
+except ImportError:
+    # for numpy >=2.4
+    from numpy import trapezoid
+
 
 @unique
 class ActinicFlux(Enum):
@@ -310,7 +317,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         )
         # Integrate the differential j plot to get the total rate.
         # Use trapezoid rule.
-        j_total = np.trapz(j_diff, x=wavelengths)
+        j_total = trapezoid(j_diff, x=wavelengths)
         self.total_rate.value = f"<b>{np.format_float_scientific(j_total, 3)}</b>"
 
         # Plot slightly smoothed j_diff to make it less rugged.

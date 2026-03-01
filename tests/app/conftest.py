@@ -6,8 +6,8 @@ from urllib.parse import urljoin
 
 import pytest
 import requests
+import requests.exceptions
 import selenium.webdriver.support.expected_conditions as EC
-from requests.exceptions import ConnectionError
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 
@@ -17,7 +17,7 @@ def is_responsive(url):
         response = requests.get(url, timeout=200)
         if response.status_code == 200:
             return True
-    except ConnectionError:
+    except requests.exceptions.ConnectionError:
         return False
 
 

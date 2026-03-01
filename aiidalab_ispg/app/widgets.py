@@ -9,6 +9,7 @@ import base64
 import io
 import re
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
 import ase
@@ -302,8 +303,6 @@ class TrajectoryDataViewer(StructureDataViewer):
     # TODO: Maybe we want to have a separate button for this?
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
-        from tempfile import NamedTemporaryFile
-
         file_format = file_format if file_format else self.file_format.value
         tmp = NamedTemporaryFile()
 

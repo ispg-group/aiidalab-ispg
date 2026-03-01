@@ -4,7 +4,10 @@ Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
+import base64
+import csv
 from enum import Enum, unique
+from tempfile import SpooledTemporaryFile
 
 import bokeh.plotting as plt
 import ipywidgets as ipw
@@ -332,7 +335,7 @@ class SpectrumWidget(ipw.VBox):
 
     def _download_spectrum(self, btn):
         """Download spectrum lines as CSV file"""
-        from IPython.display import Javascript, display
+        from IPython.display import Javascript, display  # noqa: PLC0415
 
         filename = "spectrum.tsv"
         if self.smiles:
@@ -354,10 +357,6 @@ class SpectrumWidget(ipw.VBox):
         display(js)
 
     def _prepare_tsv(self):
-        import base64
-        import csv
-        from tempfile import SpooledTemporaryFile
-
         column_names = [
             f"Energy / ({self.energy_unit_selector.value.value})",
             f"Cross section / {self.intensity_unit}, "
