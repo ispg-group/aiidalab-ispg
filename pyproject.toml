@@ -12,6 +12,7 @@ line-length = 88
 # TODO: Enable ruff for notebooks
 src = ["aiidalab_ispg", "tests"]
 target-version = "py39"
+extend-exclude = ["notebooks/workflow_workspace.ipynb"]
 
 [tool.ruff.lint]
 # Enable pyflakes and pyf-builtins, pyflakes, f=bugbear

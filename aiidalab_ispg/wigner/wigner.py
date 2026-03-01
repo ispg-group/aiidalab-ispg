@@ -9,6 +9,8 @@
 import copy
 import math
 import random
+import sys
+from pathlib import Path
 
 # some constants
 CM_TO_HARTREE = (
@@ -124,9 +126,8 @@ class Wigner:
                     norm += modes[imode]["move"][j][xyz] ** 2 * mass / U_TO_AMU
             norm = math.sqrt(norm)
             if norm == 0.0 and freq >= self.low_freq_thr:
-                raise ValueError(
-                    "Displacement vector of mode %i is null vector!" % (imode + 1)
-                )
+                msg = f"Displacement vector of mode {imode + 1} is null vector!"
+                raise ValueError(msg)
 
             converted_mode = copy.deepcopy(modes[imode])
             for j, mass in enumerate(masses):
@@ -150,7 +151,7 @@ class Wigner:
 
 # Below are functions for CLI standalone use
 def parse_cmd():
-    import argparse
+    import argparse  # noqa: PLC0415
 
     desc = "Program for harmonic Wigner sampling"
     prog = "harmonwig"
@@ -199,16 +200,12 @@ def parse_cmd():
 
 
 def error(msg: str):
-    import sys
-
     print(f"ERROR: {msg}")
     sys.exit(1)
 
 
 def read_qm_output(fname: str, fmt: str = "auto") -> dict:
-    from pathlib import Path
-
-    from cclib.io import ccread
+    from cclib.io import ccread  # noqa: PLC0415
 
     path = Path(fname)
     try:
