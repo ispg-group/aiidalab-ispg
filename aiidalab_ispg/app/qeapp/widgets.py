@@ -152,7 +152,7 @@ class FilenameDisplayWidget(ipw.Box):
             overflow:hidden;
             text-overflow:ellipsis;
             {width_style}">
-            {icon} {change['new']}
+            {icon} {change["new"]}
         </div>
         """
 
