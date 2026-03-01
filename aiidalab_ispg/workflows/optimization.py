@@ -18,8 +18,8 @@ Code = DataFactory("core.code.installed")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 __all__ = [
-    "RobustOptimizationWorkChain",
     "ConformerOptimizationWorkChain",
+    "RobustOptimizationWorkChain",
 ]
 
 

@@ -26,7 +26,7 @@ class StepState(Enum):
     FAIL = -1  # the step has unrecoverably failed
 
 
-@pytest.fixture()
+@pytest.fixture
 def check_step_status(selenium):
     ICONS = {
         StepState.INIT: "○",
@@ -48,7 +48,7 @@ def check_step_status(selenium):
     return _check_step_status
 
 
-@pytest.mark.tryfirst()
+@pytest.mark.tryfirst
 def test_post_install(notebook_service, aiidalab_exec, nb_user, appdir):
     aiidalab_exec("./post_install", workdir=appdir, user=nb_user)
 
