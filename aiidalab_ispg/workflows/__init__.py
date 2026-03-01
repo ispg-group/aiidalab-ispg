@@ -6,6 +6,6 @@ from .optimization import ConformerOptimizationWorkChain
 
 __all__ = [
     "AtmospecWorkChain",
-    "generate_wigner_structures",
     "ConformerOptimizationWorkChain",
+    "generate_wigner_structures",
 ]

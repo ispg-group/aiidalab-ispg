@@ -11,10 +11,10 @@ from .widgets import ISPGWorkChainSelector, TrajectoryDataViewer
 
 __all__ = [
     "ConformerSmilesWidget",
-    "TrajectoryDataViewer",
     "ISPGWorkChainSelector",
     "StructureSelectionStep",
     "SubmitAtmospecAppWorkChainStep",
+    "TrajectoryDataViewer",
     "ViewAtmospecAppWorkChainStatusAndResultsStep",
     "ViewSpectrumStep",
 ]

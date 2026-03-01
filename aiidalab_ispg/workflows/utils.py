@@ -14,11 +14,11 @@ from aiida.orm import (
 )
 
 __all__ = [
-    "add_orca_wf_guess",
     "ConcatInputsToList",
+    "add_orca_wf_guess",
+    "extract_trajectory_arrays",
     "pick_structure_from_trajectory",
     "structures_to_trajectory",
-    "extract_trajectory_arrays",
 ]
 
 AUtoEV = 27.2114386245
