@@ -47,7 +47,7 @@ ignore = ["ISC001", "E501", "S101", "PLR0913", "PLR2004",]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
 
 [tool.bumpver]
-current_version = "v0.2.4"
+current_version = "v0.2.5"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
 commit_message = "bump version {old_version} -> {new_version}"
 commit = true
