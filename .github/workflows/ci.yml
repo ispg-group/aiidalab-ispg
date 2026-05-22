@@ -36,8 +36,7 @@ jobs:
       fail-fast: false
     env:
       IMAGE: ${{ matrix.image }}
-      # Right now due to old AWB version we do not support the latest image with aiida-core=2.5.1
-      TAG: ${{ matrix.image == 'ghcr.io/aiidalab/full-stack' && 'aiida-2.4.3' || 'latest' }}
+      TAG: ${{ matrix.tag }}
 
     steps:
 
@@ -54,7 +53,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-            python-version: "3.10"
+            python-version: "3.12"
             cache: pip
             cache-dependency-path: |
               **/setup.cfg
