@@ -296,7 +296,7 @@ class WignerSamplingSettings(ipw.VBox):
 class OrbitalSettings(ipw.VBox):
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
-        <h4>Orbital Calculation</h4>
+        <h4>Generate NTOs</h4>
         </div>"""
     )
 
@@ -315,7 +315,7 @@ class OrbitalSettings(ipw.VBox):
         super().__init__(children=[self.title, self.calculate_orbitals])
 
     def reset(self):
-        self.charge.value = self._CALCULATE_ORBITALS_DEFAULT
+        self.calculate_orbitals.value = self._CALCULATE_ORBITALS_DEFAULT
 
 
 class CodeSettings(ipw.VBox):
