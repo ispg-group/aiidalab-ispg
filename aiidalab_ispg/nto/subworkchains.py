@@ -46,11 +46,17 @@ class NTOProcessingWorkChain(WorkChain):
             nto_data_node = SinglefileData(file=nto_file, filename=nto_filename)
 
         # Run orca_plot
+        # TODO: Need to figure out how to properly set PATH to orca_plot
         results, _node = launch_shell_job(
-            "orca_plot",
+            "/opt/orca/orca_plot",
             arguments=["{nto_data}", "-i"],
             nodes={"nto_data": nto_data_node, "plot_options": plot_options_node},
-            metadata={"options": {"filename_stdin": plot_options_node.filename}},
+            metadata={
+                "options": {
+                    "prepend_text": "export LD_LIBRARY_PATH=/opt/orca",
+                    "filename_stdin": plot_options_node.filename,
+                }
+            },
             outputs=["*.cube"],
         )
         # Extract the cube file from the results.

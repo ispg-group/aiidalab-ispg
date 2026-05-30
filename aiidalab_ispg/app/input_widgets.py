@@ -331,7 +331,6 @@ class CodeSettings(ipw.VBox):
     # In the order of priority, we will select the default ORCA code from these
     # First, we try to use SLURM on local machine, if available
     _DEFAULT_ORCA_CODES = ("orca@slurm", "orca@localhost")
-    _DEFAULT_ORCA_PLOT_CODES = "orca_plot@localhost"
 
     def __init__(self, **kwargs):
         self.orca = ComputationalResourcesWidget(
@@ -339,17 +338,11 @@ class CodeSettings(ipw.VBox):
             description="ORCA program",
         )
 
-        self.orca_plot = ComputationalResourcesWidget(
-            default_calc_job_plugin="orca.orca_plot",
-            description="ORCA plotting program",
-        )
-
         super().__init__(
             children=[
                 self.codes_title,
                 # self.codes_help,
                 self.orca,
-                self.orca_plot,
             ],
             **kwargs,
         )
@@ -374,21 +367,6 @@ class CodeSettings(ipw.VBox):
 
         if not self.orca.value:
             print("WARNING: ORCA code has not been found locally")
-
-        for code_label in self._DEFAULT_ORCA_PLOT_CODES:
-            try:
-                self.orca_plot.value = load_code(code_label).uuid
-                return
-            except (NotExistent, ValueError):
-                pass
-            except tl.TraitError:
-                # This can happen if one of the code/computers is not configured/enabled or hidden
-                # In practice, this happened to me locally when importing from production DB.
-                # https://github.com/ispg-group/aiidalab-ispg/issues/240
-                pass
-
-        if not self.orca_plot.value:
-            print("WARNING: ORCA_PLOT code has not been found locally")
 
     def reset(self):
         self._set_default_codes()

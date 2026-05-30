@@ -93,8 +93,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
 
         self.codes_selector.orca.observe(self._update_state, "value")
 
-        self.codes_selector.orca_plot.observe(self._update_state, "value")
-
         # Set defaults
         self._update_ui_from_parameters(DEFAULT_ATMOSPEC_PARAMETERS)
 
@@ -129,10 +127,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         """Validate input parameters"""
         # ORCA code not selected.
         if self.codes_selector.orca.value is None:
-            return False
-        return True
-
-        if self.codes_selector.orca_plot.value is None:
             return False
         return True
 
@@ -344,8 +338,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder = AtmospecWorkChain.get_builder()
 
         builder.code = load_code(self.codes_selector.orca.value)
-
-        builder.plot_code = load_code(self.codes_selector.orca_plot.value)
 
         builder.structure = self.input_structure
 

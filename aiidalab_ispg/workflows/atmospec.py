@@ -103,8 +103,6 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
 
         spec.input("code", valid_type=Code)
 
-        spec.input("plot_code", valid_type=Code)
-
         # Whether to perform geometry optimization
         spec.input(
             "optimize",
