@@ -290,7 +290,6 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         mdci_params["input_blocks"]["mdci"] = {
             "nroots": nroots,
             "maxcore": MEMORY_PER_CPU,
-            #             Calculate nto flag
             "donto": donto,
         }
         # TODO: For efficiency reasons, in might not be necessary to calculated left-vectors
@@ -309,10 +308,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         tddft_params["input_blocks"]["tddft"] = {
             "nroots": nroots,
             "maxcore": MEMORY_PER_CPU,
-            #             Calculate nto flag
             "donto": donto,
         }
-
         if es_method == ExcitedStateMethod.TDDFT:
             tddft_params["input_blocks"]["tddft"]["tda"] = "false"
         return tddft_params
@@ -338,9 +335,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder = AtmospecWorkChain.get_builder()
 
         builder.code = load_code(self.codes_selector.orca.value)
-
         builder.structure = self.input_structure
-
         base_orca_parameters = self.build_base_orca_params(bp)
         gs_opt_parameters = self._add_optimization_orca_params(
             base_orca_parameters, basis=bp.basis, gs_method=bp.method

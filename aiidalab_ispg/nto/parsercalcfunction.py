@@ -33,10 +33,9 @@ def parse_orca_output(nto_folder, filename="aiida.out", threshold=0, states="all
     match_state_nto = None
 
     # check if threshold is between 0 and 100%, reset if not
-    if threshold:
-        if threshold > 100 or threshold < 0:
-            print("Warning! Threshold out of range. Reset to 0.")
-            threshold = 0
+    if threshold and (threshold > 100 or threshold < 0):
+        print("Warning! Threshold out of range. Reset to 0.")
+        threshold = 0
 
     # open a file
     # check existence
@@ -119,9 +118,7 @@ def extract_text(
                     orblist = []
 
             # exit here
-            elif nto_string_start in sub_line:
-                break
-            elif state_string_end in sub_line:
+            elif nto_string_start in sub_line or state_string_end in sub_line:
                 break
     return sub_line, orblist, statedict
 

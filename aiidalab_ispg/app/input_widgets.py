@@ -337,7 +337,6 @@ class CodeSettings(ipw.VBox):
             default_calc_job_plugin="orca.orca",
             description="ORCA program",
         )
-
         super().__init__(
             children=[
                 self.codes_title,

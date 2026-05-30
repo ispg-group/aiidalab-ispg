@@ -60,7 +60,6 @@ class OrcaExcitationWorkChain(OrcaBaseWorkChain):
         )
 
     def extract_transitions_from_orca_output(self, orca_output_params):
-
         return {
             "oscillator_strengths": orca_output_params["etoscs"],
             # Orca returns excited state energies in cm^-1
@@ -98,9 +97,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             namespace="exc",
             exclude=["orca.structure", "orca.code"],
         )
-
         spec.input("structure", valid_type=(StructureData, TrajectoryData))
-
         spec.input("code", valid_type=Code)
 
         # Whether to perform geometry optimization
@@ -375,9 +372,7 @@ class AtmospecWorkChain(WorkChain):
         )
         for conf_id in self.inputs.structure.get_stepids():
             inputs.structure = self.inputs.structure.get_step_structure(conf_id)
-
             workflow = self.submit(OrcaWignerSpectrumWorkChain, **inputs)
-
             workflow.label = f"atmospec-conf-{conf_id}"
             self.to_context(confs=append_(workflow))
 

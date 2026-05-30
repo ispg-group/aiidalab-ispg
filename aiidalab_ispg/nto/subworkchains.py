@@ -78,9 +78,8 @@ def calc_compression(orig_file):
     # Cubehandler requires a local file to read from, so we create a temporary file.
     temp_in = Path("temp.cube")
     # Opening the original cube file.
-    with orig_file.open(mode="rb") as orig_handle:
-        with temp_in.open("wb") as temp_handle:
-            temp_handle.write(orig_handle.read())
+    with orig_file.open(mode="rb") as orig_handle, temp_in.open("wb") as temp_handle:
+        temp_handle.write(orig_handle.read())
 
     # Reading the original cube data.
     orig_cube = Cube.from_file(temp_in)
