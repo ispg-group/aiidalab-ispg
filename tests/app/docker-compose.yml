@@ -16,6 +16,8 @@ services:
             - ../..:/home/jovyan/apps/aiidalab-ispg
         ports:
             - 8998:8888
+        healthcheck:
+            disable: true
 
 volumes:
     aiidalab_ispg_pytest:

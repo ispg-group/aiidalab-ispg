@@ -11,6 +11,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 
 
+@pytest.fixture(scope="session")
+def docker_setup():
+    """Start compose without Docker's --wait; notebook_service handles readiness."""
+    return ["up --build -d"]
+
+
 def is_responsive(url):
     try:
         response = requests.get(url, timeout=200)
