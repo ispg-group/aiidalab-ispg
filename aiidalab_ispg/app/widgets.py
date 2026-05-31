@@ -380,8 +380,13 @@ class TrajectoryManagerWidget(StructureManagerWidget):
 
         self.output = ipw.HTML("")
 
+        # Compatibility for AWB 2.3.1 and lower
+        importers_widget = self._structure_importers(importers)
+        if isinstance(importers_widget, list):
+            importers_widget = importers_widget[0]
+
         children = [
-            self._structure_importers(importers),
+            importers_widget,
             self.viewer,
             ipw.HBox(
                 [
@@ -390,9 +395,10 @@ class TrajectoryManagerWidget(StructureManagerWidget):
                     self.structure_description,
                 ]
             ),
+            self.output,
         ]
 
-        super(ipw.VBox, self).__init__(children=[*children, self.output], **kwargs)
+        super(ipw.VBox, self).__init__(children=children, **kwargs)
 
     def _convert_to_structure_node(self, structure):
         """Convert structure of any type to the StructureNode object."""
