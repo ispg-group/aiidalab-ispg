@@ -322,10 +322,7 @@ class CodeSettings(ipw.VBox):
             ],
             **kwargs,
         )
-        # WARNING: The on_displayed method has been removed in ipywidgets 8.0!!!
-        # https://github.com/jupyter-widgets/ipywidgets/issues/3451
-        # https://github.com/jupyter-widgets/ipywidgets/pull/2021
-        self.on_displayed(self._set_default_codes)
+        self._set_default_codes()
 
     # Extra dummy parameter is needed since this is called via on_displayed
     def _set_default_codes(self, _=None):
