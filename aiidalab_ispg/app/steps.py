@@ -9,7 +9,6 @@ import re
 
 import ipywidgets as ipw
 import traitlets
-from IPython.display import clear_output
 
 from aiida.engine import ProcessState
 from aiida.engine.processes.control import kill_processes
@@ -132,21 +131,6 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             self.input_structure = None
 
 
-# HOTFIX: Widget was not being cleared when "node = None"
-class ISPGAiidaNodeViewWidget(AiidaNodeViewWidget):
-    @traitlets.observe("node")
-    def _observe_node(self, change):
-        node = change["new"]
-        if node == change["old"]:
-            return
-        if not node:
-            with self._output:
-                clear_output()
-            self.children = []
-            return
-        super()._observe_node(change)
-
-
 class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     """Widget for displaying the whole workflow as it runs"""
 
@@ -167,9 +151,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         self.tree_toggle.observe(self._observe_tree_toggle, names="value")
 
-        self.node_view = ISPGAiidaNodeViewWidget(
-            layout={"width": "auto", "height": "auto"}
-        )
+        self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
             (self.process_tree, "selected_nodes"),
             (self.node_view, "node"),
