@@ -296,7 +296,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
 
         workchain = [load_node(self.process_uuid)]
         # TODO: Wait for a bit here
-        kill_processes(workchain, wait=False)
+        kill_processes(workchain)
 
         # update the kill button layout
         self._update_kill_button()
