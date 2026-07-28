@@ -260,7 +260,11 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             "charge": params.charge,
             "multiplicity": params.multiplicity,
             "input_blocks": {
-                "scf": {"convergence": "tight", "ConvForced": "true"},
+                "scf": {
+                    "convergence": "tight",
+                    "ConvForced": "true",
+                    "maxcore": MEMORY_PER_CPU,
+                },
             },
             "input_keywords": input_keywords,
         }
