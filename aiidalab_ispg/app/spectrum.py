@@ -335,7 +335,7 @@ class SpectrumWidget(ipw.VBox):
 
     def _download_spectrum(self, btn):
         """Download spectrum lines as CSV file"""
-        from IPython.display import Javascript, display  # noqa: PLC0415
+        from IPython.display import Javascript, display
 
         filename = "spectrum.tsv"
         if self.smiles:
@@ -359,8 +359,10 @@ class SpectrumWidget(ipw.VBox):
     def _prepare_tsv(self):
         column_names = [
             f"Energy / ({self.energy_unit_selector.value.value})",
-            f"Cross section / {self.intensity_unit}, "
-            f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV",
+            (
+                f"Cross section / {self.intensity_unit}, "
+                f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV"
+            ),
         ]
 
         f = self.figure.get_figure()
@@ -706,7 +708,7 @@ class SpectrumWidget(ipw.VBox):
             return TrajectoryData(structurelist=(structures,))
         else:
             msg = f"Unsupported type {type(structures)}"
-            raise ValueError(msg)
+            raise TypeError(msg)
 
     @traitlets.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):

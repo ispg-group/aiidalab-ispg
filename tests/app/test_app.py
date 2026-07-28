@@ -1,4 +1,3 @@
-# ruff: noqa: INP001
 from enum import Enum
 from pathlib import Path
 
@@ -33,7 +32,7 @@ def check_step_status(selenium):
         StepState.READY: "◎",
         StepState.CONFIGURED: "●",
         StepState.SUCCESS: "✓",
-        StepState.FAIL: "×",  # noqa: RUF001
+        StepState.FAIL: "×",
         # The ACTIVE state is "animated", see aiidalab_widgets_base/wizard.py,
         # hence we cannot use it in tests.
         # WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],

@@ -9,7 +9,6 @@ import re
 
 import ipywidgets as ipw
 import traitlets
-from IPython.display import clear_output
 
 from aiida.engine import ProcessState
 from aiida.engine.processes.control import ProcessTimeoutException, kill_processes
@@ -132,21 +131,6 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
             self.input_structure = None
 
 
-# HOTFIX: Widget was not being cleared when "node = None"
-class ISPGAiidaNodeViewWidget(AiidaNodeViewWidget):
-    @traitlets.observe("node")
-    def _observe_node(self, change):
-        node = change["new"]
-        if node == change["old"]:
-            return
-        if not node:
-            with self._output:
-                clear_output()
-            self.children = []
-            return
-        super()._observe_node(change)
-
-
 class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
     """Widget for displaying the whole workflow as it runs"""
 
@@ -167,9 +151,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         )
         self.tree_toggle.observe(self._observe_tree_toggle, names="value")
 
-        self.node_view = ISPGAiidaNodeViewWidget(
-            layout={"width": "auto", "height": "auto"}
-        )
+        self.node_view = AiidaNodeViewWidget(layout={"width": "auto", "height": "auto"})
         ipw.dlink(
             (self.process_tree, "selected_nodes"),
             (self.node_view, "node"),
@@ -384,12 +366,11 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         smiles = process.inputs.structure.base.extras.get("smiles", None)
         self.spectrum.smiles = smiles
-        if smiles:
-            # We're attaching smiles extra for the optimized structures as well
-            # NOTE: You can distinguish between new / optimized geometries
-            # by looking at the 'creator' attribute of the Structure node.
-            if "relaxed_structures" in process.outputs:
-                process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
+        # Attach SMILES extra for the optimized structures as well.
+        # NOTE: You can distinguish between new / optimized geometries
+        # by looking at the 'creator' attribute of the Structure node.
+        if smiles and "relaxed_structures" in process.outputs:
+            process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
         if process.inputs.optimize:
             assert nconf == len(process.outputs.relaxed_structures.get_stepids())

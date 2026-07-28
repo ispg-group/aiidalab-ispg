@@ -315,7 +315,7 @@ class CalcJobOutputFollower(traitlets.HasTraits):
         while True:
             try:
                 lines = self._fetch_output(calcjob)
-            except Exception as error:
+            except Exception as error:  # noqa: BLE001
                 self._output_queue.put([f"[ERROR: {error}]"])
             else:
                 self._output_queue.put(lines[lineno:])
