@@ -51,7 +51,7 @@ def get_formula(data_node):
         return data_node.get_ase().get_chemical_formula()
     else:
         msg = f"Cannot get formula from node {type(data_node)}"
-        raise ValueError(msg)
+        raise TypeError(msg)
 
 
 # https://stackoverflow.com/a/3382369

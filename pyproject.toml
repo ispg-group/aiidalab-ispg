@@ -16,7 +16,7 @@ extend-exclude = ["notebooks/workflow_workspace.ipynb"]
 
 [tool.ruff.lint]
 # Enable pyflakes and pyf-builtins, pyflakes, f=bugbear
-select = [
+extend-select = [
     "A",    # flake8-builtins
     "B",    # flake8-bugbear
     "E",    # pycodestyle
@@ -41,7 +41,7 @@ select = [
 # S101 Use of assert detected
 # PLR0913 Too many arguments in function definition
 # PLR2004 Magic value used in comparison
-ignore = ["ISC001", "E501", "S101", "PLR0913", "PLR2004",]
+ignore = ["ISC001", "E501", "S101", "PLR0913", "PLR2004", "PLR0917"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
