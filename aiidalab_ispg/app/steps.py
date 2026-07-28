@@ -11,7 +11,7 @@ import ipywidgets as ipw
 import traitlets
 
 from aiida.engine import ProcessState
-from aiida.engine.processes.control import kill_processes
+from aiida.engine.processes.control import ProcessTimeoutException, kill_processes
 from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
@@ -165,7 +165,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
                 self._update_step_state,
                 self._update_workflow_state,
             ],
-            on_sealed=[self._display_results],
+            on_sealed=[self._display_results, self._update_kill_button],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
@@ -277,8 +277,14 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         self.kill_button.disabled = True
 
         workchain = [load_node(self.process_uuid)]
-        # TODO: Wait for a bit here
-        kill_processes(workchain, wait=False)
+        try:
+            # TODO: Do this in a thread!
+            # Wait for 5 seconds
+            kill_processes(workchain, timeout=5)
+        except ProcessTimeoutException:
+            # TODO: Print a warning message
+            # Should we enable the button so that user can try again?
+            pass
 
         # update the kill button layout
         self._update_kill_button()
