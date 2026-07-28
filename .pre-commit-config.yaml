@@ -19,7 +19,7 @@ repos:
     rev: v0.16.0
     hooks:
     - id: ruff-check
-      args: [--output-format=full, --fix, --unsafe-fixes]
+      args: [--output-format=full, --fix, --exit-non-zero-on-fix]
     - id: ruff-format
 
   - repo: https://github.com/kynan/nbstripout

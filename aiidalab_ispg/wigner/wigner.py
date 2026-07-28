@@ -151,7 +151,7 @@ class Wigner:
 
 # Below are functions for CLI standalone use
 def parse_cmd():
-    import argparse  # noqa: PLC0415
+    import argparse
 
     desc = "Program for harmonic Wigner sampling"
     prog = "harmonwig"
@@ -205,7 +205,7 @@ def error(msg: str):
 
 
 def read_qm_output(fname: str, fmt: str = "auto") -> dict:
-    from cclib.io import ccread  # noqa: PLC0415
+    from cclib.io import ccread
 
     path = Path(fname)
     try:

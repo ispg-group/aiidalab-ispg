@@ -335,7 +335,7 @@ class SpectrumWidget(ipw.VBox):
 
     def _download_spectrum(self, btn):
         """Download spectrum lines as CSV file"""
-        from IPython.display import Javascript, display  # noqa: PLC0415
+        from IPython.display import Javascript, display
 
         filename = "spectrum.tsv"
         if self.smiles:
