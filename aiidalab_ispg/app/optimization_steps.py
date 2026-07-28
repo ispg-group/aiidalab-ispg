@@ -77,9 +77,7 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
         # ORCA code not selected.
-        if self.code_settings.orca.value is None:
-            return False
-        return True
+        return self.code_settings.orca.value is not None
 
     def _update_ui_from_parameters(self, parameters: OptimizationParameters) -> None:
         """Update UI widgets according to builder parameters.

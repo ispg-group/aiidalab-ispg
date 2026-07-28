@@ -1,4 +1,3 @@
-# ruff: noqa: INP001
 # This script needs to be run with `verdi run`
 import argparse
 import sys
