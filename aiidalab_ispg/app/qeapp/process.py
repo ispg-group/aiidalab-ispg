@@ -10,6 +10,10 @@ import traitlets as tl
 
 from aiida.tools.query.calculation import CalculationQueryBuilder
 
+# Limit the number of workchains that we should in the selector
+# This is a very crude bandaid for the fact that loading all workchains in the selector is potentially very slow.
+PAST_DAYS = 100000
+
 
 class WorkChainSelector(ipw.HBox):
     """A widget to select a WorkChainNode of a given process label.
@@ -96,6 +100,7 @@ class WorkChainSelector(ipw.HBox):
         query_set = builder.get_query_set(
             filters=filters,
             order_by={"ctime": "desc"},
+            past_days=PAST_DAYS,
         )
         projections = ["pk", "ctime", "state"]
         projected = builder.get_projected(

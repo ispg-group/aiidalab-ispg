@@ -9,6 +9,8 @@ from aiida.common import NotExistent
 from aiida.orm import load_code
 from aiidalab_widgets_base import ComputationalResourcesWidget
 
+from .utils import NCPUS
+
 # Taken from ORCA-5.0 manual, section 9.41
 PCM_SOLVENT_LIST = (
     "None",
@@ -367,8 +369,16 @@ class ResourceSelectionWidget(ipw.VBox):
             # "layout": {"max_width": "200px"},
         }
 
+        # TODO: The maximum is determined by the number of CPUs on the local machine,
+        # which doesn't make sense if user configured a remote computer!
+        # This widget needs to be tied to the selected code and computer instead of being independent.
         self.num_mpi_tasks = ipw.BoundedIntText(
-            value=1, step=1, min=1, max=16, description="Number of MPI tasks", **extra
+            value=1,
+            step=1,
+            min=1,
+            max=NCPUS,
+            description="Number of MPI tasks",
+            **extra,
         )
 
         super().__init__(
