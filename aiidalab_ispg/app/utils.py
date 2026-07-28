@@ -2,6 +2,7 @@ import math
 
 import bokeh.io
 import ipywidgets as ipw
+import psutil
 
 from aiida.plugins import DataFactory
 
@@ -21,11 +22,18 @@ EVtoKJ = AUtoKCAL * KCALtoKJ / AUtoEV
 # Molar gas constant, Avogadro times Boltzmann
 R = 8.3144598
 
-# TODO: Make this configurable
-# Safe default for 8 core, 32Gb machine
-# TODO: Figure out how to make this work as a global keyword
+# Determine the number of CPUS and total memory of the machine we're running on
+# TODO: This is very fragile, and assumes the user runs calculations locally
+# and not on a remote computer. We should somehow make this configurable.
+# TODO: Figure out how to make this work as a global keyword in ORCA.
 # https://github.com/pzarabadip/aiida-orca/issues/45
-MEMORY_PER_CPU = 3000  # Mb
+_total_memory_mb = int(psutil.virtual_memory().total / 1024**2)
+# NOTE: We're assuming that the user will not use hyperthreading here,
+# so we only count physical CPU cores.
+if not (NCPUS := psutil.cpu_count(logical=False)):
+    NCPUS = 1
+# Reserve 2Gb for system operations, but give orca at least 500Mb
+MEMORY_PER_CPU = max((_total_memory_mb - 2000) // NCPUS, 500)  # Mb
 
 
 # TODO: Use numpy here? Measure the speed...
