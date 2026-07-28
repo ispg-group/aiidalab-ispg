@@ -31,7 +31,11 @@ _total_memory_mb = int(psutil.virtual_memory().total / 1024**2)
 # NOTE: We're assuming that the user will not use hyperthreading here,
 # so we only count physical CPU cores.
 if not (NCPUS := psutil.cpu_count(logical=False)):
+    # Fallback if we fail to determine the number of CPUs
     NCPUS = 1
+else:
+    # Reserve 2 cores for AiiDAlab and OS
+    NCPUS = max(NCPUS - 2, 1)
 # Reserve 2Gb for system operations, but give orca at least 500Mb
 MEMORY_PER_CPU = max((_total_memory_mb - 2000) // NCPUS, 500)  # Mb
 
