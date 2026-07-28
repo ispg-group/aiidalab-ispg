@@ -1,4 +1,3 @@
-# ruff: noqa: INP001
 import os
 import time
 from pathlib import Path

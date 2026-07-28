@@ -232,9 +232,7 @@ class ConformerSmilesWidget(SmilesWidget):
         return selected_conformers, selected_energies
 
     # TODO: Refactor this to smaller functions
-    def _rdkit_opt(  # noqa: C901, PLR0912
-        self, smiles, steps, algo=RDKitMethod.ETKDGV1, opt_algo=None
-    ):
+    def _rdkit_opt(self, smiles, steps, algo=RDKitMethod.ETKDGV1, opt_algo=None):
         """Optimize a molecule using force field and rdkit (needed for complex SMILES)."""
 
         if self.debug:

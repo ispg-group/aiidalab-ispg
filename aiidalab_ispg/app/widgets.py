@@ -5,12 +5,13 @@ Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
+from __future__ import annotations
+
 import base64
 import io
 import re
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Optional
 
 import ase
 import ipywidgets as ipw
@@ -105,9 +106,7 @@ class ISPGNodesTreeWidget(NodesTreeWidget):
         # To make the Workflow tree less confusing, we do not display calcfunctions.
         # The only exception to this is the calcfunction for generating Wigner sampling,
         # which is handled above.
-        if isinstance(node, CalcFunctionNode):
-            return False
-        return True
+        return not isinstance(node, CalcFunctionNode)
 
     @staticmethod
     def extract_node_name(node):
@@ -171,8 +170,8 @@ class TrajectoryDataViewer(StructureDataViewer):
 
     # TODO: Should probably be tuple instead
     _structures: list[StructureData] = []  # noqa: RUF012
-    _energies: Optional[np.ndarray] = None
-    _boltzmann_weights: Optional[np.ndarray] = None
+    _energies: np.ndarray | None = None
+    _boltzmann_weights: np.ndarray | None = None
 
     def __init__(self, trajectory=None, configuration_tabs=None, **kwargs):
         if configuration_tabs is None:
@@ -304,13 +303,12 @@ class TrajectoryDataViewer(StructureDataViewer):
     def _prepare_payload(self, file_format=None):
         """Prepare binary information."""
         file_format = file_format if file_format else self.file_format.value
-        tmp = NamedTemporaryFile()
+        with NamedTemporaryFile() as tmp:
+            for struct in self._structures:
+                struct.get_ase().write(tmp.name, format=file_format, append=True)
 
-        for struct in self._structures:
-            struct.get_ase().write(tmp.name, format=file_format, append=True)
-
-        with Path(tmp.name).open("rb") as raw:
-            return base64.b64encode(raw.read()).decode()
+            with Path(tmp.name).open("rb") as raw:
+                return base64.b64encode(raw.read()).decode()
 
 
 # NOTE: TrajectoryManagerWidget will hopefully not be necessary once

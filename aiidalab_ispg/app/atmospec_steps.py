@@ -119,18 +119,14 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
     def _validate_input_parameters(self) -> bool:
         """Validate input parameters"""
         # ORCA code not selected.
-        if self.codes_selector.orca.value is None:
-            return False
-        return True
+        return self.codes_selector.orca.value is not None
 
     def _wigner_allowed(self):
         # Do not allow Wigner sampling for EOM-CCSD
         if self.excited_state_settings.excited_method.value is ExcitedStateMethod.CCSD:
             return False
         # Can't do Wigner sampling if we don't have frequencies
-        if not self.geometry_settings.optimize.value:
-            return False
-        return True
+        return self.geometry_settings.optimize.value
 
     def _observe_optimize(self, change):
         # If we don't optimize the molecule, we cannot do Wigner sampling
