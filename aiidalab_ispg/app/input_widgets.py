@@ -324,7 +324,6 @@ class CodeSettings(ipw.VBox):
         )
         self._set_default_codes()
 
-    # Extra dummy parameter is needed since this is called via on_displayed
     def _set_default_codes(self, _=None):
         for code_label in self._DEFAULT_ORCA_CODES:
             try:
