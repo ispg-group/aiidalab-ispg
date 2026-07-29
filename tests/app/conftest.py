@@ -106,7 +106,13 @@ def selenium_driver(selenium, notebook_service):
 @pytest.fixture
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
-        smiles_input = WebDriverWait(selenium, 10).until(
+        # Open Step 1
+        WebDriverWait(selenium, 10).until(
+            EC.element_to_be_clickable(
+                (By.CSS_SELECTOR, "div.jupyter-widget-Collapse:nth-child(1)")
+            )
+        ).click()
+        smiles_input = WebDriverWait(selenium, 5).until(
             EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='C=C']"))
         )
         smiles_input.clear()
