@@ -107,7 +107,8 @@ def selenium_driver(selenium, notebook_service):
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
         smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
-        smiles_input.clear()
+        print(smiles_input)
+        # smiles_input.clear()
         smiles_input.send_keys(smiles)
         WebDriverWait(selenium, 10).until(
             EC.element_to_be_clickable(
