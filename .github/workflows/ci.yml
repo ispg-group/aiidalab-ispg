@@ -34,7 +34,7 @@ jobs:
         image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
         include:
-          - tag: pr-479
+          - tag: edge
             image: "ghcr.io/aiidalab/full-stack"
             browser: Chrome
       fail-fast: false
