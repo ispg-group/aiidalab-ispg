@@ -341,11 +341,23 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         # Number of conformers
         nconf = len(process.inputs.structure.get_stepids())
+        optimized = process.inputs.optimize
+        # TODO: If the input geometries were not optimized, we should treat them
+        # as samples, not conformers!
         # Number of Wigner geometries per conformer
-        nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
+        wigner_sampled = optimized and process.inputs.nwigner.value > 0
+        if wigner_sampled:
+            nsample = process.inputs.nwigner.value
+        else:
+            nsample = 1
+
+        # Unfortunately, we don't have number of states as attribute in process.inputs
+        nstates = None
+        if bp := process.base.extras.get("builder_parameters", None):
+            nstates = bp["nstates"]
 
         # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
-        if nconf > 1 and process.inputs.optimize:
+        if nconf > 1 and optimized:
             conformer_weights = process.outputs.relaxed_structures.get_array(
                 "boltzmann_weights"
             )
@@ -353,6 +365,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             equal_weight = 1.0 / nconf
             conformer_weights = [equal_weight for i in range(nconf)]
 
+        # TODO: Have a better type for this (dataclass?)
         conformer_transitions = [
             {
                 "transitions": self._wigner_output_to_transitions(conformer),
@@ -361,6 +374,18 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             }
             for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
         ]
+
+        # Make sure our data is consistent
+        assert nconf == len(conformer_transitions), (
+            f"{nconf=} != {len(conformer_transitions)=}"
+        )
+        if nstates:
+            for c in conformer_transitions:
+                trans = c["transitions"]
+                nsample = c["nsample"]
+                assert nsample * nstates == len(trans), (
+                    f"{nstates * nsample=} != {len(trans)=}: {trans=}"
+                )
 
         self.spectrum.conformer_transitions = conformer_transitions
 
@@ -372,7 +397,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if smiles and "relaxed_structures" in process.outputs:
             process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
-        if process.inputs.optimize:
+        if optimized:
             assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
@@ -421,8 +446,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )
-            if process.inputs.optimize and process.inputs.nwigner > 0:
-                self.header.value += f", {process.inputs.nwigner.value} Wigner samples"
+            if process.inputs.optimize and (nwigner := process.inputs.nwigner.value):
+                self.header.value += f", {nwigner} Wigner samples"
 
     def _update_state(self):
         if self.process_uuid is None:

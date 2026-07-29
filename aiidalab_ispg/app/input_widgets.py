@@ -286,6 +286,7 @@ class WignerSamplingSettings(ipw.VBox):
         if change["new"]:
             self.nwigner.disabled = True
             self.wigner_low_freq_thr.disabled = True
+            self.nwigner.value = 0
         else:
             self.nwigner.disabled = False
             self.wigner_low_freq_thr.disabled = False
