@@ -40,7 +40,6 @@ DISABLE_XTB = False
 try:
     from xtb.ase.calculator import XTB
 except ImportError:
-    print("WARNING: xTB optimization not supported")
     DISABLE_XTB = True
 
 
