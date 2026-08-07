@@ -17,7 +17,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.9"
+          activate-environment: true
+
+      - name: Install app for type checking
+        run: uv pip install -e .[dev]
+
       - uses: j178/prek-action@v3.0.0
+
 
   test-app:
 

@@ -12,7 +12,12 @@ import traitlets
 
 from aiida.engine import ProcessState
 from aiida.engine.processes.control import ProcessTimeoutException, kill_processes
-from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
+from aiida.orm import (
+    ProcessNode,
+    StructureData,
+    TrajectoryData,
+    load_node,
+)
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ProcessMonitor,
@@ -56,7 +61,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    process = traitlets.Instance(WorkChainNode, allow_none=True)
+    process = traitlets.Instance(ProcessNode, allow_none=True)
     disabled = traitlets.Bool()
 
     def __init__(self, components=None, **kwargs):
@@ -281,7 +286,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         try:
             # TODO: Do this in a thread!
             # Wait for 5 seconds
-            kill_processes(workchain, timeout=5)
+            kill_processes(workchain, timeout=5)  # ty: ignore[invalid-argument-type]
         except ProcessTimeoutException:
             # TODO: Print a warning message
             # Should we enable the button so that user can try again?
@@ -322,7 +327,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             for tr in zip(en, osc)
         ]
 
-    def _wigner_output_to_transitions(self, wigner_outputs):
+    def _wigner_output_to_transitions(self, wigner_outputs) -> list:
         transitions = []
         for i, params in enumerate(wigner_outputs):
             transitions += self._orca_output_to_transitions(params, i)
@@ -382,7 +387,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         )
         if nstates:
             for c in conformer_transitions:
-                trans = c["transitions"]
+                trans: list = c["transitions"]  # ty: ignore[invalid-assignment]
                 nsample = c["nsample"]
                 assert nsample * nstates == len(trans), (
                     f"{nstates * nsample=} != {len(trans)=}: {trans=}"

@@ -236,9 +236,9 @@ class ExcitedStateSettings(ipw.VBox):
 
     def reset(self):
         self.excited_method.value = self._DEFAULT_EXCITED_METHOD
-        self.method.value = self._DEFAULT_FUNCTIONAL
+        self.tddft_functional.value = self._DEFAULT_FUNCTIONAL
         self.basis.value = self._DEFAULT_BASIS
-        self.nstate.value = self._DEFAULT_NSTATES
+        self.nstates.value = self._DEFAULT_NSTATES
 
 
 class WignerSamplingSettings(ipw.VBox):

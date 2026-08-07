@@ -249,11 +249,11 @@ class ConformerSmilesWidget(SmilesWidget):
 
         # https://www.rdkit.org/docs/Cookbook.html?highlight=allchem%20embedmultipleconfs#conformer-generation-with-etkdg
         if algo == RDKitMethod.ETKDGV1:
-            params = AllChem.ETKDG()
+            params = AllChem.ETKDG()  # ty: ignore[unresolved-attribute]
         elif algo == RDKitMethod.ETKDGV2:
-            params = AllChem.ETKDGv2()
+            params = AllChem.ETKDGv2()  # ty: ignore[unresolved-attribute]
         elif algo == RDKitMethod.ETKDGV3:
-            params = AllChem.ETKDGv3()
+            params = AllChem.ETKDGv3()  # ty: ignore[unresolved-attribute]
 
         # TODO: This should probably be lower, but we need to implement filtering after optimization as well
         params.pruneRmsThresh = 0.1
@@ -261,7 +261,7 @@ class ConformerSmilesWidget(SmilesWidget):
         params.randomSeed = 422
         # TODO: Determine the num_confs parameter adaptively based on the molecule size
         num_confs = 20
-        conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, params=params)
+        conf_ids = AllChem.EmbedMultipleConfs(mol, numConfs=num_confs, params=params)  # ty: ignore[unresolved-attribute]
 
         # Not sure what is the fail condition here
         if len(conf_ids) == 0:
@@ -269,7 +269,7 @@ class ConformerSmilesWidget(SmilesWidget):
             # https://sourceforge.net/p/rdkit/mailman/message/21776083/
             self.output.value += "Embedding failed, retrying with random coordinates."
             params.useRandomCoords = True
-            conf_ids = AllChem.EmbedMultipleConfs(
+            conf_ids = AllChem.EmbedMultipleConfs(  # ty: ignore[unresolved-attribute]
                 mol, numConfs=num_confs, params=params
             )
         if len(conf_ids) == 0:
@@ -277,16 +277,16 @@ class ConformerSmilesWidget(SmilesWidget):
             raise ValueError(msg)
 
         ffenergies = None
-        if opt_algo == FFMethod.UFF and AllChem.UFFHasAllMoleculeParams(mol):
+        if opt_algo == FFMethod.UFF and AllChem.UFFHasAllMoleculeParams(mol):  # ty: ignore[unresolved-attribute]
             # https://www.rdkit.org/docs/source/rdkit.Chem.rdForceFieldHelpers.html?highlight=uff#rdkit.Chem.rdForceFieldHelpers.UFFOptimizeMoleculeConfs
-            conf_opt = AllChem.UFFOptimizeMoleculeConfs(
+            conf_opt = AllChem.UFFOptimizeMoleculeConfs(  # ty: ignore[unresolved-attribute]
                 mol, maxIters=steps, numThreads=1
             )
             ffenergies = [KCALtoKJ * energy for _, energy in conf_opt]
 
         elif opt_algo in (FFMethod.MMFF94, FFMethod.MMFF94s):
-            if AllChem.MMFFHasAllMoleculeParams(mol):
-                conf_opt = AllChem.MMFFOptimizeMoleculeConfs(
+            if AllChem.MMFFHasAllMoleculeParams(mol):  # ty: ignore[unresolved-attribute]
+                conf_opt = AllChem.MMFFOptimizeMoleculeConfs(  # ty: ignore[unresolved-attribute]
                     mol, mmffVariant=opt_algo.value, maxIters=steps
                 )
                 ffenergies = [KCALtoKJ * energy for _, energy in conf_opt]
@@ -316,6 +316,6 @@ class ConformerSmilesWidget(SmilesWidget):
                 conformers, ffenergies
             )
             if self.debug:
-                print(f"{opt_algo.value} energies")
+                print(f"{opt_algo.value} energies")  # ty: ignore[unresolved-attribute]
                 print(ffenergies)
         return conformers, ffenergies

@@ -27,7 +27,7 @@ try:
     from numpy import trapz as trapezoid
 except ImportError:
     # for numpy >=2.4
-    from numpy import trapezoid
+    from numpy import trapezoid  # ty: ignore[unresolved-import]
 
 
 @unique
@@ -40,7 +40,7 @@ class ActinicFlux(Enum):
 class SpectrumAnalysisWidget(ipw.VBox):
     """A container class for organizing various analysis widgets"""
 
-    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
+    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)  # ty: ignore[invalid-argument-type]
 
     cross_section_nm = tl.Dict(allow_none=True, default=None)
 
@@ -87,7 +87,7 @@ class DensityPlotWidget(ipw.VBox):
     and oscillator strenghts.
     """
 
-    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)
+    conformer_transitions = tl.List(trait=tl.Dict, allow_none=True, default=None)  # ty: ignore[invalid-argument-type]
     disabled = tl.Bool(default=True)
 
     _BOKEH_LABEL = "energy-osc"

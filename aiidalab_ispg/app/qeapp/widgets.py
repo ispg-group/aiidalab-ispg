@@ -237,7 +237,7 @@ class LogOutputWidget(ipw.VBox):
 class CalcJobOutputFollower(traitlets.HasTraits):
     calcjob_uuid = traitlets.Unicode(allow_none=True)
     filename = traitlets.Unicode(allow_none=True)
-    output = traitlets.List(trait=traitlets.Unicode)
+    output = traitlets.List(trait=traitlets.Unicode)  # ty: ignore[invalid-argument-type]
     lineno = traitlets.Int()
 
     def __init__(self, **kwargs):
