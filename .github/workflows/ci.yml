@@ -80,3 +80,32 @@ jobs:
           name: Screenshots-${{env.IMAGE_NAME}}-${{ matrix.tag }}-${{ matrix.browser }}
           path: screenshots/
           if-no-files-found: error
+
+
+  unit-tests:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      packages: read
+      contents: read
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.12']
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+
+      - name: Smoke test spectrum.py
+        run: uv run -s aiidalab_ispg/app/spectrum.py -h
+
+      - name: Smoke test wigner.py
+        run: uv run -s aiidalab_ispg/wigner/wigner.py -h
