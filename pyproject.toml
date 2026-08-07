@@ -15,6 +15,9 @@ target-version = "py39"
 [tool.ruff.lint.isort]
 known-first-party = ["aiida", "aiidalab_widgets_base"]
 
+[tool.ty.environment]
+python-version = "3.9"
+
 [tool.bumpver]
 current_version = "v0.2.6"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
