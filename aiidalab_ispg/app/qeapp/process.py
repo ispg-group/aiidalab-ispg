@@ -190,7 +190,7 @@ class WorkChainSelector(ipw.HBox):
                 with self.hold_trait_notifications():
                     no_proc = self.work_chains_selector.options[0]
                     all_procs = self.work_chains_selector.options[1:]
-                    wc = self._get_work_chain_info_from_pk(new)
+                    wc = self._get_work_chain_info_from_pk(new)  # ty: ignore[invalid-argument-type]
                     new_proc = (self.fmt_workchain.format(wc=wc), new)
 
                     self.work_chains_selector.options = [no_proc, new_proc, *all_procs]

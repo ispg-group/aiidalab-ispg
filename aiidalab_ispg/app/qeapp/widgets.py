@@ -158,7 +158,7 @@ class FilenameDisplayWidget(ipw.Box):
 
 
 class LogOutputWidget(ipw.VBox):
-    filename = traitlets.Unicode()
+    filename = traitlets.Unicode(allow_none=True)
     value = traitlets.Unicode()
 
     def __init__(self, placeholder=None, **kwargs):

@@ -27,7 +27,7 @@ try:
     from numpy import trapz as trapezoid
 except ImportError:
     # for numpy >=2.4
-    from numpy import trapezoid
+    from numpy import trapezoid  # ty: ignore[unresolved-import]
 
 
 @unique

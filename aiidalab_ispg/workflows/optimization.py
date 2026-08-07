@@ -25,7 +25,7 @@ __all__ = [
 
 # TODO: For now this is just a plain optimization,
 # the "robust" part needs to be implemented
-class RobustOptimizationWorkChain(OrcaBaseWorkChain):
+class RobustOptimizationWorkChain(OrcaBaseWorkChain):  # ty: ignore[invalid-base]
     """Molecular geometry optimization workflow.
 
     The workflow automatically detects imaginary frequencies

@@ -8,15 +8,15 @@ Authors:
 import ipywidgets as ipw
 import traitlets
 
-import aiida
+from aiida import orm
 from aiidalab_widgets_base import WizardAppWidgetStep
 
 
 class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
     """Integrated widget for the selection of structures from different sources."""
 
-    structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
-    confirmed_structure = traitlets.Instance(aiida.orm.StructureData, allow_none=True)
+    structure = traitlets.Instance(orm.StructureData, allow_none=True)
+    confirmed_structure = traitlets.Instance(orm.StructureData, allow_none=True)
 
     def __init__(self, manager, description=None, **kwargs):
         self.manager = manager
@@ -88,7 +88,7 @@ class StructureSelectionStep(ipw.VBox, WizardAppWidgetStep):
             if structure is None:
                 self.structure_name_text.value = ""
             else:
-                self.structure_name_text.value = str(self.structure.get_formula())
+                self.structure_name_text.value = str(structure.get_formula())
             self.message_area.value = ""
             self._update_state()
 

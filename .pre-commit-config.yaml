@@ -26,3 +26,16 @@ repos:
     rev: 0.9.1
     hooks:
     - id: nbstripout
+
+  - repo: local
+
+    hooks:
+
+    - id: ty
+      name: ty
+      entry: ty check
+      args: [aiidalab_ispg/, tests/, notebooks/]
+      language: system
+      types: [python]
+      require_serial: true
+      pass_filenames: false

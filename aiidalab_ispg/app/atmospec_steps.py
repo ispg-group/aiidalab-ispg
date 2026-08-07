@@ -320,7 +320,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         assert self.input_structure is not None
 
         bp = self._get_parameters_from_ui()
-        builder = AtmospecWorkChain.get_builder()
+        builder = AtmospecWorkChain.get_builder()  # ty: ignore[unresolved-attribute]
 
         builder.code = load_code(self.codes_selector.orca.value)
         builder.structure = self.input_structure
@@ -354,8 +354,8 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             raise NotImplementedError(msg)
 
         builder.optimize = bp.optimize
-        builder.opt.orca.parameters = gs_opt_parameters
-        builder.exc.orca.parameters = es_parameters
+        builder.opt.orca.parameters = gs_opt_parameters  # ty: ignore[unresolved-attribute]
+        builder.exc.orca.parameters = es_parameters  # ty: ignore[unresolved-attribute]
 
         num_proc = self.resources_settings.num_mpi_tasks.value
         if num_proc > 1:
@@ -364,28 +364,28 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
             # which can be trivially launched in parallel.
             # We also paralelize EOM-CCSD as it is expensive and likely
             # used only for single point calculations.
-            builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
+            builder.opt.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}  # ty: ignore[unresolved-attribute]
             if bp.excited_method == ExcitedStateMethod.CCSD:
-                builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}
+                builder.exc.orca.parameters["input_blocks"]["pal"] = {"nproc": num_proc}  # ty: ignore[unresolved-attribute]
 
         metadata = self._build_orca_metadata(num_proc)
-        builder.opt.orca.metadata = metadata
-        builder.exc.orca.metadata = deepcopy(metadata)
+        builder.opt.orca.metadata = metadata  # ty: ignore[unresolved-attribute]
+        builder.exc.orca.metadata = deepcopy(metadata)  # ty: ignore[unresolved-attribute]
         if bp.excited_method != ExcitedStateMethod.CCSD:
-            builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1
-            builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1
+            builder.exc.orca.metadata.options.resources["tot_num_mpiprocs"] = 1  # ty: ignore[unresolved-attribute]
+            builder.exc.orca.metadata.options.resources["num_mpiprocs_per_machine"] = 1  # ty: ignore[unresolved-attribute]
 
         # Fetch GBW file from optimization step, to be used as a guess
         # for subsequent excited state calculations.
-        builder.opt.orca.metadata.options.additional_retrieve_list = ["aiida.gbw"]
+        builder.opt.orca.metadata.options.additional_retrieve_list = ["aiida.gbw"]  # ty: ignore[unresolved-attribute]
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
-        builder.exc.clean_workdir = Bool(True)
-        builder.opt.clean_workdir = Bool(True)
+        builder.exc.clean_workdir = Bool(True)  # ty: ignore[unresolved-attribute]
+        builder.opt.clean_workdir = Bool(True)  # ty: ignore[unresolved-attribute]
 
-        builder.exc.orca.metadata.description = "ORCA TDDFT calculation"
-        builder.opt.orca.metadata.description = "ORCA geometry optimization"
+        builder.exc.orca.metadata.description = "ORCA TDDFT calculation"  # ty: ignore[unresolved-attribute]
+        builder.opt.orca.metadata.description = "ORCA geometry optimization"  # ty: ignore[unresolved-attribute]
 
         # Wigner will be sampled only when optimize == True
         builder.nwigner = bp.nwigner
@@ -543,5 +543,5 @@ class ViewAtmospecAppWorkChainStatusAndResultsStep(ViewWorkChainStatusStep):
         # Take the slowest conformer as the status of the whole workflow.
         return min(statuses)
 
-    def _update_workflow_state(self):
+    def _update_workflow_state(self, _=None):
         self.workflow_status = self._get_workflow_state(self.process_uuid)
