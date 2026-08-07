@@ -16,7 +16,7 @@ target-version = "py39"
 known-first-party = ["aiida", "aiidalab_widgets_base"]
 
 [tool.ty.environment]
-python-version = "3.9"
+python-version = "3.12"
 
 [tool.bumpver]
 current_version = "v0.2.6"
