@@ -1,6 +1,7 @@
 """Base work chain to run an ORCA calculation"""
 
 # Not sure if this is needed? Can we use self.run()?
+
 from aiida.engine import (
     ExitCode,
     ToContext,
@@ -14,6 +15,7 @@ from aiida.orm import (
     Bool,
     Dict,
     Float,
+    FolderData,
     Int,
     List,
     SinglefileData,
@@ -23,6 +25,8 @@ from aiida.orm import (
 )
 from aiida.plugins import CalculationFactory, DataFactory, WorkflowFactory
 
+from ..nto.parsercalcfunction import parse_orca_output
+from ..nto.subworkchains import NTOProcessingWorkChain
 from .harmonic_wigner import generate_wigner_structures
 from .optimization import RobustOptimizationWorkChain
 from .utils import (
@@ -47,6 +51,7 @@ class OrcaExcitationWorkChain(OrcaBaseWorkChain):
     @classmethod
     def define(cls, spec):
         super().define(spec)
+
         spec.output(
             "excitations",
             valid_type=Dict,
@@ -121,6 +126,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             required=True,
             help="Output parameters from a single-point excitations",
         )
+
         spec.expose_outputs(
             RobustOptimizationWorkChain,
             namespace="opt",
@@ -142,6 +148,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             ),
             cls.excite,
             cls.inspect_excitation,
+            cls.nto_calc,
+            cls.nto_collect,
             if_(cls.should_run_wigner)(
                 cls.wigner_sampling,
                 cls.wigner_excite,
@@ -183,6 +191,55 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         calc_exc = self.submit(OrcaExcitationWorkChain, **inputs)
         calc_exc.label = "franck-condon-excitation"
         return ToContext(calc_exc=calc_exc)
+
+    def nto_calc(self):
+        # Check ORCA output for NTOs.
+        self.ctx.relevant_dict = parse_orca_output(
+            self.ctx.calc_exc.outputs.retrieved, "aiida.out", 5.0
+        )
+        # This dictionary is also used by the visualiser to create the dropdown menus (not implemented yet).
+        # self.out("transition_info", relevant_dict)
+        # If NTOs are found.
+        if self.ctx.relevant_dict != {}:
+            # Dictionary to store the NTOProcessingWorkChain PKs
+            nto_processes = {}
+            # Create a list of tuples containing relevant mo data for each excitation.
+            relevant_items = list(self.ctx.relevant_dict.items())
+            # Iterating through the list.
+            for excitation in relevant_items:
+                # Set excitation.
+                s = excitation[0]
+                for electron_hole_pair in excitation[1]:
+                    for moa in electron_hole_pair[0]:
+                        builder = NTOProcessingWorkChain.get_builder()
+                        builder.nto_folder = self.ctx.calc_exc.outputs.retrieved
+                        builder.s = s
+                        # Set specific mo.
+                        mo = moa[:-1]
+                        builder.mo = mo
+                        # Submit the workchain.
+                        results = self.submit(NTOProcessingWorkChain, builder)
+                        # Add the PK to the dictionary.
+                        nto_processes["s" + s + "_" + mo] = results
+            # save the dictionary keys for later use.
+            self.ctx.nto_keys = list(nto_processes.keys())
+            # Move to next step when all ntos are processed.
+            return self.to_context(**nto_processes)
+
+    def nto_collect(self):
+        # If NTOs found
+        if self.ctx.relevant_dict != {}:
+            # Create folder to contain cubes
+            cube_folder = FolderData()
+            # Iterate through the outputs of the nto processing workchain.
+            for key in self.ctx.nto_keys:
+                node = self.ctx.get(key)
+                if "compressed_cube" in node.outputs:
+                    with node.outputs.compressed_cube.open(mode="rb") as file:
+                        cube_folder.put_object_from_filelike(file, path=(key))
+            cube_folder.store()
+            # Output where on the database the compressed files are stored.
+            self.report(f"Cube folder PK: {cube_folder.pk}")
 
     def wigner_sampling(self):
         self.report(f"Generating {self.inputs.nwigner.value} Wigner geometries")
