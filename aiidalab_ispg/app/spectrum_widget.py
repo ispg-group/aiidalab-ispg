@@ -24,7 +24,9 @@ from .widgets import TrajectoryDataViewer
 class SpectrumWidget(ipw.VBox):
     disabled = traitlets.Bool(default=True)
     conformer_transitions = traitlets.List(
-        trait=traitlets.Dict, allow_none=True, default=None
+        trait=traitlets.Dict,
+        allow_none=True,
+        default=None,
     )
     conformer_structures = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
@@ -327,7 +329,12 @@ class SpectrumWidget(ipw.VBox):
         )
         if self.experimental_spectrum_uuid:
             node = load_node(self.experimental_spectrum_uuid)
-            self.plot_experimental_spectrum(spectrum_node=node, energy_unit=energy_unit)
+            if isinstance(node, XyData):
+                self.plot_experimental_spectrum(
+                    spectrum_node=node, energy_unit=energy_unit
+                )
+            else:
+                raise TypeError(f"{node} is not an instance of XyData")
 
     def _unhighlight_conformer(self, update=True):
         self.remove_line("conformer_selected", update=update)
@@ -425,6 +432,7 @@ class SpectrumWidget(ipw.VBox):
         )
 
         if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
+            assert self.selected_conformer_id is not None
             self._highlight_conformer(self.selected_conformer_id, update=False)
 
         if self.stick_toggle.value:
@@ -526,7 +534,7 @@ class SpectrumWidget(ipw.VBox):
 
     def reset(self):
         with self.hold_trait_notifications():
-            self.conformer_transitions = None
+            self.conformer_transitions = None  # ty: ignore[invalid-assignment]
             self.conformer_structures = None
             self.smiles = None
             self.set_trait("experimental_spectrum_uuid", None)
@@ -557,7 +565,7 @@ class SpectrumWidget(ipw.VBox):
         if isinstance(structures, TrajectoryData):
             return structures
         elif isinstance(structures, StructureData):
-            return TrajectoryData(structurelist=(structures,))
+            return TrajectoryData(structurelist=(structures,))  # ty: ignore[invalid-argument-type]
         else:
             msg = f"Unsupported type {type(structures)}"
             raise TypeError(msg)
@@ -595,8 +603,12 @@ class SpectrumWidget(ipw.VBox):
         if change["new"] is None:
             self.remove_line(self.EXP_SPEC_LABEL)
             return
+        spectrum_node = load_node(change["new"])
+        if not isinstance(spectrum_node, XyData):
+            raise TypeError(f"{spectrum_node} is not an instance of XyData")
+
         self.plot_experimental_spectrum(
-            spectrum_node=load_node(change["new"]),
+            spectrum_node=spectrum_node,
             energy_unit=self.energy_unit_selector.value,
         )
 
@@ -619,7 +631,7 @@ class SpectrumWidget(ipw.VBox):
         # TODO: For now let's just assume we have one
         # canonical experimental spectrum per compound.
         # for spectrum in qb.iterall():
-        experimental_spectrum_node = qb.first()[0]
+        experimental_spectrum_node = qb.first()[0]  # ty: ignore[not-subscriptable]
         self.set_trait("experimental_spectrum_uuid", experimental_spectrum_node.uuid)
 
     def plot_experimental_spectrum(

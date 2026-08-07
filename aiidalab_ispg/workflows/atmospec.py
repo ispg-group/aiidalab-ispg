@@ -38,7 +38,7 @@ OrcaCalculation = CalculationFactory("orca.orca")
 OrcaBaseWorkChain = WorkflowFactory("orca.base")
 
 
-class OrcaExcitationWorkChain(OrcaBaseWorkChain):
+class OrcaExcitationWorkChain(OrcaBaseWorkChain):  # ty: ignore[invalid-base]
     """A simple shim for UV/vis excitation in ORCA."""
 
     def _build_process_label(self) -> str:
@@ -136,16 +136,18 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
         )
 
         spec.outline(
+            # ty: ignore[invalid-argument-type]
             if_(cls.should_optimize)(
-                cls.optimize,
-                cls.inspect_optimization,
+                cls.optimize,  # ty: ignore[invalid-argument-type]
+                cls.inspect_optimization,  # ty: ignore[invalid-argument-type]
             ),
             cls.excite,
             cls.inspect_excitation,
+            # ty: ignore[invalid-argument-type]
             if_(cls.should_run_wigner)(
-                cls.wigner_sampling,
-                cls.wigner_excite,
-                cls.inspect_wigner_excitation,
+                cls.wigner_sampling,  # ty: ignore[invalid-argument-type]
+                cls.wigner_excite,  # ty: ignore[invalid-argument-type]
+                cls.inspect_wigner_excitation,  # ty: ignore[invalid-argument-type]
             ),
         )
 

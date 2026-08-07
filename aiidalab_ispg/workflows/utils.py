@@ -1,6 +1,7 @@
 """Small utility workflows and functions"""
 
 import math
+from typing import Optional
 
 import numpy as np
 
@@ -71,7 +72,10 @@ def add_orca_wf_guess(orca_params: Dict) -> Dict:
 
 # TODO: Switch to variadic arguments (supported since AiiDA 2.3)
 @calcfunction
-def structures_to_trajectory(arrays: ArrayData = None, **structures) -> TrajectoryData:
+def structures_to_trajectory(
+    arrays: Optional[ArrayData] = None,  # noqa: FA100
+    **structures,
+) -> TrajectoryData:
     """Concatenate a list of StructureData to TrajectoryData
 
     Optionally, set additional data as Arrays.

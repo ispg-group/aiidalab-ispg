@@ -14,11 +14,11 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 import ase
+import ase.io
 import ipywidgets as ipw
 import nglview
 import numpy as np
 import traitlets
-from ase import Atoms
 
 from aiida.cmdline.utils.ascii_vis import calc_info
 from aiida.engine import ProcessState
@@ -243,7 +243,7 @@ class TrajectoryDataViewer(StructureDataViewer):
             self._hide_labels()
             self._reset_step_selector()
             self._structures = [
-                trajectory.get_step_structure(i) for i in self.trajectory.get_stepids()
+                trajectory.get_step_structure(i) for i in trajectory.get_stepids()
             ]
             # NOTE: Unfortunately, when converting TrajectoryData to StructureData,
             # PBC is always set to (True, True, True) so we need to correct.
@@ -405,7 +405,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         structure_node_type = DataFactory(self.SUPPORTED_DATA_FORMATS[self.node_class])  # pylint: disable=invalid-name
 
         # If the input_structure trait is set to Atoms object, structure node must be created from it.
-        if isinstance(structure, Atoms):
+        if isinstance(structure, ase.Atoms):
             if structure_node_type == TrajectoryData:
                 structure_node = structure_node_type(
                     structurelist=(StructureData(ase=structure),)
@@ -469,7 +469,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         # If the `input_structure` trait is set to Atoms object, then the `structure` trait should be set to it as well.
         self.history = []
 
-        if isinstance(change["new"], Atoms):
+        if isinstance(change["new"], ase.Atoms):
             self.structure = change["new"]
 
         # If the `input_structure` trait is set to AiiDA node, then the `structure` trait should
@@ -480,7 +480,7 @@ class TrajectoryManagerWidget(StructureManagerWidget):
             str_io = io.StringIO(change["new"].get_content())
             self.structure = ase.io.read(
                 str_io, format="cif", reader="ase", store_tags=True
-            )
+            )  # ty: ignore[invalid-assignment]
         elif isinstance(change["new"], StructureData):
             self.structure = change["new"].get_ase()
 
