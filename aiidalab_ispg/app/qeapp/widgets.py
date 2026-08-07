@@ -158,7 +158,7 @@ class FilenameDisplayWidget(ipw.Box):
 
 
 class LogOutputWidget(ipw.VBox):
-    filename = traitlets.Unicode()
+    filename = traitlets.Unicode(allow_none=True)
     value = traitlets.Unicode()
 
     def __init__(self, placeholder=None, **kwargs):
@@ -237,7 +237,7 @@ class LogOutputWidget(ipw.VBox):
 class CalcJobOutputFollower(traitlets.HasTraits):
     calcjob_uuid = traitlets.Unicode(allow_none=True)
     filename = traitlets.Unicode(allow_none=True)
-    output = traitlets.List(trait=traitlets.Unicode)  # ty: ignore[invalid-argument-type]
+    output = traitlets.List(trait=traitlets.Unicode)
     lineno = traitlets.Int()
 
     def __init__(self, **kwargs):

@@ -13,7 +13,7 @@ import traitlets
 from aiida.engine import ProcessState
 from aiida.engine.processes.control import ProcessTimeoutException, kill_processes
 from aiida.orm import (
-    ProcessNode,
+    Node,
     StructureData,
     TrajectoryData,
     load_node,
@@ -61,7 +61,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    process = traitlets.Instance(ProcessNode, allow_none=True)
+    process = traitlets.Instance(Node, allow_none=True)
     disabled = traitlets.Bool()
 
     def __init__(self, components=None, **kwargs):

@@ -114,7 +114,7 @@ class MoleculeSettings(ipw.VBox):
 
     def reset(self):
         self.charge.value = self._DEFAULT_CHARGE
-        self.charge.multiplicity.value = self._DEFAULT_MULTIPLICITY
+        self.multiplicity.value = self._DEFAULT_MULTIPLICITY
 
 
 class GroundStateSettings(ipw.VBox):

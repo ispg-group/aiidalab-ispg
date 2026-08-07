@@ -24,7 +24,7 @@ from .widgets import TrajectoryDataViewer
 class SpectrumWidget(ipw.VBox):
     disabled = traitlets.Bool(default=True)
     conformer_transitions = traitlets.List(
-        trait=traitlets.Dict,  # ty: ignore[invalid-argument-type]
+        trait=traitlets.Dict,
         allow_none=True,
         default=None,
     )
