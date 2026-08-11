@@ -106,10 +106,11 @@ def selenium_driver(selenium, notebook_service):
 @pytest.fixture
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
-        # Open Step 1
-        WebDriverWait(selenium, 10).until(
+
+        # Open Structure selection step
+        WebDriverWait(selenium, 60).until(
             EC.element_to_be_clickable(
-                (By.CSS_SELECTOR, "div.jupyter-widget-Collapse:nth-child(1)")
+                (By.XPATH, "//span[contains(.,'Step 1: Select structure')]")
             )
         ).click()
         smiles_input = WebDriverWait(selenium, 5).until(
