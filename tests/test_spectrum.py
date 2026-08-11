@@ -199,6 +199,16 @@ class TestGetSpectrum:
         assert len(x) == len(y) == Spectrum.N_SAMPLE_POINTS
         assert len(x_stick) == len(y_stick) == 1
 
+    def test_spectrum_scales_with_nsamples(self, two_transitions):
+        _, y1, _, _ = two_transitions.get_spectrum(
+            kernel=BroadeningKernel.GAUSS, width=0.3, x_unit=EnergyUnit.EV
+        )
+        two_transitions.nsample = 2
+        _, y2, _, _ = two_transitions.get_spectrum(
+            kernel=BroadeningKernel.GAUSS, width=0.3, x_unit=EnergyUnit.EV
+        )
+        np.testing.assert_allclose(2 * y2, y1)
+
     def test_invalid_kernel_raises_value_error(self, single_transition):
         with pytest.raises(ValueError):
             single_transition.get_spectrum(
