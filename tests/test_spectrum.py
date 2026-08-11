@@ -42,17 +42,17 @@ def single_transition():
 def two_transitions():
     """Two excitations, used for multi-peak / stick-spectrum tests."""
     transitions = make_transitions([4.0, 6.0], [0.3, 0.9])
-    return Spectrum(transitions, nsample=10)
+    return Spectrum(transitions, nsample=1)
 
 
 class TestInit:
     def test_stores_energies_and_osc_strengths(self):
         transitions = make_transitions([1.0, 2.0, 3.0], [0.1, 0.2, 0.3])
-        spec = Spectrum(transitions, nsample=42)
+        spec = Spectrum(transitions, nsample=3)
 
         np.testing.assert_allclose(spec.excitation_energies, [1.0, 2.0, 3.0])
         np.testing.assert_allclose(spec.osc_strengths, [0.1, 0.2, 0.3])
-        assert spec.nsample == 42
+        assert spec.nsample == 3
 
     def test_arrays_are_float_dtype(self):
         transitions = make_transitions([1, 2], [1, 0])
@@ -62,7 +62,7 @@ class TestInit:
         assert spec.osc_strengths.dtype == float
 
     def test_empty_transitions_gives_empty_arrays(self):
-        spec = Spectrum([], nsample=1)
+        spec = Spectrum([], nsample=0)
 
         assert spec.excitation_energies.size == 0
         assert spec.osc_strengths.size == 0
@@ -353,16 +353,16 @@ class TestNumericalRegression:
 
         assert y.tolist() == snapshot(
             [
-                2.918670225698297e-20,
-                4.413168536498067e-19,
-                1.9416412439076022e-18,
-                2.494811048780051e-18,
-                1.2265913242499474e-18,
-                2.877281367660313e-18,
-                7.459129904672979e-18,
-                5.824691594245452e-18,
-                1.3239499412967426e-18,
-                8.75601062896827e-20,
+                2.918670225698297e-19,
+                4.413168536498068e-18,
+                1.9416412439076024e-17,
+                2.4948110487800518e-17,
+                1.2265913242499476e-17,
+                2.877281367660313e-17,
+                7.45912990467298e-17,
+                5.824691594245453e-17,
+                1.3239499412967427e-17,
+                8.75601062896827e-19,
             ]
         )
 
@@ -374,16 +374,16 @@ class TestNumericalRegression:
 
         assert y.tolist() == snapshot(
             [
-                1.771589171406561e-19,
-                3.6455699901752297e-19,
-                1.362243071803198e-18,
-                3.132161312125551e-18,
-                9.123311380683057e-19,
-                1.5004049244686458e-18,
-                8.784181724983715e-18,
-                3.723376946859289e-18,
-                8.536087091714531e-19,
-                3.6122012975432476e-19,
+                1.7715891714065612e-18,
+                3.64556999017523e-18,
+                1.3622430718031981e-17,
+                3.132161312125551e-17,
+                9.123311380683057e-18,
+                1.500404924468646e-17,
+                8.784181724983716e-17,
+                3.7233769468592894e-17,
+                8.536087091714532e-18,
+                3.612201297543248e-18,
             ]
         )
 
