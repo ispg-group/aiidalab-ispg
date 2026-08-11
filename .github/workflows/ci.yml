@@ -120,7 +120,7 @@ jobs:
         run: uv pip install -e .[test]
 
       - name: Run pytest
-        run: pytest -v tests/
+        run: pytest tests/
 
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
