@@ -34,7 +34,7 @@ repos:
     - id: ty
       name: ty
       entry: ty check
-      args: [aiidalab_ispg/, tests/, notebooks/]
+      args: [aiidalab_ispg/, tests_integration/, notebooks/]
       language: system
       types: [python]
       require_serial: true
