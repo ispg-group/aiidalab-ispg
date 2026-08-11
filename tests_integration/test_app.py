@@ -1,3 +1,4 @@
+import sys
 from enum import Enum
 from pathlib import Path
 
@@ -43,6 +44,20 @@ def check_step_status(selenium):
         )
 
     return _check_step_status
+
+
+@pytest.fixture
+def open_structure_step(selenium):
+    def _open_first_step():
+        if sys.version_info >= (3, 12):
+            # Open Structure selection step
+            WebDriverWait(selenium, 10).until(
+                EC.element_to_be_clickable(
+                    (By.XPATH, "//span[contains(.,'Step 1: Select structure')]")
+                )
+            ).click()
+
+    return _open_first_step
 
 
 @pytest.mark.tryfirst
@@ -126,6 +141,7 @@ def test_optimization_steps(
     generate_mol_from_smiles,
     check_atoms,
     check_step_status,
+    open_structure_step,
 ):
     driver = selenium_driver("optimization.ipynb", wait_time=30.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -136,6 +152,7 @@ def test_optimization_steps(
     button_disabled("Confirm")
     button_disabled("Submit")
 
+    open_structure_step()
     driver.find_element(By.XPATH, "//button[text()='Generate molecule']")
     # Generate methane molecule
     generate_mol_from_smiles("C")
@@ -185,6 +202,7 @@ def test_atmospec_steps(
     generate_mol_from_smiles,
     check_atoms,
     check_step_status,
+    open_structure_step,
 ):
     driver = selenium_driver("atmospec.ipynb", wait_time=40.0)
     driver.set_window_size(WINDOW_WIDTH, WINDOW_HEIGHT)
@@ -194,6 +212,7 @@ def test_atmospec_steps(
     button_disabled("Confirm")
     button_disabled("Submit")
 
+    open_structure_step()
     # Generate methane molecule
     generate_mol_from_smiles("C")
     check_atoms("C")

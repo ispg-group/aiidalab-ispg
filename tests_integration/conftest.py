@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from pathlib import Path
 from urllib.parse import urljoin
@@ -107,15 +106,6 @@ def selenium_driver(selenium, notebook_service):
 @pytest.fixture
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
-
-        if sys.version_info >= (3, 12):
-            # Open Structure selection step
-            WebDriverWait(selenium, 60).until(
-                EC.element_to_be_clickable(
-                    (By.XPATH, "//span[contains(.,'Step 1: Select structure')]")
-                )
-            ).click()
-
         smiles_input = WebDriverWait(selenium, 5).until(
             EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='C=C']"))
         )
