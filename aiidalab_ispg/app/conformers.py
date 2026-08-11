@@ -38,7 +38,7 @@ TrajectoryData = DataFactory("core.array.trajectory")
 # Hence, the xTB optimization functionality is optional for now.
 DISABLE_XTB = False
 try:
-    from xtb.ase.calculator import XTB
+    from xtb.ase.calculator import XTB  # ty: ignore[unresolved-import]
 except ImportError:
     print("WARNING: xTB optimization not supported")
     DISABLE_XTB = True
