@@ -18,6 +18,16 @@ known-first-party = ["aiida", "aiidalab_widgets_base"]
 [tool.ty.environment]
 python-version = "3.9"
 
+[tool.pytest.ini_options]
+addopts = '--strict-config --strict-markers -ra'
+filterwarnings = [
+  'ignore:Creating AiiDA configuration folder:UserWarning:aiida:',
+  'ignore::DeprecationWarning:bokeh:',
+]
+
+[tool.inline-snapshot]
+format-command="ruff format --stdin-filename {filename}"
+
 [tool.bumpver]
 current_version = "v0.2.6"
 version_pattern = "vMAJOR.MINOR.PATCH[PYTAGNUM]"
