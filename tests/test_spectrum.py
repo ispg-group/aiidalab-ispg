@@ -424,3 +424,41 @@ class TestNumericalRegression:
         )
         assert x_stick.tolist() == snapshot([5.0])
         assert y_stick.tolist() == snapshot([6.254418525839014e-17])
+
+    def test_get_spectrum_lorentz_full_pipeline(self, single_transition):
+        """Regression test for the full get_spectrum() output (broadened y,
+        x-axis, and stick spectrum) in eV, using the small 10-point grid."""
+        x, y, x_stick, y_stick = single_transition.get_spectrum(
+            kernel=BroadeningKernel.LORENTZ, width=0.4, x_unit=EnergyUnit.EV
+        )
+
+        assert x.tolist() == snapshot(
+            [
+                3.5,
+                3.8333333333333335,
+                4.166666666666667,
+                4.5,
+                4.833333333333333,
+                5.166666666666666,
+                5.5,
+                5.833333333333333,
+                6.166666666666666,
+                6.5,
+            ]
+        )
+        assert y.tolist() == snapshot(
+            [
+                1.5256802432917473e-18,
+                2.4935979234133957e-18,
+                4.7570756148627734e-18,
+                1.2047612955648624e-17,
+                5.1547983302037483e-17,
+                5.1547983302037705e-17,
+                1.2047612955648624e-17,
+                4.7570756148627734e-18,
+                2.4935979234133972e-18,
+                1.5256802432917473e-18,
+            ]
+        )
+        assert x_stick.tolist() == snapshot([5.0])
+        assert y_stick.tolist() == snapshot([5.1547983302037705e-17])
