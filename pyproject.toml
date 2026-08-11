@@ -23,7 +23,7 @@ addopts = '--strict-config --strict-markers -ra'
 filterwarnings = [
   'ignore:Creating AiiDA configuration folder:UserWarning:aiida:',
   'ignore:invalid escape sequence:SyntaxWarning:vapory',
-  'ignore:datetime.datetime.utcfromtimestamp() is deprecated:DeprecationWarning:pytz',
+  'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning:pytz',
   'ignore::DeprecationWarning:bokeh:',
 ]
 

@@ -22,12 +22,11 @@ from .widgets import TrajectoryDataViewer
 
 
 class SpectrumWidget(ipw.VBox):
-    disabled = traitlets.Bool(default=True)
+    disabled = traitlets.Bool().tag(default=True)
     conformer_transitions = traitlets.List(
-        trait=traitlets.Dict,
+        trait=traitlets.Dict(),
         allow_none=True,
-        default=None,
-    )
+    ).tag(default=None)
     conformer_structures = traitlets.Union(
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
@@ -35,7 +34,7 @@ class SpectrumWidget(ipw.VBox):
 
     selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
 
-    cross_section_nm = traitlets.Dict(allow_none=True, default=None)
+    cross_section_nm = traitlets.Dict(allow_none=True).tag(default=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
