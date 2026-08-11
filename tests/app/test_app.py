@@ -33,9 +33,7 @@ def check_step_status(selenium):
         StepState.CONFIGURED: "●",
         StepState.SUCCESS: "✓",
         StepState.FAIL: "×",
-        # The ACTIVE state is "animated", see aiidalab_widgets_base/wizard.py,
-        # hence we cannot use it in tests.
-        # WizardAppWidgetStep.State.ACTIVE: ["\u25dc", "\u25dd", "\u25de", "\u25df"],
+        StepState.ACTIVE: "\u231b",
     }
 
     def _check_step_status(step_num, expected_state: StepState):
