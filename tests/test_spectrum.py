@@ -3,6 +3,8 @@
 Run with:  pytest test_spectrum.py -v
 """
 
+import sys
+
 import numpy as np
 import pytest
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
@@ -293,6 +295,10 @@ class TestConvertToNanometers:
 #
 # To (re)generate the snapshot values after an intentional change, run:
 #   pytest test_spectrum.py -k TestNumericalRegression --inline-snapshot=fix
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="requires python3.12 to get the same numerical values",
+)
 class TestNumericalRegression:
     @pytest.fixture
     def x_grid(self, single_transition):
