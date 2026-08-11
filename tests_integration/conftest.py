@@ -28,7 +28,7 @@ def is_responsive(url):
 
 @pytest.fixture(scope="session")
 def docker_compose_file(pytestconfig):
-    return pytestconfig.rootdir / "tests" / "app" / "docker-compose.yml"
+    return pytestconfig.rootdir / "tests_integration" / "docker-compose.yml"
 
 
 @pytest.fixture(scope="session")

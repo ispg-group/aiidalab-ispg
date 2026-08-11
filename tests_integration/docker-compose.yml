@@ -1,6 +1,4 @@
 ---
-version: '3.4'
-
 services:
 
     aiidalab:
@@ -8,12 +6,11 @@ services:
         environment:
             RMQHOST: messaging
             TZ: Europe/London
-            DOCKER_STACKS_JUPYTER_CMD: notebook
             SETUP_DEFAULT_AIIDA_PROFILE: 'true'
             AIIDALAB_DEFAULT_APPS: ''
             JUPYTER_TOKEN: ${JUPYTER_TOKEN}
         volumes:
-            - ../..:/home/jovyan/apps/aiidalab-ispg
+            - ..:/home/jovyan/apps/aiidalab-ispg
         ports:
             - 8998:8888
         healthcheck:

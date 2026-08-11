@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 88
-src = ["aiidalab_ispg", "tests", "notebooks"]
+src = ["aiidalab_ispg", "tests", "tests_integration", "notebooks"]
 target-version = "py39"
 
 [tool.ruff.lint.isort]
