@@ -2,6 +2,7 @@
 
 Run as `verdi run -- import_experimental_spectrum.py -i <input_file>.yaml`
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -24,7 +25,11 @@ def parse_cmd():
     """
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument(
-        "-i", "--input-file", required=False, dest="input_file", help="YAML input file with metadata"
+        "-i",
+        "--input-file",
+        required=False,
+        dest="input_file",
+        help="YAML input file with metadata",
     )
     parser.add_argument(
         "-d",
@@ -115,8 +120,9 @@ def list_spectra():
     qb = QueryBuilder()
     qb.append(XyData)
     for res in qb.all(flat=True):
-        if 'smiles' in (extras := res.base.extras.all):
+        if "smiles" in (extras := res.base.extras.all):
             pprint(extras)
+
 
 if __name__ == "__main__":
     opts = parse_cmd()
