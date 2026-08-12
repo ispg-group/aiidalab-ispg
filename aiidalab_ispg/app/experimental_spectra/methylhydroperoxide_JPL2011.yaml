@@ -1,0 +1,12 @@
+---
+molecule: methylhydroperoxide
+smiles: "COO"
+source_file: CH3OOH_JPL-2010_298K_210-405nm.txt
+y_axis_scaling: 1
+metadata:
+  description: 'JPL-2010 recommendation: 210-365 nm, data of from Vaghjiani and Ravishankara (1989); 370-405 nm, data of Matthews, Sinha, Francisco (2005)'
+  license: '?'
+  source:
+    db_name: 'UV/VIS Spectral Atlas'
+    db_uri: 'http://satellite.mpic.de/spectral_atlas'
+    uri: 'https://www.uv-vis-spectral-atlas-mainz.org/uvvis_data/cross_sections/Peroxides/Alkyl%20peroxides/CH3OOH_JPL-2010(2011)_298K_210-405nm(rec).txt'
