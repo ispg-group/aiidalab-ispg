@@ -134,7 +134,7 @@ if __name__ == "__main__":
         with Path(opts.input_file).open("r") as f:
             metadata = yaml.safe_load(f)
     except OSError as e:
-        sys.exit(e)
+        sys.exit(str(e))
 
     pprint(metadata)
 
