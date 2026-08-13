@@ -31,7 +31,7 @@ class RollingOutput(ipw.VBox):
     value = traitlets.Unicode()
     auto_scroll = traitlets.Bool()
 
-    def __init__(self, num_min_lines=10, max_output_height="200px", **kwargs):
+    def __init__(self, num_min_lines=10, max_output_height="300px", **kwargs):
         self._num_min_lines = num_min_lines
         self._scroll_class = f"rolling-output-{uuid4().hex}"
 
