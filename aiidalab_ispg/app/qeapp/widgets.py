@@ -36,9 +36,11 @@ class RollingOutput(ipw.VBox):
         self._scroll_class = f"rolling-output-{uuid4().hex}"
 
         self._output = ipw.HTML(layout=ipw.Layout(min_width="50em"))
-        layout = ipw.Layout(
-            max_height=max_output_height, min_width="51em", overflow="auto"
-        )
+        layout = kwargs.pop("layout", ipw.Layout())
+        layout.min_width = "51em"
+        layout.overflow = "auto"
+        if layout.max_height is None:
+            layout.max_height = max_output_height
 
         self._refresh_output()
         super().__init__([self._output], layout=layout, **kwargs)
