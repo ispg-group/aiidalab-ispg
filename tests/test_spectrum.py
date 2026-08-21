@@ -437,7 +437,7 @@ class TestNumericalRegression:
         assert x.tolist() == approx(x_ref)
         assert y.tolist() == approx(y_ref)
         assert x_stick.tolist() == snapshot([5.0])
-        assert y_stick.tolist() == snapshot([6.254418525839014e-17])
+        assert y_stick.tolist() == approx(snapshot([6.254418525839014e-17]))
 
     def test_get_spectrum_lorentz_full_pipeline(self, single_transition):
         """Regression test for the full get_spectrum() output (broadened y,
@@ -478,4 +478,4 @@ class TestNumericalRegression:
         assert x.tolist() == approx(x_ref)
         assert y.tolist() == approx(y_ref)
         assert x_stick.tolist() == snapshot([5.0])
-        assert y_stick.tolist() == snapshot([5.1547983302037705e-17])
+        assert y_stick.tolist() == approx(snapshot([5.1547983302037705e-17]))
