@@ -3,8 +3,6 @@
 Run with:  pytest test_spectrum.py -v
 """
 
-import sys
-
 import numpy as np
 import pytest
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
@@ -13,6 +11,8 @@ from inline_snapshot import snapshot
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
 # ---------------------------------------------------------------------------
+
+approx = pytest.approx
 
 
 @pytest.fixture(autouse=True)
@@ -298,17 +298,12 @@ class TestConvertToNanometers:
 # ---------------------------------------------------------------------------
 #
 # These pin down the exact numerical output of the two broadening kernels
-# against a small, fixed x-grid (N_SAMPLE_POINTS == 10, see the
-# `small_sample_grid` fixture above) so that any unintended change to the
+# against a small, fixed x-grid ` so that any unintended change to the
 # math (e.g. the COEFF constant, normalization factors, or the broadening
 # formulas themselves) is caught.
 #
 # To (re)generate the snapshot values after an intentional change, run:
 #   pytest test_spectrum.py -k TestNumericalRegression --inline-snapshot=fix
-@pytest.mark.skipif(
-    sys.version_info < (3, 12),
-    reason="requires python3.12 to get the same numerical values",
-)
 class TestNumericalRegression:
     @pytest.fixture
     def x_grid(self, single_transition):
@@ -321,7 +316,7 @@ class TestNumericalRegression:
         y = np.zeros_like(x_grid)
         single_transition._calc_gauss_spectrum(x_grid, y, sigma=0.3)
 
-        assert y.tolist() == snapshot(
+        ref = snapshot(
             [
                 2.7197354939980887e-22,
                 3.794816473791066e-20,
@@ -335,12 +330,13 @@ class TestNumericalRegression:
                 2.7197354939980887e-22,
             ]
         )
+        assert y.tolist() == approx(ref)
 
     def test_lorentzian_spectrum_single_transition(self, single_transition, x_grid):
         y = np.zeros_like(x_grid)
         single_transition._calc_lorentzian_spectrum(x_grid, y, tau=0.3)
 
-        assert y.tolist() == snapshot(
+        ref = snapshot(
             [
                 1.1530718670422777e-18,
                 1.8938528296070824e-18,
@@ -355,13 +351,15 @@ class TestNumericalRegression:
             ]
         )
 
+        assert y.tolist() == approx(ref)
+
     def test_gauss_spectrum_two_transitions(self, two_transitions, x_grid):
         x_min, x_max = Spectrum.get_energy_range_ev(two_transitions.excitation_energies)
         x = np.linspace(x_min, x_max, num=Spectrum.N_SAMPLE_POINTS)
         y = np.zeros_like(x)
         two_transitions._calc_gauss_spectrum(x, y, sigma=0.5)
 
-        assert y.tolist() == snapshot(
+        ref = snapshot(
             [
                 2.918670225698297e-19,
                 4.413168536498068e-18,
@@ -375,6 +373,7 @@ class TestNumericalRegression:
                 8.75601062896827e-19,
             ]
         )
+        assert y.tolist() == approx(ref)
 
     def test_lorentzian_spectrum_two_transitions(self, two_transitions, x_grid):
         x_min, x_max = Spectrum.get_energy_range_ev(two_transitions.excitation_energies)
@@ -382,7 +381,7 @@ class TestNumericalRegression:
         y = np.zeros_like(x)
         two_transitions._calc_lorentzian_spectrum(x, y, tau=0.5)
 
-        assert y.tolist() == snapshot(
+        ref = snapshot(
             [
                 1.7715891714065612e-18,
                 3.64556999017523e-18,
@@ -397,6 +396,8 @@ class TestNumericalRegression:
             ]
         )
 
+        assert y.tolist() == approx(ref)
+
     def test_get_spectrum_gauss_full_pipeline(self, single_transition):
         """Regression test for the full get_spectrum() output (broadened y,
         x-axis, and stick spectrum) in eV, using the small 10-point grid."""
@@ -404,7 +405,7 @@ class TestNumericalRegression:
             kernel=BroadeningKernel.GAUSS, width=0.3, x_unit=EnergyUnit.EV
         )
 
-        assert x.tolist() == snapshot(
+        x_ref = snapshot(
             [
                 3.5,
                 3.8333333333333335,
@@ -418,7 +419,7 @@ class TestNumericalRegression:
                 6.5,
             ]
         )
-        assert y.tolist() == snapshot(
+        y_ref = snapshot(
             [
                 2.7197354939980887e-22,
                 3.794816473791066e-20,
@@ -432,6 +433,9 @@ class TestNumericalRegression:
                 2.7197354939980887e-22,
             ]
         )
+
+        assert x.tolist() == approx(x_ref)
+        assert y.tolist() == approx(y_ref)
         assert x_stick.tolist() == snapshot([5.0])
         assert y_stick.tolist() == snapshot([6.254418525839014e-17])
 
@@ -442,7 +446,7 @@ class TestNumericalRegression:
             kernel=BroadeningKernel.LORENTZ, width=0.4, x_unit=EnergyUnit.EV
         )
 
-        assert x.tolist() == snapshot(
+        x_ref = snapshot(
             [
                 3.5,
                 3.8333333333333335,
@@ -456,7 +460,7 @@ class TestNumericalRegression:
                 6.5,
             ]
         )
-        assert y.tolist() == snapshot(
+        y_ref = snapshot(
             [
                 1.5256802432917473e-18,
                 2.4935979234133957e-18,
@@ -470,5 +474,8 @@ class TestNumericalRegression:
                 1.5256802432917473e-18,
             ]
         )
+
+        assert x.tolist() == approx(x_ref)
+        assert y.tolist() == approx(y_ref)
         assert x_stick.tolist() == snapshot([5.0])
         assert y_stick.tolist() == snapshot([5.1547983302037705e-17])
