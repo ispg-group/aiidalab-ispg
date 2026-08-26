@@ -68,6 +68,15 @@ class Spectrum:
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
+        num_exc = len(self.excitation_energies)
+        num_osc = len(self.osc_strengths)
+        assert num_exc == num_osc, (
+            f"# excitation energies ({num_exc}) != # osc. strengths ({num_osc})"
+        )
+        assert nsample <= num_exc, (
+            f"Number of samples ({nsample}) cannot be bigger than number of transitions ({num_exc})"
+        )
+
     @staticmethod
     def get_energy_range_ev(excitation_energies):
         """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""

@@ -116,6 +116,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
 
+      - name: Install dependencies for tests
+        run: uv pip install -e .[test]
+
+      - name: Run pytest
+        run: pytest tests/
+
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
 
