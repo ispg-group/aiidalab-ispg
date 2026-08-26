@@ -242,7 +242,7 @@ class ExcitedStateSettings(ipw.VBox):
 
 
 class WignerSamplingSettings(ipw.VBox):
-    disabled = tl.Bool(default=False)
+    disabled = tl.Bool().tag(default=False)
 
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
