@@ -1,15 +1,14 @@
-"""Unit tests for the Spectrum class (spectrum.py).
+"""Unit tests for the Spectrum class (spectrum.py)."""
 
-Run with:  pytest test_spectrum.py -v
-"""
+import functools
 
 import numpy as np
 import pytest
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
 from inline_snapshot import snapshot
 
-# TODO: Tweak the default tolerances
-approx = pytest.approx
+# Apply tighter numerical tresholds by default
+approx = functools.partial(pytest.approx, rel=1e-6, abs=1e-25)
 
 
 @pytest.fixture(autouse=True)
