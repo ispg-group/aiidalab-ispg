@@ -1,4 +1,8 @@
-# This script needs to be run with `verdi run`
+"""A script for importing experimental UV/vis spectra to AiiDA database
+
+Run as `verdi run -- import_experimental_spectrum.py -i <input_file>.yaml`
+"""
+
 import argparse
 import sys
 from pathlib import Path
@@ -11,17 +15,21 @@ from rdkit import Chem
 from aiida.orm import QueryBuilder
 from aiida.plugins import DataFactory
 
-XyData = DataFactory("array.xy")
+XyData = DataFactory("core.array.xy")
 
 
 def parse_cmd():
     desc = """A script for importing experimental spectra into AiiDA database
 
-    Run as `verdi run import_experimental_spectrum.py INPUT_FILE.yaml`
+    Run as `verdi run -- import_experimental_spectrum.py -i <input_file>.yaml`
     """
     parser = argparse.ArgumentParser(description=desc)
     parser.add_argument(
-        "input_file", metavar="INPUT_FILE", help="YAML input file with metadata"
+        "-i",
+        "--input-file",
+        required=False,
+        dest="input_file",
+        help="YAML input file with metadata",
     )
     parser.add_argument(
         "-d",
@@ -31,7 +39,19 @@ def parse_cmd():
         action="store_true",
         help="Dry run, do not store anything in DB",
     )
-    return parser.parse_args()
+    parser.add_argument(
+        "-l",
+        "--list",
+        dest="list",
+        default=False,
+        action="store_true",
+        help="List all spectra in the AiiDA DB",
+    )
+    opts = parser.parse_args()
+    if not opts.list and not opts.input_file:
+        print(desc)
+        sys.exit("ERROR: You must provide an input file with metadata")
+    return opts
 
 
 def canonicalize_smiles(smiles):
@@ -46,9 +66,7 @@ def canonicalize_smiles(smiles):
     return canonical_smiles
 
 
-def main(input_file, dry_run=True):
-    with Path(opts.input_file).open("r") as f:
-        data = yaml.safe_load(f)
+def add_spectrum(data: dict, dry_run: bool):
 
     pprint(data)
 
@@ -56,7 +74,11 @@ def main(input_file, dry_run=True):
     if smiles != data["smiles"]:
         print(f"Canonical SMILES: {smiles}")
 
-    energy_nm, cross_section = np.loadtxt(data["source_file"], unpack=True)
+    try:
+        energy_nm, cross_section = np.loadtxt(data["source_file"], unpack=True)
+    except FileNotFoundError as e:
+        sys.exit(f"ERROR: file {e}")
+
     if scale := data.get("y_axis_scaling"):
         cross_section = cross_section * float(scale)
 
@@ -94,6 +116,26 @@ def main(input_file, dry_run=True):
     print(f"Stored spectrum in node {qb.all()[0]}")
 
 
+def list_spectra():
+    qb = QueryBuilder()
+    qb.append(XyData)
+    for res in qb.all(flat=True):
+        if "smiles" in (extras := res.base.extras.all):
+            pprint(extras)
+
+
 if __name__ == "__main__":
     opts = parse_cmd()
-    main(opts.input_file, opts.dry_run)
+    if opts.list:
+        list_spectra()
+        sys.exit(0)
+
+    try:
+        with Path(opts.input_file).open("r") as f:
+            metadata = yaml.safe_load(f)
+    except OSError as e:
+        sys.exit(str(e))
+
+    pprint(metadata)
+
+    add_spectrum(metadata, opts.dry_run)
