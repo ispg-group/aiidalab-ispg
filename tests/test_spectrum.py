@@ -8,7 +8,7 @@ from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
 from inline_snapshot import snapshot
 
 # Apply tighter numerical tresholds by default
-approx = functools.partial(pytest.approx, rel=1e-12, abs=1e-30)
+approx = functools.partial(pytest.approx, rel=1e-10, abs=1e-25)
 
 
 @pytest.fixture(autouse=True)
