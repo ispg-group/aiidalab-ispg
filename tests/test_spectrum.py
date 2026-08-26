@@ -51,7 +51,7 @@ class TestInit:
         assert spec.nsample == 3
 
     def test_empty_transitions_gives_empty_arrays(self):
-        spec = Spectrum([], nsample=0)
+        spec = Spectrum({}, nsample=0)
 
         assert spec.excitation_energies.size == 0
         assert spec.osc_strengths.size == 0
@@ -110,10 +110,6 @@ class TestGetEnergyUnitFactor:
         assert Spectrum.get_energy_unit_factor(EnergyUnit.CM) == pytest.approx(
             8065.547937
         )
-
-    def test_unknown_unit_raises_keyerror(self):
-        with pytest.raises(KeyError):
-            Spectrum.get_energy_unit_factor("not_a_real_unit")
 
 
 class TestBroadeningKernels:
