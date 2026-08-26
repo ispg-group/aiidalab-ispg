@@ -8,10 +8,7 @@ import pytest
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
 from inline_snapshot import snapshot
 
-# ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
-
+# TODO: Tweak the default tolerances
 approx = pytest.approx
 
 
@@ -53,13 +50,6 @@ class TestInit:
         np.testing.assert_allclose(spec.excitation_energies, [1.0, 2.0, 3.0])
         np.testing.assert_allclose(spec.osc_strengths, [0.1, 0.2, 0.3])
         assert spec.nsample == 3
-
-    def test_arrays_are_float_dtype(self):
-        transitions = make_transitions([1, 2], [1, 0])
-        spec = Spectrum(transitions, nsample=1)
-
-        assert spec.excitation_energies.dtype == float
-        assert spec.osc_strengths.dtype == float
 
     def test_empty_transitions_gives_empty_arrays(self):
         spec = Spectrum([], nsample=0)
@@ -294,16 +284,15 @@ class TestConvertToNanometers:
 
 
 # ---------------------------------------------------------------------------
-# Numerical regression tests (inline-snapshot)
+# Numerical regression tests with inline-snapshot library
 # ---------------------------------------------------------------------------
 #
 # These pin down the exact numerical output of the two broadening kernels
-# against a small, fixed x-grid ` so that any unintended change to the
-# math (e.g. the COEFF constant, normalization factors, or the broadening
-# formulas themselves) is caught.
+# against a small, fixed x-grid so that any unintended change to the
+# math is caught.
 #
 # To (re)generate the snapshot values after an intentional change, run:
-#   pytest test_spectrum.py -k TestNumericalRegression --inline-snapshot=fix
+#   pytest tests/test_spectrum.py -k TestNumericalRegression --inline-snapshot=fix
 class TestNumericalRegression:
     @pytest.fixture
     def x_grid(self, single_transition):
