@@ -19,7 +19,6 @@ import numpy as np
 import traitlets as tl
 from bokeh.models import LogAxis, LogScale, Range1d
 
-from .spectrum import ConformerTransitions
 from .utils import BokehFigureContext
 from .widgets import HeaderWarning
 
@@ -44,9 +43,7 @@ ndarray_1d = np.ndarray[tuple[int], np.dtype[np.float64]]
 class SpectrumAnalysisWidget(ipw.VBox):
     """A container class for organizing various analysis widgets"""
 
-    conformer_transitions: tl.List[ConformerTransitions] = tl.List(allow_none=True).tag(
-        trait=tl.Dict(), default=None
-    )
+    conformer_transitions = tl.List(allow_none=True).tag(trait=tl.Dict(), default=None)
 
     cross_section_nm = tl.Dict(allow_none=True).tag(default=None)
 
@@ -93,9 +90,7 @@ class DensityPlotWidget(ipw.VBox):
     and oscillator strenghts.
     """
 
-    conformer_transitions: tl.List[ConformerTransitions] = tl.List(allow_none=True).tag(
-        trait=tl.Dict(), default=None
-    )
+    conformer_transitions = tl.List(allow_none=True).tag(trait=tl.Dict(), default=None)
     disabled = tl.Bool().tag(default=True)
 
     _BOKEH_LABEL = "energy-osc"

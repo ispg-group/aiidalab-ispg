@@ -17,7 +17,6 @@ from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_
 
 from .spectrum import (
     BroadeningKernel,
-    ConformerTransitions,
     EnergyUnit,
     Spectrum,
     Transition,
@@ -29,7 +28,7 @@ from .widgets import TrajectoryDataViewer
 
 class SpectrumWidget(ipw.VBox):
     disabled = tl.Bool().tag(default=True)
-    conformer_transitions: tl.List[ConformerTransitions] = tl.List(
+    conformer_transitions = tl.List(
         allow_none=True,
     ).tag(default=None)
     conformer_structures = tl.Union(

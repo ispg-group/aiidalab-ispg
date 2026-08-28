@@ -201,7 +201,7 @@ def parse_cmd():
     desc = (
         "WIP: Program for computing UV/vis spectra based on Nuclear Ensemble Approach"
     )
-    prog = "neovis"
+    prog = "neavis"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
     parser.add_argument("input_file", metavar="INPUT_FILE", help="TBD: Input file")
     parser.add_argument(
