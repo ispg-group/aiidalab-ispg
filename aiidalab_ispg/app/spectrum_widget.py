@@ -12,7 +12,7 @@ from typing import TypedDict
 import bokeh.plotting as plt
 import ipywidgets as ipw
 import numpy as np
-import traitlets
+import traitlets as tl
 
 from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
@@ -29,24 +29,23 @@ class ConformerTransitions(TypedDict):
 
 
 class SpectrumWidget(ipw.VBox):
-    disabled = traitlets.Bool().tag(default=True)
-    conformer_transitions = traitlets.List(
-        trait=ConformerTransitions,
+    disabled = tl.Bool().tag(default=True)
+    conformer_transitions: tl.List[ConformerTransitions] = tl.List(
         allow_none=True,
     ).tag(default=None)
-    conformer_structures = traitlets.Union(
-        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+    conformer_structures = tl.Union(
+        [tl.Instance(StructureData), tl.Instance(TrajectoryData)],
         allow_none=True,
     )
 
-    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
+    selected_conformer_id = tl.Int(allow_none=True, default_value=None)
 
-    cross_section_nm = traitlets.Dict(allow_none=True).tag(default=None)
+    cross_section_nm = tl.Dict(allow_none=True).tag(default=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
-    smiles = traitlets.Unicode(allow_none=True, default_value=None)
-    experimental_spectrum_uuid = traitlets.Unicode(
+    smiles = tl.Unicode(allow_none=True, default_value=None)
+    experimental_spectrum_uuid = tl.Unicode(
         allow_none=True, default_value=None, read_only=True
     )
 
@@ -517,7 +516,7 @@ class SpectrumWidget(ipw.VBox):
         theory_line.visible = False
         return figure
 
-    @traitlets.observe("disabled")
+    @tl.observe("disabled")
     def _observe_disabled(self, change):
         disabled = change["new"]
         with self.hold_trait_notifications():
@@ -544,7 +543,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.clean()
         self.debug_output.value = ""
 
-    @traitlets.validate("conformer_transitions")
+    @tl.validate("conformer_transitions")
     def _validate_conformers(self, change):
         conformer_transitions = change["value"]
         if conformer_transitions is None:
@@ -556,7 +555,7 @@ class SpectrumWidget(ipw.VBox):
             raise ValueError(msg)
         return conformer_transitions
 
-    @traitlets.validate("conformer_structures")
+    @tl.validate("conformer_structures")
     def _validate_conformer_structures(self, change):
         structures = change["value"]
         if structures is None:
@@ -570,16 +569,16 @@ class SpectrumWidget(ipw.VBox):
             msg = f"Unsupported type {type(structures)}"
             raise TypeError(msg)
 
-    @traitlets.observe("selected_conformer_id")
+    @tl.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
         self._unhighlight_conformer()
         self._highlight_conformer(change["new"])
 
-    @traitlets.observe("conformer_structures")
+    @tl.observe("conformer_structures")
     def _observe_conformers(self, change):
         self.conformer_viewer._viewer.handle_resize()
 
-    @traitlets.observe("conformer_transitions")
+    @tl.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
         self.disabled = True
         self._hide_all_conformers()
@@ -592,11 +591,11 @@ class SpectrumWidget(ipw.VBox):
         )
         self.disabled = False
 
-    @traitlets.observe("smiles")
+    @tl.observe("smiles")
     def _observe_smiles(self, change):
         self.find_experimental_spectrum_by_smiles(change["new"])
 
-    @traitlets.observe("experimental_spectrum_uuid")
+    @tl.observe("experimental_spectrum_uuid")
     def _observe_experimental_spectrum_uuid(self, change):
         if change["new"] == change["old"]:
             return
