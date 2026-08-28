@@ -25,7 +25,7 @@ from aiidalab_widgets_base import (
 )
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
-from .spectrum import EnergyUnit, Spectrum
+from .spectrum import ConformerTransitions, EnergyUnit, Spectrum, Transition
 from .spectrum_widget import SpectrumWidget
 from .utils import get_formula
 from .widgets import HeaderWarning, ISPGProcessNodesTreeWidget, spinner
@@ -318,7 +318,9 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.process_uuid = None
         self.spectrum.reset()
 
-    def _orca_output_to_transitions(self, output_dict, geom_index):
+    def _orca_output_to_transitions(
+        self, output_dict: dict, geom_index: int
+    ) -> list[Transition]:
         EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
         en = output_dict["excitation_energies_cm"]
         osc = output_dict["oscillator_strengths"]
@@ -327,7 +329,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             for tr in zip(en, osc)
         ]
 
-    def _wigner_output_to_transitions(self, wigner_outputs) -> list:
+    def _wigner_output_to_transitions(self, wigner_outputs) -> list[Transition]:
         transitions = []
         for i, params in enumerate(wigner_outputs):
             transitions += self._orca_output_to_transitions(params, i)
@@ -342,6 +344,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if not process.is_finished_ok:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
+        # TODO: Add message for failed processes
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
@@ -371,13 +374,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             equal_weight = 1.0 / nconf
             conformer_weights = [equal_weight for i in range(nconf)]
 
-        # TODO: Have a better type for this (dataclass?)
-        conformer_transitions = [
-            {
-                "transitions": self._wigner_output_to_transitions(conformer),
-                "nsample": nsample,
-                "weight": conformer_weights[i],
-            }
+        conformer_transitions: list[ConformerTransitions] = [
+            ConformerTransitions(
+                transitions=self._wigner_output_to_transitions(conformer),
+                nsample=nsample,
+                weight=conformer_weights[i],
+            )
             for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
         ]
 
@@ -387,7 +389,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         )
         if nstates:
             for c in conformer_transitions:
-                trans: list = c["transitions"]  # ty: ignore[invalid-assignment]
+                trans: list = c["transitions"]
                 nsample = c["nsample"]
                 assert nsample * nstates == len(trans), (
                     f"{nstates * nsample=} != {len(trans)=}: {trans=}"
