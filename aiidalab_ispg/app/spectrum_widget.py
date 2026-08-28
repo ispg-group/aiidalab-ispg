@@ -7,6 +7,7 @@ Authors:
 import base64
 import csv
 from tempfile import SpooledTemporaryFile
+from typing import TypedDict
 
 import bokeh.plotting as plt
 import ipywidgets as ipw
@@ -15,16 +16,22 @@ import traitlets
 
 from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
-from .spectrum import BroadeningKernel, EnergyUnit, Spectrum
+from .spectrum import BroadeningKernel, EnergyUnit, Spectrum, Transition
 from .spectrum_analysis import SpectrumAnalysisWidget
 from .utils import BokehFigureContext
 from .widgets import TrajectoryDataViewer
 
 
+class ConformerTransitions(TypedDict):
+    transitions: list[Transition]
+    nsample: int
+    weight: float
+
+
 class SpectrumWidget(ipw.VBox):
     disabled = traitlets.Bool().tag(default=True)
     conformer_transitions = traitlets.List(
-        trait=traitlets.Dict(),
+        trait=ConformerTransitions,
         allow_none=True,
     ).tag(default=None)
     conformer_structures = traitlets.Union(
@@ -186,7 +193,7 @@ class SpectrumWidget(ipw.VBox):
             **kwargs,
         )
 
-    def _download_spectrum(self, btn):
+    def _download_spectrum(self, _) -> None:
         """Download spectrum lines as CSV file"""
         from IPython.display import Javascript, display
 
@@ -209,7 +216,7 @@ class SpectrumWidget(ipw.VBox):
         )
         display(js)
 
-    def _prepare_tsv(self):
+    def _prepare_tsv(self) -> str:
         column_names = [
             f"Energy / ({self.energy_unit_selector.value.value})",
             (
@@ -230,14 +237,6 @@ class SpectrumWidget(ipw.VBox):
         # "Show conformers" button, otherwise we don't have access to the conformer data
         # through the lines in the figure. One way to solve this would be to always
         # add the conformer lines in the plot, but hide them by default (see hide_line)
-        # TODO: Relatedly above, currently there might be a race condition if the user pressed
-        # "Show conformers" and "Download spectrum" in a quick succession.
-        # The solution proposed above should solve this problem as well,
-        # since the conformer cross section would always be available.
-        # WARNING: Even without conformers, we might still have race condition
-        # in between user modification of the spectrum (e.g. changing kernel width)
-        # and downloading the data. We need to ensure that the Download button is always disabled
-        # when we're recomputing the spectra. This needs more investigation.
         nconf = len(self.conformer_transitions)
         y_confs = []
         if nconf > 1:
@@ -259,7 +258,7 @@ class SpectrumWidget(ipw.VBox):
             csvfile.seek(0)
             return base64.b64encode(csvfile.read().encode()).decode()
 
-    def _validate_transitions(self, transitions):
+    def _validate_transitions(self, transitions: list[Transition]) -> bool:
         # TODO: Maybe use named tuple instead of dictionary?
         # https://realpython.com/python-namedtuple/
         if transitions is None or len(transitions) == 0:
@@ -466,7 +465,9 @@ class SpectrumWidget(ipw.VBox):
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label, update=True, **args):
+    def plot_line(
+        self, x: np.ndarray, y: np.ndarray, label: str, update: bool, **kwargs
+    ) -> None:
         """Update existing plot line or create a new one.
         Updating existing plot lines unfortunately only work for label=theory
         and label=experiment, that are predefined in _init_figure()
@@ -476,11 +477,11 @@ class SpectrumWidget(ipw.VBox):
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         self.remove_line(label, update=update)
         f = self.figure.get_figure()
-        f.line(x, y, name=label, **args)
+        f.line(x, y, name=label, **kwargs)
         if update:
             self.figure.update()
 
-    def hide_line(self, label: str, update=True):
+    def hide_line(self, label: str, update: bool = True) -> None:
         """Hide given line from the plot"""
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
@@ -490,7 +491,7 @@ class SpectrumWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    def remove_line(self, label: str, update=True):
+    def remove_line(self, label: str, update: bool = True) -> None:
         # Observation: Removing and adding lines via
         # plot_line() and remove_line() works well. However, doing
         # updates on existing lines only works for lines defined in _init_figure()
@@ -611,7 +612,7 @@ class SpectrumWidget(ipw.VBox):
             energy_unit=self.energy_unit_selector.value,
         )
 
-    def find_experimental_spectrum_by_smiles(self, smiles: str):
+    def find_experimental_spectrum_by_smiles(self, smiles: str) -> None:
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
 
@@ -635,7 +636,7 @@ class SpectrumWidget(ipw.VBox):
 
     def plot_experimental_spectrum(
         self, spectrum_node: XyData, energy_unit: EnergyUnit
-    ):
+    ) -> None:
         """Render experimental spectrum that was loaded to AiiDA database manually
         param: spectrum_node: XyData node
         energy_unit: energy unit of the plotted spectra"""
@@ -668,4 +669,6 @@ class SpectrumWidget(ipw.VBox):
             "line_dash": "dashed",
             "line_width": 2,
         }
-        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
+        self.plot_line(
+            energy, cross_section, self.EXP_SPEC_LABEL, update=True, **line_options
+        )

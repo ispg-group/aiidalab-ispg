@@ -51,7 +51,7 @@ class TestInit:
         assert spec.nsample == 3
 
     def test_empty_transitions_gives_empty_arrays(self):
-        spec = Spectrum({}, nsample=0)
+        spec = Spectrum([], nsample=0)
 
         assert spec.excitation_energies.size == 0
         assert spec.osc_strengths.size == 0
