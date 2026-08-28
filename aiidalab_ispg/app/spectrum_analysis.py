@@ -19,6 +19,7 @@ import numpy as np
 import traitlets as tl
 from bokeh.models import LogAxis, LogScale, Range1d
 
+from .spectrum import ConformerTransitions
 from .utils import BokehFigureContext
 from .widgets import HeaderWarning
 
@@ -37,10 +38,15 @@ class ActinicFlux(Enum):
     HIGH = "High flux"
 
 
+ndarray_1d = np.ndarray[tuple[int], np.dtype[np.float64]]
+
+
 class SpectrumAnalysisWidget(ipw.VBox):
     """A container class for organizing various analysis widgets"""
 
-    conformer_transitions = tl.List(allow_none=True).tag(trait=tl.Dict(), default=None)
+    conformer_transitions: tl.List[ConformerTransitions] = tl.List(allow_none=True).tag(
+        trait=tl.Dict(), default=None
+    )
 
     cross_section_nm = tl.Dict(allow_none=True).tag(default=None)
 
@@ -87,7 +93,9 @@ class DensityPlotWidget(ipw.VBox):
     and oscillator strenghts.
     """
 
-    conformer_transitions = tl.List(allow_none=True).tag(trait=tl.Dict(), default=None)
+    conformer_transitions: tl.List[ConformerTransitions] = tl.List(allow_none=True).tag(
+        trait=tl.Dict(), default=None
+    )
     disabled = tl.Bool().tag(default=True)
 
     _BOKEH_LABEL = "energy-osc"
@@ -114,7 +122,7 @@ class DensityPlotWidget(ipw.VBox):
         return figure
 
     @tl.observe("conformer_transitions")
-    def _observe_conformer_transitions(self, change):
+    def _observe_conformer_transitions(self, change) -> None:
         self.disabled = True
         if change["new"] is None or len(change["new"]) == 0:
             self.reset()
@@ -122,13 +130,13 @@ class DensityPlotWidget(ipw.VBox):
         self._update_density_plot()
         self.disabled = False
 
-    def _update_density_plot(self):
+    def _update_density_plot(self) -> None:
         if self.conformer_transitions is None:
             return
         energies, osc_strengths = self._flatten_transitions()
         self.plot_scatter(energies, osc_strengths)
 
-    def _flatten_transitions(self) -> tuple:
+    def _flatten_transitions(self) -> tuple[ndarray_1d, ndarray_1d]:
         # Flatten transitions for all conformers.
         # In the future, we might want to plot individual conformers
         # separately in the scatter plot.
@@ -148,7 +156,7 @@ class DensityPlotWidget(ipw.VBox):
         )
         return energies, osc_strengths
 
-    def plot_scatter(self, energies: np.ndarray, osc_strengths: np.ndarray):
+    def plot_scatter(self, energies: ndarray_1d, osc_strengths: ndarray_1d) -> None:
         """Update existing scatter plot or create a new one."""
         self.figure.remove_renderer(self._BOKEH_LABEL, update=True)
         f = self.figure.get_figure()
@@ -158,7 +166,7 @@ class DensityPlotWidget(ipw.VBox):
         )
         self.figure.update()
 
-    def reset(self):
+    def reset(self) -> None:
         with self.hold_trait_notifications():
             self.disabled = True
             self.figure.clean()
@@ -367,14 +375,14 @@ class PhotolysisPlotWidget(ipw.VBox):
         }
 
     @staticmethod
-    def smooth_j_diff(j_diff: np.ndarray) -> np.ndarray:
+    def smooth_j_diff(j_diff: ndarray_1d) -> ndarray_1d:
         kernel_size = 3
         kernel = np.ones(kernel_size) / kernel_size
         return np.convolve(j_diff, kernel, mode="same")
 
     def calculate_j_diff(
         self, cross_section_nm: dict, flux_type: ActinicFlux, quantum_yield: float
-    ):
+    ) -> tuple[ndarray_1d, ndarray_1d]:
         """
         Calculate the J values for the given level and quantum yield.
         Smooth the curve using np.convolve(x, kernel = 3, mode = "valid")
@@ -391,8 +399,8 @@ class PhotolysisPlotWidget(ipw.VBox):
         return wavelengths, j_diff
 
     def interpolate_cross_section(
-        self, flux_wavelengths: np.ndarray, cross_section_nm: dict
-    ) -> np.ndarray:
+        self, flux_wavelengths: ndarray_1d, cross_section_nm: dict
+    ) -> ndarray_1d:
         """
         Prepare the molecular intensity data for plotting by interpolating cross section onto actinic flux x values.
 
@@ -410,7 +418,9 @@ class PhotolysisPlotWidget(ipw.VBox):
             right=0.0,
         )
 
-    def plot_line(self, x: np.ndarray, y: np.ndarray, label: str, update=True, **args):
+    def plot_line(
+        self, x: ndarray_1d, y: ndarray_1d, label: str, update: bool = True, **args
+    ):
         """Plot a line on the figure with the given x and y data and label.
 
         :param x: The x data for the line.
@@ -427,13 +437,13 @@ class PhotolysisPlotWidget(ipw.VBox):
             self.figure.update()
 
     def plot_photolysis_rate(
-        self, wavelengths: np.ndarray, j_diff: np.ndarray, update=True
+        self, wavelengths: ndarray_1d, j_diff: ndarray_1d, update: bool = True
     ):
         self.plot_line(wavelengths, j_diff, label="rate", update=update, line_width=2)
         y_range_max = 1.2 * j_diff.max()
         self.update_y_axis(y_range_max, update=update)
 
-    def update_y_axis(self, end: float, update=True):
+    def update_y_axis(self, end: float, update: bool = True):
         """Update the y-axis range of the figure.
 
         :param end: The new end value for the y-axis range.
@@ -446,7 +456,7 @@ class PhotolysisPlotWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    def plot_flux(self, flux_type: ActinicFlux, update=True, **args):
+    def plot_flux(self, flux_type: ActinicFlux, update: bool = True, **args):
         """
         Plot flux data in logarithmic axis.
 
@@ -460,7 +470,7 @@ class PhotolysisPlotWidget(ipw.VBox):
             x, y, label="log_flux", update=update, y_range_name="V", color="red", **args
         )
 
-    def remove_line(self, label: str, update=True):
+    def remove_line(self, label: str, update: bool = True):
         """
         Remove a line from the figure.
 

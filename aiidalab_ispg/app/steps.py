@@ -25,8 +25,8 @@ from aiidalab_widgets_base import (
 )
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
-from .spectrum import EnergyUnit, Spectrum, Transition
-from .spectrum_widget import ConformerTransitions, SpectrumWidget
+from .spectrum import ConformerTransitions, EnergyUnit, Spectrum, Transition
+from .spectrum_widget import SpectrumWidget
 from .utils import get_formula
 from .widgets import HeaderWarning, ISPGProcessNodesTreeWidget, spinner
 

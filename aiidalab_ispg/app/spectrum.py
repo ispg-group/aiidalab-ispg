@@ -42,6 +42,12 @@ class Transition(TypedDict):
     geom_index: int
 
 
+class ConformerTransitions(TypedDict):
+    transitions: list[Transition]
+    nsample: int
+    weight: float
+
+
 class Spectrum:
     """NEA spectrum class
 

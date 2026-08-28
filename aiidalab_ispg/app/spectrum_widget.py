@@ -7,7 +7,6 @@ Authors:
 import base64
 import csv
 from tempfile import SpooledTemporaryFile
-from typing import TypedDict
 
 import bokeh.plotting as plt
 import ipywidgets as ipw
@@ -16,16 +15,16 @@ import traitlets as tl
 
 from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
-from .spectrum import BroadeningKernel, EnergyUnit, Spectrum, Transition
+from .spectrum import (
+    BroadeningKernel,
+    ConformerTransitions,
+    EnergyUnit,
+    Spectrum,
+    Transition,
+)
 from .spectrum_analysis import SpectrumAnalysisWidget
 from .utils import BokehFigureContext
 from .widgets import TrajectoryDataViewer
-
-
-class ConformerTransitions(TypedDict):
-    transitions: list[Transition]
-    nsample: int
-    weight: float
 
 
 class SpectrumWidget(ipw.VBox):
