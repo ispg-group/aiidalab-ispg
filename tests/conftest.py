@@ -1,12 +1,25 @@
 from __future__ import annotations
 
 import pytest
+
+from aiidalab_ispg.app.spectrum import Spectrum
 from aiidalab_ispg.workflows.utils import (
     extract_trajectory_arrays,
     structures_to_trajectory,
 )
 
 pytest_plugins = ["aiida.tools.pytest_fixtures"]
+
+
+@pytest.fixture(autouse=True)
+def small_sample_grid(monkeypatch):
+    """Use a small, reasonable number of x-axis points for every test.
+
+    500 points (the production default) makes numerical regression
+    snapshots huge and hard to review. 10 points is plenty to catch
+    regressions while keeping snapshots readable.
+    """
+    monkeypatch.setattr(Spectrum, "N_SAMPLE_POINTS", 10)
 
 
 @pytest.fixture

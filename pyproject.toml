@@ -13,7 +13,7 @@ src = ["aiidalab_ispg", "tests", "tests_integration", "notebooks"]
 target-version = "py39"
 
 [tool.ruff.lint.isort]
-known-first-party = ["aiida", "aiidalab_widgets_base"]
+known-first-party = ["aiida", "aiidalab_widgets_base", "aiidalab_ispg"]
 
 [tool.ty.environment]
 python-version = "3.9"

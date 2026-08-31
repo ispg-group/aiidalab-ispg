@@ -4,22 +4,12 @@ import functools
 
 import numpy as np
 import pytest
-from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
 from inline_snapshot import snapshot
+
+from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit, Spectrum
 
 # Apply tighter numerical tresholds by default
 approx = functools.partial(pytest.approx, rel=1e-10, abs=1e-25)
-
-
-@pytest.fixture(autouse=True)
-def small_sample_grid(monkeypatch):
-    """Use a small, reasonable number of x-axis points for every test.
-
-    500 points (the production default) makes numerical regression
-    snapshots huge and hard to review. 10 points is plenty to catch
-    regressions while keeping snapshots readable.
-    """
-    monkeypatch.setattr(Spectrum, "N_SAMPLE_POINTS", 10)
 
 
 def make_transitions(energies, osc_strengths):
