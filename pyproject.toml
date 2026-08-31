@@ -22,6 +22,9 @@ python-version = "3.9"
 addopts = '--strict-config --strict-markers -ra'
 filterwarnings = [
   'ignore:Creating AiiDA configuration folder:UserWarning:aiida:',
+  'ignore:Object of type .* not in session, .* operation along .* will not proceed:sqlalchemy.exc.SAWarning',
+  # https://github.com/aiidateam/plumpy/issues/283
+  'ignore:There is no current event loop:DeprecationWarning:plumpy',
   'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning:pytz',
   'ignore::DeprecationWarning:bokeh:',
 ]
