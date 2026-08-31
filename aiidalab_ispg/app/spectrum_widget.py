@@ -366,10 +366,9 @@ class SpectrumWidget(ipw.VBox):
         label = f"conformer_{conf_id}"
         self.plot_line(x, y, label, update=update, **line_options)
 
-    def _plot_spectrum(
+    def _compute_total_cross_section(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
-    ):
-        self.download_btn.disabled = True
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         # Determine spectrum energy range based on all excitation energies
         all_exc_energies = np.array(
             [
@@ -382,9 +381,9 @@ class SpectrumWidget(ipw.VBox):
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
 
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
-
         x_stick = np.array([])
         y_stick = np.array([])
+
         # Iterate over conformers, the total spectrum is a sum of
         # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
@@ -404,11 +403,22 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
+        return x, total_cross_section, x_stick, y_stick
+
+    def _plot_spectrum(
+        self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
+    ):
+        self.download_btn.disabled = True
+
+        x, total_cross_section, x_stick, y_stick = self._compute_total_cross_section(
+            kernel, width, energy_unit
+        )
+
         # Energy unit not nm needs converting for spectrum analysis
         if energy_unit != EnergyUnit.NM:
             x_nm = (
-                spec.get_energy_unit_factor(EnergyUnit.NM)
-                * spec.get_energy_unit_factor(energy_unit)
+                Spectrum.get_energy_unit_factor(EnergyUnit.NM)
+                * Spectrum.get_energy_unit_factor(energy_unit)
                 / x
             )
             self.cross_section_nm = {

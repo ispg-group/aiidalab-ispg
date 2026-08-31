@@ -296,6 +296,77 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         self._update_kill_button()
 
 
+def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Transition]:
+    EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
+    en = output_dict["excitation_energies_cm"]
+    osc = output_dict["oscillator_strengths"]
+    return [
+        {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
+        for tr in zip(en, osc)
+    ]
+
+
+def _wigner_output_to_transitions(wigner_outputs) -> list[Transition]:
+    transitions = []
+    for i, params in enumerate(wigner_outputs):
+        transitions += _orca_output_to_transitions(params, i)
+    return transitions
+
+
+def _get_conformer_transitions(process) -> list[ConformerTransitions]:
+    """Convert process.outputs.spectrum_data into a data structure that
+    is passed to the SpectrumWidget and Spectrum classes"""
+
+    # Number of conformers
+    optimized = process.inputs.optimize
+    nconf = len(process.inputs.structure.get_stepids())
+    # TODO: If the input geometries were not optimized, we should treat them
+    # as samples, not conformers!
+    # Number of Wigner geometries per conformer
+    wigner_sampled = optimized and process.inputs.nwigner.value > 0
+    if wigner_sampled:
+        nsample = process.inputs.nwigner.value
+    else:
+        nsample = 1
+
+    # Unfortunately, we don't have number of states as attribute in process.inputs
+    nstates = None
+    if bp := process.base.extras.get("builder_parameters", None):
+        nstates = bp["nstates"]
+
+    # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
+    if nconf > 1 and optimized:
+        conformer_weights = process.outputs.relaxed_structures.get_array(
+            "boltzmann_weights"
+        )
+    else:
+        equal_weight = 1.0 / nconf
+        conformer_weights = [equal_weight for i in range(nconf)]
+
+    conformer_transitions: list[ConformerTransitions] = [
+        ConformerTransitions(
+            transitions=_wigner_output_to_transitions(conformer),
+            nsample=nsample,
+            weight=conformer_weights[i],
+        )
+        for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
+    ]
+
+    # Make sure our data is consistent
+    assert nconf == len(conformer_transitions), (
+        f"{nconf=} != {len(conformer_transitions)=}"
+    )
+    if nstates:
+        for c in conformer_transitions:
+            trans: list = c["transitions"]
+            nsample = c["nsample"]
+            assert nsample * nstates == len(trans), (
+                f"{nstates * nsample=} != {len(trans)=}: {trans=}"
+            )
+
+    return conformer_transitions
+
+
 class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
     """Step for displaying UV/vis spectrum"""
 
@@ -318,23 +389,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.process_uuid = None
         self.spectrum.reset()
 
-    def _orca_output_to_transitions(
-        self, output_dict: dict, geom_index: int
-    ) -> list[Transition]:
-        EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
-        en = output_dict["excitation_energies_cm"]
-        osc = output_dict["oscillator_strengths"]
-        return [
-            {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
-            for tr in zip(en, osc)
-        ]
-
-    def _wigner_output_to_transitions(self, wigner_outputs) -> list[Transition]:
-        transitions = []
-        for i, params in enumerate(wigner_outputs):
-            transitions += self._orca_output_to_transitions(params, i)
-        return transitions
-
     def _show_spectrum(self):
         if self.process_uuid is None:
             self.spectrum.debug_output.value = ""
@@ -348,54 +402,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
-        # Number of conformers
-        nconf = len(process.inputs.structure.get_stepids())
-        optimized = process.inputs.optimize
-        # TODO: If the input geometries were not optimized, we should treat them
-        # as samples, not conformers!
-        # Number of Wigner geometries per conformer
-        wigner_sampled = optimized and process.inputs.nwigner.value > 0
-        if wigner_sampled:
-            nsample = process.inputs.nwigner.value
-        else:
-            nsample = 1
-
-        # Unfortunately, we don't have number of states as attribute in process.inputs
-        nstates = None
-        if bp := process.base.extras.get("builder_parameters", None):
-            nstates = bp["nstates"]
-
-        # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
-        if nconf > 1 and optimized:
-            conformer_weights = process.outputs.relaxed_structures.get_array(
-                "boltzmann_weights"
-            )
-        else:
-            equal_weight = 1.0 / nconf
-            conformer_weights = [equal_weight for i in range(nconf)]
-
-        conformer_transitions: list[ConformerTransitions] = [
-            ConformerTransitions(
-                transitions=self._wigner_output_to_transitions(conformer),
-                nsample=nsample,
-                weight=conformer_weights[i],
-            )
-            for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
-        ]
-
-        # Make sure our data is consistent
-        assert nconf == len(conformer_transitions), (
-            f"{nconf=} != {len(conformer_transitions)=}"
-        )
-        if nstates:
-            for c in conformer_transitions:
-                trans: list = c["transitions"]
-                nsample = c["nsample"]
-                assert nsample * nstates == len(trans), (
-                    f"{nstates * nsample=} != {len(trans)=}: {trans=}"
-                )
-
-        self.spectrum.conformer_transitions = conformer_transitions
+        self.spectrum.conformer_transitions = _get_conformer_transitions(process)
 
         smiles = process.inputs.structure.base.extras.get("smiles", None)
         self.spectrum.smiles = smiles
@@ -405,8 +412,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if smiles and "relaxed_structures" in process.outputs:
             process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
-        if optimized:
-            assert nconf == len(process.outputs.relaxed_structures.get_stepids())
+        if process.inputs.optimized:
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:

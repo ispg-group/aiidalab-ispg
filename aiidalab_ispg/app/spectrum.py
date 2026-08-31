@@ -184,7 +184,10 @@ class Spectrum:
 
         # We also return "stick" spectrum, e.g. just the transitions themselves,
         # where osc. strengths are normalized to the maximum of the spectrum.
-        y_stick = self.osc_strengths * np.max(y) / np.max(self.osc_strengths)
+        if (max_osc_strength := np.max(self.osc_strengths)) == 0:
+            y_stick = self.osc_strengths
+        else:
+            y_stick = self.osc_strengths * np.max(y) / max_osc_strength
 
         return x, y, x_stick, y_stick
 
