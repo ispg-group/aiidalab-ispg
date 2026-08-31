@@ -120,10 +120,16 @@ jobs:
         run: uv pip install -e .[test]
 
       - name: Run pytest
-        run: pytest tests/
+        run: pytest --cov aiidalab_ispg tests/
 
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
 
       - name: Smoke test wigner.py
         run: uv run -s aiidalab_ispg/wigner/wigner.py -h
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
