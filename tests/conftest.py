@@ -38,7 +38,7 @@ def generate_workchain_node(aiida_localhost):
 
     def _generate_workchain_node(
         entry_point_name="ispg.atmospec", computer=None, inputs=None, outputs=None
-    ):
+    ) -> orm.WorkChainNode:
         """Fixture to generate a mock `CalcJobNode` for testing parsers.
 
         :param entry_point_name: entry point name of the calculation class
@@ -97,7 +97,9 @@ def generate_atmospec_node(generate_workchain_node, generate_trajectory):
 
         return orm.List(spectrum_data)
 
-    def _generate_atmospec_node(optimize: bool, nstates: int, nconf: int, nwigner: int):
+    def _generate_atmospec_node(
+        optimize: bool, nstates: int, nconf: int, nwigner: int
+    ) -> orm.WorkChainNode:
         inputs = {
             "optimize": orm.Bool(optimize),
             "nstates": orm.Int(nstates),
@@ -121,8 +123,13 @@ def generate_atmospec_node(generate_workchain_node, generate_trajectory):
                 nconf, array_data=array_data
             )
 
-        return generate_workchain_node(
+        node = generate_workchain_node(
             entry_point_name="ispg.atmospec", inputs=inputs, outputs=outputs
         )
+        # Generate (partly) fake builder parameters
+        bp = inputs.copy()
+        bp.pop("structure")  # TrajectoryData is not serializable
+        node.base.extras.set("builder_parameters", bp)
+        return node
 
     return _generate_atmospec_node
