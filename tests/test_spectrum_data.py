@@ -1,3 +1,9 @@
+"""Test code that transforms `spectrum_data` output from Atmospec AiiDA workflow
+to a datastructure that is passed to the SpectrumWidget"""
+
+import sys
+
+import pytest
 from aiidalab_ispg.app.steps import _get_conformer_transitions
 from inline_snapshot import snapshot
 
@@ -50,6 +56,10 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
     assert conf_transitions == ref
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 12),
+    reason="requires python3.12 to get the same numerical values",
+)
 def test_optimized_conformers_without_wigner_sampling(generate_atmospec_node):
     """Test a single point spectrum for multiple conformers without Wigner sampling"""
     process = generate_atmospec_node(optimize=True, nstates=1, nconf=3, nwigner=0)
