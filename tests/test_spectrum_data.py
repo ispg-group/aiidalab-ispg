@@ -34,26 +34,20 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
                         "osc_strength": 0.01,
                         "geom_index": 0,
                     },
-                ],
-                "nsample": 1,
-                "weight": 0.5,
-            },
-            {
-                "transitions": [
                     {
                         "energy": 0.9918730956021841,
                         "osc_strength": 0.0,
-                        "geom_index": 0,
+                        "geom_index": 1,
                     },
                     {
                         "energy": 1.1158572325524572,
                         "osc_strength": 0.01,
-                        "geom_index": 0,
+                        "geom_index": 1,
                     },
                 ],
-                "nsample": 1,
-                "weight": 0.5,
-            },
+                "nsample": 2,
+                "weight": 1.0,
+            }
         ]
     )
     assert conf_transitions == ref
@@ -95,7 +89,7 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
     x_stick_ref = snapshot(
         [0.9918730956021841, 1.1158572325524572, 0.9918730956021841, 1.1158572325524572]
     )
-    y_stick_ref = snapshot([0.0, 9.73096228471719e-19, 0.0, 9.73096228471719e-19])
+    y_stick_ref = snapshot([0.0, 1.946192456943438e-18, 0.0, 1.946192456943438e-18])
     assert x.tolist() == approx(x_ref)
     assert y.tolist() == approx(y_ref)
     assert x_stick.tolist() == approx(x_stick_ref)

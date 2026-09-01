@@ -319,20 +319,36 @@ def _get_conformer_transitions(process) -> list[ConformerTransitions]:
 
     # Number of conformers
     optimized = process.inputs.optimize
-    nconf = len(process.inputs.structure.get_stepids())
+    n_input_geoms = len(process.inputs.structure.get_stepids())
     # TODO: If the input geometries were not optimized, we should treat them
     # as samples, not conformers!
     # Number of Wigner geometries per conformer
     wigner_sampled = optimized and process.inputs.nwigner.value > 0
     if wigner_sampled:
+        nconf = n_input_geoms
         nsample = process.inputs.nwigner.value
-    else:
+    elif optimized:
+        nconf = n_input_geoms
         nsample = 1
+    else:
+        nconf = 1
+        nsample = n_input_geoms
 
     # Unfortunately, we don't have number of states as attribute in process.inputs
     nstates = None
     if bp := process.base.extras.get("builder_parameters", None):
         nstates = bp["nstates"]
+
+    # TODO: For the case of unoptimized geometries, flatten the list
+    # so that the geometries are treated as a single conformer
+    spectrum_data = process.outputs.spectrum_data.get_list()
+    if not optimized:
+        samples = []
+        for conf in spectrum_data:
+            assert len(conf) == 1
+            samples.append(conf[0])
+        spectrum_data = [samples]
+        print(spectrum_data)
 
     # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
     if nconf > 1 and optimized:
@@ -349,7 +365,7 @@ def _get_conformer_transitions(process) -> list[ConformerTransitions]:
             nsample=nsample,
             weight=conformer_weights[i],
         )
-        for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
+        for i, conformer in enumerate(spectrum_data)
     ]
 
     # Make sure our data is consistent
