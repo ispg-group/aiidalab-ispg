@@ -148,6 +148,7 @@ def generate_atmospec_node(generate_workchain_node, generate_trajectory):
         # Generate (partly) fake builder parameters
         bp = inputs.copy()
         bp.pop("structure")  # TrajectoryData is not serializable
+        bp["solvent"] = "None"
         node.base.extras.set("builder_parameters", bp)
         return node
 

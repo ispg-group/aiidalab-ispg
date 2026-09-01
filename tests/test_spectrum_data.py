@@ -281,3 +281,10 @@ def test_failed_workflow(generate_workchain_node):
 
     assert step.state == step.State.FAIL
     assert step.spectrum.debug_output.value == "Workflow failed :-("
+    assert step.spectrum.conformer_transitions is None
+
+    # Reset the widget
+    step.reset()
+    assert step.process_uuid is None
+    assert step.state == step.State.INIT
+    assert step.spectrum.debug_output.value == ""
