@@ -319,20 +319,31 @@ def _get_conformer_transitions(process) -> list[ConformerTransitions]:
 
     # Number of conformers
     optimized = process.inputs.optimize
-    nconf = len(process.inputs.structure.get_stepids())
-    # TODO: If the input geometries were not optimized, we should treat them
-    # as samples, not conformers!
+    n_input_geoms = len(process.inputs.structure.get_stepids())
     # Number of Wigner geometries per conformer
     wigner_sampled = optimized and process.inputs.nwigner.value > 0
     if wigner_sampled:
+        nconf = n_input_geoms
         nsample = process.inputs.nwigner.value
-    else:
+    elif optimized:
+        nconf = n_input_geoms
         nsample = 1
+    else:
+        # If the input geometries were not optimized, we treat them
+        # as samples, not conformers!
+        nconf = 1
+        nsample = n_input_geoms
 
     # Unfortunately, we don't have number of states as attribute in process.inputs
     nstates = None
     if bp := process.base.extras.get("builder_parameters", None):
         nstates = bp["nstates"]
+
+    # For the case of unoptimized geometries, flatten the list
+    # so that the geometries are treated as a single conformer
+    spectrum_data = process.outputs.spectrum_data.get_list()
+    if not optimized:
+        spectrum_data = [[conf[0] for conf in spectrum_data]]
 
     # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
     if nconf > 1 and optimized:
@@ -349,7 +360,7 @@ def _get_conformer_transitions(process) -> list[ConformerTransitions]:
             nsample=nsample,
             weight=conformer_weights[i],
         )
-        for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
+        for i, conformer in enumerate(spectrum_data)
     ]
 
     # Make sure our data is consistent
@@ -395,11 +406,13 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             return
 
         process = load_node(self.process_uuid)
-        if not process.is_finished:
+        if not process.is_terminated:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
         elif not process.is_finished_ok:
-            self.spectrum.debug_output.value = "Workflow failed :-("
+            self.spectrum.debug_output.value = (
+                "Workflow failed, I have no spectrum to show you 😧"
+            )
             return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
