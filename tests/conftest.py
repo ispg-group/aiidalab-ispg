@@ -12,6 +12,18 @@ pytest_plugins = ["aiida.tools.pytest_fixtures"]
 
 
 @pytest.fixture(autouse=True)
+def monkeypatch_bokeh(monkeypatch):
+    """Monkeypatch bokeh.io.show to be a no-op.
+
+    In new bokeh versions, without calling "bokeh.io.output_notebook",
+    show would by default render the plot in a temporary file and open
+    it in a new browser tab."""
+    import bokeh.io
+
+    monkeypatch.setattr(bokeh.io, "show", lambda _fig, notebook_handle: None)
+
+
+@pytest.fixture(autouse=True)
 def small_sample_grid(monkeypatch):
     """Use a small, reasonable number of x-axis points for every test.
 

@@ -22,7 +22,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           # nbstripout requires python 3.10
-          python-version: "3.10"
+          python-version: "3.12"
           activate-environment: true
 
       - name: Install app for type checking
@@ -45,6 +45,10 @@ jobs:
         tag: [latest]
         image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
         browser: [Firefox, Chrome]
+        include:
+          - tag: edge
+            image: "ghcr.io/aiidalab/full-stack"
+            browser: Chrome
       fail-fast: false
     env:
       IMAGE: ${{ matrix.image }}
@@ -79,7 +83,7 @@ jobs:
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
 
       - name: Run pytest
-        run: pytest -sv --tb=short --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests_integration/
+        run: pytest -sv --tb=short --driver ${{ matrix.browser }} --inline-snapshot=disable -o cache_dir=$PYTEST_CACHE_DIR tests_integration/
 
       - name: Replace slashes in image name
         if: always()
@@ -120,7 +124,7 @@ jobs:
         run: uv pip install -e .[test]
 
       - name: Run pytest
-        run: pytest --cov aiidalab_ispg tests/
+        run: pytest --cov aiidalab_ispg --inline-snapshot=disable tests/
 
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
