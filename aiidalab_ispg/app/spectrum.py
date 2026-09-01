@@ -11,7 +11,10 @@ Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
+from __future__ import annotations
+
 from enum import Enum, unique
+from typing import TypedDict
 
 import numpy as np
 from scipy import constants
@@ -31,6 +34,18 @@ class EnergyUnit(Enum):
 class BroadeningKernel(Enum):
     GAUSS = "gaussian"
     LORENTZ = "lorentzian"
+
+
+class Transition(TypedDict):
+    energy: int
+    osc_strength: float
+    geom_index: int
+
+
+class ConformerTransitions(TypedDict):
+    transitions: list[Transition]
+    nsample: int
+    weight: float
 
 
 class Spectrum:
@@ -55,7 +70,7 @@ class Spectrum:
     # TODO: We should make this dependent on the energy range
     N_SAMPLE_POINTS = 500
 
-    def __init__(self, transitions: dict, nsample: int):
+    def __init__(self, transitions: list[Transition], nsample: int):
         # Excitation energies in eV
         self.excitation_energies = np.array(
             [tr["energy"] for tr in transitions], dtype=float
@@ -68,8 +83,17 @@ class Spectrum:
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
+        num_exc = len(self.excitation_energies)
+        num_osc = len(self.osc_strengths)
+        assert num_exc == num_osc, (
+            f"# excitation energies ({num_exc}) != # osc. strengths ({num_osc})"
+        )
+        assert nsample <= num_exc, (
+            f"Number of samples ({nsample}) cannot be bigger than number of transitions ({num_exc})"
+        )
+
     @staticmethod
-    def get_energy_range_ev(excitation_energies):
+    def get_energy_range_ev(excitation_energies: np.ndarray):
         """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
         en_min_ev = excitation_energies.min()
         en_max_ev = excitation_energies.max()
@@ -88,7 +112,7 @@ class Spectrum:
         return x_min, x_max
 
     @staticmethod
-    def get_energy_unit_factor(unit: EnergyUnit):
+    def get_energy_unit_factor(unit: EnergyUnit) -> float:
         """Returns a multiplication factor to go from eV to other energy units"""
 
         # TODO: Construct these factors from scipy.constants or use pint
@@ -101,7 +125,9 @@ class Spectrum:
         }
         return unit_factors[unit]
 
-    def _calc_lorentzian_spectrum(self, x, y, tau: float):
+    def _calc_lorentzian_spectrum(
+        self, x: np.ndarray, y: np.ndarray, tau: float
+    ) -> None:
         """Calculate NEA spectrum broadened with a Lorentzian function:
 
         https://en.wikipedia.org/wiki/Cauchy_distribution#Probability_density_function
@@ -113,7 +139,7 @@ class Spectrum:
             prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
-    def _calc_gauss_spectrum(self, x, y, sigma: float):
+    def _calc_gauss_spectrum(self, x: np.ndarray, y: np.ndarray, sigma: float) -> None:
         """Calculate NEA spectrum broadened with a Gaussian function
 
         https://en.wikipedia.org/wiki/Normal_distribution
@@ -130,9 +156,9 @@ class Spectrum:
         kernel: BroadeningKernel,
         width: float,
         x_unit: EnergyUnit,
-        x_min=None,
-        x_max=None,
-    ):
+        x_min: float | None = None,
+        x_max: float | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         if x_min is None or x_max is None:
             x_min, x_max = self.get_energy_range_ev(self.excitation_energies)
 
@@ -158,11 +184,14 @@ class Spectrum:
 
         # We also return "stick" spectrum, e.g. just the transitions themselves,
         # where osc. strengths are normalized to the maximum of the spectrum.
-        y_stick = self.osc_strengths * np.max(y) / np.max(self.osc_strengths)
+        if (max_osc_strength := np.max(self.osc_strengths)) == 0:
+            y_stick = self.osc_strengths
+        else:
+            y_stick = self.osc_strengths * np.max(y) / max_osc_strength
 
         return x, y, x_stick, y_stick
 
-    def _convert_to_nanometers(self, x, y):
+    def _convert_to_nanometers(self, x, y) -> tuple[np.ndarray, np.ndarray]:
         x = self.get_energy_unit_factor(EnergyUnit.NM) / x
         return x, y
 
@@ -175,7 +204,7 @@ def parse_cmd():
     desc = (
         "WIP: Program for computing UV/vis spectra based on Nuclear Ensemble Approach"
     )
-    prog = "neovis"
+    prog = "neavis"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
     parser.add_argument("input_file", metavar="INPUT_FILE", help="TBD: Input file")
     parser.add_argument(

@@ -132,9 +132,9 @@ def extract_trajectory_arrays(**orca_output_parameters) -> ArrayData:
     en.set_array("gibbs_energies_au", gibbs_energies)
     en.set_array("relative_gibbs_energies_kj", relative_gibbs_energies_kj)
     en.set_array("boltzmann_weights", boltzmann_weights)
-    en.set_extra("temperature", temperature)
+    en.base.extras.set("temperature", temperature)
 
     # For the TrajectoryData viewer compatibility
     en.set_array("energies", relative_gibbs_energies_kj)
-    en.set_extra("energy_units", "kJ/mole")
+    en.base.extras.set("energy_units", "kJ/mole")
     return en

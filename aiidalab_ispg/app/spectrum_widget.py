@@ -11,36 +11,39 @@ from tempfile import SpooledTemporaryFile
 import bokeh.plotting as plt
 import ipywidgets as ipw
 import numpy as np
-import traitlets
+import traitlets as tl
 
 from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
 
-from .spectrum import BroadeningKernel, EnergyUnit, Spectrum
+from .spectrum import (
+    BroadeningKernel,
+    EnergyUnit,
+    Spectrum,
+    Transition,
+)
 from .spectrum_analysis import SpectrumAnalysisWidget
 from .utils import BokehFigureContext
 from .widgets import TrajectoryDataViewer
 
 
 class SpectrumWidget(ipw.VBox):
-    disabled = traitlets.Bool(default=True)
-    conformer_transitions = traitlets.List(
-        trait=traitlets.Dict,
+    disabled = tl.Bool().tag(default=True)
+    conformer_transitions = tl.List(
         allow_none=True,
-        default=None,
-    )
-    conformer_structures = traitlets.Union(
-        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
+    ).tag(default=None)
+    conformer_structures = tl.Union(
+        [tl.Instance(StructureData), tl.Instance(TrajectoryData)],
         allow_none=True,
     )
 
-    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
+    selected_conformer_id = tl.Int(allow_none=True, default_value=None)
 
-    cross_section_nm = traitlets.Dict(allow_none=True, default=None)
+    cross_section_nm = tl.Dict(allow_none=True).tag(default=None)
 
     # We use SMILES to find matching experimental spectra
     # that are possibly stored in our DB as XyData.
-    smiles = traitlets.Unicode(allow_none=True, default_value=None)
-    experimental_spectrum_uuid = traitlets.Unicode(
+    smiles = tl.Unicode(allow_none=True, default_value=None)
+    experimental_spectrum_uuid = tl.Unicode(
         allow_none=True, default_value=None, read_only=True
     )
 
@@ -187,7 +190,7 @@ class SpectrumWidget(ipw.VBox):
             **kwargs,
         )
 
-    def _download_spectrum(self, btn):
+    def _download_spectrum(self, _) -> None:
         """Download spectrum lines as CSV file"""
         from IPython.display import Javascript, display
 
@@ -210,7 +213,7 @@ class SpectrumWidget(ipw.VBox):
         )
         display(js)
 
-    def _prepare_tsv(self):
+    def _prepare_tsv(self) -> str:
         column_names = [
             f"Energy / ({self.energy_unit_selector.value.value})",
             (
@@ -231,14 +234,6 @@ class SpectrumWidget(ipw.VBox):
         # "Show conformers" button, otherwise we don't have access to the conformer data
         # through the lines in the figure. One way to solve this would be to always
         # add the conformer lines in the plot, but hide them by default (see hide_line)
-        # TODO: Relatedly above, currently there might be a race condition if the user pressed
-        # "Show conformers" and "Download spectrum" in a quick succession.
-        # The solution proposed above should solve this problem as well,
-        # since the conformer cross section would always be available.
-        # WARNING: Even without conformers, we might still have race condition
-        # in between user modification of the spectrum (e.g. changing kernel width)
-        # and downloading the data. We need to ensure that the Download button is always disabled
-        # when we're recomputing the spectra. This needs more investigation.
         nconf = len(self.conformer_transitions)
         y_confs = []
         if nconf > 1:
@@ -260,7 +255,7 @@ class SpectrumWidget(ipw.VBox):
             csvfile.seek(0)
             return base64.b64encode(csvfile.read().encode()).decode()
 
-    def _validate_transitions(self, transitions):
+    def _validate_transitions(self, transitions: list[Transition]) -> bool:
         # TODO: Maybe use named tuple instead of dictionary?
         # https://realpython.com/python-namedtuple/
         if transitions is None or len(transitions) == 0:
@@ -371,10 +366,9 @@ class SpectrumWidget(ipw.VBox):
         label = f"conformer_{conf_id}"
         self.plot_line(x, y, label, update=update, **line_options)
 
-    def _plot_spectrum(
+    def _compute_total_cross_section(
         self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
-    ):
-        self.download_btn.disabled = True
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         # Determine spectrum energy range based on all excitation energies
         all_exc_energies = np.array(
             [
@@ -387,9 +381,9 @@ class SpectrumWidget(ipw.VBox):
         x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
 
         total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
-
         x_stick = np.array([])
         y_stick = np.array([])
+
         # Iterate over conformers, the total spectrum is a sum of
         # individual conformer spectra multiplied by a Boltzmann factor.
         for conf_id, conformer in enumerate(self.conformer_transitions):
@@ -409,11 +403,22 @@ class SpectrumWidget(ipw.VBox):
             if self.conformer_toggle.value:
                 self._plot_conformer(x, y, conf_id, update=False)
 
+        return x, total_cross_section, x_stick, y_stick
+
+    def _plot_spectrum(
+        self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
+    ):
+        self.download_btn.disabled = True
+
+        x, total_cross_section, x_stick, y_stick = self._compute_total_cross_section(
+            kernel, width, energy_unit
+        )
+
         # Energy unit not nm needs converting for spectrum analysis
         if energy_unit != EnergyUnit.NM:
             x_nm = (
-                spec.get_energy_unit_factor(EnergyUnit.NM)
-                * spec.get_energy_unit_factor(energy_unit)
+                Spectrum.get_energy_unit_factor(EnergyUnit.NM)
+                * Spectrum.get_energy_unit_factor(energy_unit)
                 / x
             )
             self.cross_section_nm = {
@@ -467,7 +472,9 @@ class SpectrumWidget(ipw.VBox):
 
     # plot_line(), hide_line() and remove_line() are public
     # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label, update=True, **args):
+    def plot_line(
+        self, x: np.ndarray, y: np.ndarray, label: str, update: bool, **kwargs
+    ) -> None:
         """Update existing plot line or create a new one.
         Updating existing plot lines unfortunately only work for label=theory
         and label=experiment, that are predefined in _init_figure()
@@ -477,11 +484,11 @@ class SpectrumWidget(ipw.VBox):
         # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
         self.remove_line(label, update=update)
         f = self.figure.get_figure()
-        f.line(x, y, name=label, **args)
+        f.line(x, y, name=label, **kwargs)
         if update:
             self.figure.update()
 
-    def hide_line(self, label: str, update=True):
+    def hide_line(self, label: str, update: bool = True) -> None:
         """Hide given line from the plot"""
         f = self.figure.get_figure()
         line = f.select_one({"name": label})
@@ -491,7 +498,7 @@ class SpectrumWidget(ipw.VBox):
         if update:
             self.figure.update()
 
-    def remove_line(self, label: str, update=True):
+    def remove_line(self, label: str, update: bool = True) -> None:
         # Observation: Removing and adding lines via
         # plot_line() and remove_line() works well. However, doing
         # updates on existing lines only works for lines defined in _init_figure()
@@ -517,7 +524,7 @@ class SpectrumWidget(ipw.VBox):
         theory_line.visible = False
         return figure
 
-    @traitlets.observe("disabled")
+    @tl.observe("disabled")
     def _observe_disabled(self, change):
         disabled = change["new"]
         with self.hold_trait_notifications():
@@ -544,7 +551,7 @@ class SpectrumWidget(ipw.VBox):
         self.figure.clean()
         self.debug_output.value = ""
 
-    @traitlets.validate("conformer_transitions")
+    @tl.validate("conformer_transitions")
     def _validate_conformers(self, change):
         conformer_transitions = change["value"]
         if conformer_transitions is None:
@@ -556,7 +563,7 @@ class SpectrumWidget(ipw.VBox):
             raise ValueError(msg)
         return conformer_transitions
 
-    @traitlets.validate("conformer_structures")
+    @tl.validate("conformer_structures")
     def _validate_conformer_structures(self, change):
         structures = change["value"]
         if structures is None:
@@ -570,16 +577,16 @@ class SpectrumWidget(ipw.VBox):
             msg = f"Unsupported type {type(structures)}"
             raise TypeError(msg)
 
-    @traitlets.observe("selected_conformer_id")
+    @tl.observe("selected_conformer_id")
     def _observe_selected_conformer(self, change):
         self._unhighlight_conformer()
         self._highlight_conformer(change["new"])
 
-    @traitlets.observe("conformer_structures")
+    @tl.observe("conformer_structures")
     def _observe_conformers(self, change):
         self.conformer_viewer._viewer.handle_resize()
 
-    @traitlets.observe("conformer_transitions")
+    @tl.observe("conformer_transitions")
     def _observe_conformer_transitions(self, change):
         self.disabled = True
         self._hide_all_conformers()
@@ -592,11 +599,11 @@ class SpectrumWidget(ipw.VBox):
         )
         self.disabled = False
 
-    @traitlets.observe("smiles")
+    @tl.observe("smiles")
     def _observe_smiles(self, change):
         self.find_experimental_spectrum_by_smiles(change["new"])
 
-    @traitlets.observe("experimental_spectrum_uuid")
+    @tl.observe("experimental_spectrum_uuid")
     def _observe_experimental_spectrum_uuid(self, change):
         if change["new"] == change["old"]:
             return
@@ -612,7 +619,7 @@ class SpectrumWidget(ipw.VBox):
             energy_unit=self.energy_unit_selector.value,
         )
 
-    def find_experimental_spectrum_by_smiles(self, smiles: str):
+    def find_experimental_spectrum_by_smiles(self, smiles: str) -> None:
         """Find an experimental spectrum for a given SMILES
         and plot it if it is available in our DB"""
 
@@ -636,7 +643,7 @@ class SpectrumWidget(ipw.VBox):
 
     def plot_experimental_spectrum(
         self, spectrum_node: XyData, energy_unit: EnergyUnit
-    ):
+    ) -> None:
         """Render experimental spectrum that was loaded to AiiDA database manually
         param: spectrum_node: XyData node
         energy_unit: energy unit of the plotted spectra"""
@@ -669,4 +676,6 @@ class SpectrumWidget(ipw.VBox):
             "line_dash": "dashed",
             "line_width": 2,
         }
-        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
+        self.plot_line(
+            energy, cross_section, self.EXP_SPEC_LABEL, update=True, **line_options
+        )

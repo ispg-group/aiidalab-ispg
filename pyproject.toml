@@ -13,10 +13,26 @@ src = ["aiidalab_ispg", "tests", "tests_integration", "notebooks"]
 target-version = "py39"
 
 [tool.ruff.lint.isort]
-known-first-party = ["aiida", "aiidalab_widgets_base"]
+known-first-party = ["aiida", "aiidalab_widgets_base", "aiidalab_ispg"]
 
 [tool.ty.environment]
 python-version = "3.12"
+
+[tool.pytest.ini_options]
+addopts = '--strict-config --strict-markers -ra'
+filterwarnings = [
+  'ignore:Creating AiiDA configuration folder:UserWarning:aiida:',
+  # We cannot filter for sqlalchemy.exc.SAWarning, because sqlalchemy is not installed
+  # for selenium UI tests.
+  'ignore:Object of type .* not in session, .* operation along .* will not proceed:',
+  # https://github.com/aiidateam/plumpy/issues/283
+  'ignore:There is no current event loop:DeprecationWarning:plumpy',
+  'ignore:datetime\.datetime\.utcfromtimestamp\(\) is deprecated:DeprecationWarning:pytz',
+  'ignore::DeprecationWarning:bokeh:',
+]
+
+[tool.inline-snapshot]
+format-command="ruff format --stdin-filename {filename}"
 
 [tool.bumpver]
 current_version = "v0.2.6"

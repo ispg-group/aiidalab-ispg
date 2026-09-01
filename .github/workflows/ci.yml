@@ -115,13 +115,25 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           python-version: ${{ matrix.python-version }}
           activate-environment: true
+
+      - name: Install dependencies for tests
+        run: uv pip install -e .[test]
+
+      - name: Run pytest
+        run: pytest --cov aiidalab_ispg tests/
 
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
 
       - name: Smoke test wigner.py
         run: uv run -s aiidalab_ispg/wigner/wigner.py -h
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
