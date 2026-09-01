@@ -83,7 +83,7 @@ jobs:
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
 
       - name: Run pytest
-        run: pytest -sv --tb=short --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests_integration/
+        run: pytest -sv --tb=short --driver ${{ matrix.browser }} --inline-snapshot=disable -o cache_dir=$PYTEST_CACHE_DIR tests_integration/
 
       - name: Replace slashes in image name
         if: always()
@@ -124,7 +124,7 @@ jobs:
         run: uv pip install -e .[test]
 
       - name: Run pytest
-        run: pytest --cov aiidalab_ispg tests/
+        run: pytest --cov aiidalab_ispg --inline-snapshot=disable tests/
 
       - name: Smoke test spectrum.py
         run: uv run -s aiidalab_ispg/app/spectrum.py -h
