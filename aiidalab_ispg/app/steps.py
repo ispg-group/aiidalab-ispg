@@ -423,7 +423,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if smiles and "relaxed_structures" in process.outputs:
             process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
-        if process.inputs.optimized:
+        if process.inputs.optimize:
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:
