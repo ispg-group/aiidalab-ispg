@@ -395,10 +395,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             return
 
         process = load_node(self.process_uuid)
-        if not process.is_finished_ok:
+        if not process.is_finished:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
-        # TODO: Add message for failed processes
+        elif not process.is_finished_ok:
+            self.spectrum.debug_output.value = "Workflow failed :-("
+            return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
@@ -412,7 +414,7 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         if smiles and "relaxed_structures" in process.outputs:
             process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
-        if process.inputs.optimized:
+        if process.inputs.optimize:
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:
