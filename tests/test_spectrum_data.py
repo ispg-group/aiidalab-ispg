@@ -9,7 +9,7 @@ from inline_snapshot import snapshot
 
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit
 from aiidalab_ispg.app.spectrum_widget import SpectrumWidget
-from aiidalab_ispg.app.steps import _get_conformer_transitions
+from aiidalab_ispg.app.steps import ViewSpectrumStep, _get_conformer_transitions
 
 # Apply tighter numerical tresholds by default
 approx = functools.partial(pytest.approx, rel=1e-10, abs=1e-25)
@@ -95,6 +95,11 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
 
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
+
 
 @pytest.mark.skipif(
     sys.version_info < (3, 12),
@@ -163,6 +168,11 @@ def test_optimized_conformers_without_wigner_sampling(generate_atmospec_node):
     assert y.tolist() == approx(y_ref)
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
+
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
 
 
 def test_one_conformer_with_wigner_sampling(generate_atmospec_node):
@@ -247,3 +257,28 @@ def test_one_conformer_with_wigner_sampling(generate_atmospec_node):
     assert y.tolist() == approx(y_ref)
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
+
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
+
+
+def test_failed_workflow(generate_workchain_node):
+    """Test a single point spectrum for multiple conformers without Wigner sampling"""
+    process = generate_workchain_node(exit_code=1)
+
+    step = ViewSpectrumStep()
+    assert step.state == step.State.INIT
+
+    step.process_uuid = process.uuid
+
+    assert step.state == step.State.FAIL
+    assert step.spectrum.debug_output.value == "Workflow failed :-("
+    assert step.spectrum.conformer_transitions is None
+
+    # Reset the widget
+    step.reset()
+    assert step.process_uuid is None
+    assert step.state == step.State.INIT
+    assert step.spectrum.debug_output.value == ""

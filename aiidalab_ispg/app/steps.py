@@ -406,10 +406,12 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             return
 
         process = load_node(self.process_uuid)
-        if not process.is_finished_ok:
+        if not process.is_finished:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return
-        # TODO: Add message for failed processes
+        elif not process.is_finished_ok:
+            self.spectrum.debug_output.value = "Workflow failed :-("
+            return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
