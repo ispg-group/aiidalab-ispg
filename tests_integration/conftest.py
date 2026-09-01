@@ -72,7 +72,7 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir)
     # Install dependencies via pip
     pip_output = aiidalab_exec("pip install --user .", workdir=appdir, user=nb_user)
     print("\n=== INSTALLING PYTHON DEPENDENCIES ===")
-    print(pip_output.decode().strip())
+    print(pip_output.decode().strip().splitlines()[-1])
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
