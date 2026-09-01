@@ -98,9 +98,8 @@ class BokehFigureContext(ipw.Output):
     def update(self):
         if self._handle is None:
             self.set_handle()
-        if self._handle is None:
-            raise RuntimeError("Could not get Bokeh notebook handle")
-        bokeh.io.push_notebook(handle=self._handle)
+        if self._handle is not None:
+            bokeh.io.push_notebook(handle=self._handle)
 
     def remove_renderer(self, label: str, update=True):
         # https://discourse.bokeh.org/t/clearing-plot-or-removing-all-glyphs/6792/7
