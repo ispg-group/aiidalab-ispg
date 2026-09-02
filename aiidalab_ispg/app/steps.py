@@ -24,6 +24,7 @@ from aiidalab_widgets_base import (
     WizardAppWidgetStep,
 )
 
+from ..workflows.atmospec import AtmospecWorkChain
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
 from .spectrum import get_transitions_from_workchain
 from .spectrum_widget import SpectrumWidget
@@ -331,6 +332,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 "Workflow failed, I have no spectrum to show you 😧"
             )
             return
+
+        assert isinstance(process, AtmospecWorkChain)
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 

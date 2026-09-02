@@ -13,11 +13,16 @@ Authors:
 
 from __future__ import annotations
 
+import sys
 from enum import Enum, unique
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 from scipy import constants
+
+if TYPE_CHECKING:
+    # ty: ignore[unresolved-import]
+    from aiidalab_ispg.workflows import AtmospecWorkChain
 
 # copied from utils.py
 AUtoEV = 27.2114386245
@@ -206,14 +211,16 @@ def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Tran
     ]
 
 
-def _wigner_output_to_transitions(wigner_outputs) -> list[Transition]:
+def _wigner_output_to_transitions(wigner_outputs: list) -> list[Transition]:
     transitions = []
     for i, params in enumerate(wigner_outputs):
         transitions += _orca_output_to_transitions(params, i)
     return transitions
 
 
-def get_transitions_from_workchain(process) -> list[ConformerTransitions]:
+def get_transitions_from_workchain(
+    process: AtmospecWorkChain,
+) -> list[ConformerTransitions]:
     """Convert process.outputs.spectrum_data into a data structure that
     is passed to the SpectrumWidget and Spectrum classes"""
 
@@ -313,8 +320,15 @@ def parse_cmd():
 def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
     from aiida import load_profile, orm
 
+    # ty: ignore[unresolved-import]
+    from aiidalab_ispg.workflows import AtmospecWorkChain
+
     load_profile()
+
     process = orm.load_node(pk)
+    if not isinstance(process, AtmospecWorkChain):
+        sys.exit("{pk=} does not correspond to AtmospecWorkChain")
+
     return get_transitions_from_workchain(process)
 
 
