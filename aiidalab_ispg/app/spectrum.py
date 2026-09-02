@@ -201,6 +201,46 @@ class Spectrum:
         return x, y
 
 
+# A copy from spectrum_widget.py
+def compute_total_cross_section(
+    conformer_transitions,
+    kernel: BroadeningKernel,
+    width: float,
+    energy_unit: EnergyUnit,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    # Determine spectrum energy range based on all excitation energies
+    all_exc_energies = np.array(
+        [
+            transitions["energy"]
+            for conformer in conformer_transitions
+            for transitions in conformer["transitions"]
+        ]
+    )
+
+    x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+
+    total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
+    x_stick = np.array([])
+    y_stick = np.array([])
+
+    # Iterate over conformers, the total spectrum is a sum of
+    # individual conformer spectra multiplied by a Boltzmann factor.
+    for conf_id, conformer in enumerate(conformer_transitions):
+        spec = Spectrum(conformer["transitions"], conformer["nsample"])
+        x, y, xs, ys = spec.get_spectrum(
+            kernel, width, energy_unit, x_min=x_min, x_max=x_max
+        )
+
+        y *= conformer["weight"]
+        total_cross_section += y
+
+        ys *= conformer["weight"]
+        x_stick = np.concatenate((x_stick, xs))
+        y_stick = np.concatenate((y_stick, ys))
+
+    return x, total_cross_section, x_stick, y_stick
+
+
 def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Transition]:
     EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
     en = output_dict["excitation_energies_cm"]
@@ -297,7 +337,7 @@ def parse_cmd():
     parser = argparse.ArgumentParser(description=desc, prog=prog)
     parser.add_argument("--input_file", help="TBD: Input file")
     parser.add_argument(
-        "-w",
+        "-wc",
         "--workchain-id",
         type=int,
         default=None,
@@ -305,6 +345,24 @@ def parse_cmd():
     )
     parser.add_argument(
         "--json-output", type=str, help="Output spectral data to a json file"
+    )
+    parser.add_argument(
+        "--kernel",
+        type=BroadeningKernel,
+        default=BroadeningKernel.GAUSS,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--energy-unit",
+        type=EnergyUnit,
+        default=EnergyUnit.EV,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--width",
+        type=float,
+        default=0.05,
+        help="Broadening width (eV)",
     )
     parser.add_argument(
         "-n",
@@ -335,10 +393,22 @@ def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
 if __name__ == "__main__":
     import json
 
+    import numpy as np
+
     opts = parse_cmd()
+    conformer_transitions = []
     if opts.workchain_id is not None:
-        transitions = load_atmospec_data(opts.workchain_id)
+        conformer_transitions = load_atmospec_data(opts.workchain_id)
+
+    if not conformer_transitions:
+        sys.exit()
+
+    energy, total_cross_section, _x_stick, _y_stick = compute_total_cross_section(
+        conformer_transitions, opts.kernel, opts.width, opts.energy_unit
+    )
+    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit}.dat"
+    np.savetxt(fname, (energy, total_cross_section))
 
     if opts.json_output:
         with open(opts.json_output, "w") as f:
-            json.dump(transitions, f, indent=2)
+            json.dump(conformer_transitions, f, indent=2)
