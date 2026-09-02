@@ -22,7 +22,7 @@ from scipy import constants
 
 if TYPE_CHECKING:
     # ty: ignore[unresolved-import]
-    from aiidalab_ispg.workflows import AtmospecWorkChain
+    from aiida import orm
 
 # copied from utils.py
 AUtoEV = 27.2114386245
@@ -259,7 +259,7 @@ def _wigner_output_to_transitions(wigner_outputs: list) -> list[Transition]:
 
 
 def get_transitions_from_workchain(
-    process: AtmospecWorkChain,
+    process: orm.WorkChainNode,
 ) -> list[ConformerTransitions]:
     """Convert process.outputs.spectrum_data into a data structure that
     is passed to the SpectrumWidget and Spectrum classes"""
@@ -377,8 +377,6 @@ def parse_cmd():
 
 def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
     from aiida import load_profile, orm
-
-    # ty: ignore[unresolved-import]
 
     load_profile()
 
