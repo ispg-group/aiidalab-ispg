@@ -7,9 +7,9 @@ import sys
 import pytest
 from inline_snapshot import snapshot
 
+from aiida.engine import ProcessState
 from aiidalab_ispg.app.spectrum import BroadeningKernel, EnergyUnit
-from aiidalab_ispg.app.spectrum_widget import SpectrumWidget
-from aiidalab_ispg.app.steps import ViewSpectrumStep, _get_conformer_transitions
+from aiidalab_ispg.app.steps import ViewSpectrumStep
 
 # Apply tighter numerical tresholds by default
 approx = functools.partial(pytest.approx, rel=1e-10, abs=1e-25)
@@ -18,7 +18,12 @@ approx = functools.partial(pytest.approx, rel=1e-10, abs=1e-25)
 def test_multiple_unoptimized_geometries(generate_atmospec_node):
     process = generate_atmospec_node(optimize=False, nstates=2, nconf=2, nwigner=0)
 
-    conf_transitions = _get_conformer_transitions(process)
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
+
+    conf_transitions = step.spectrum.conformer_transitions
 
     ref = snapshot(
         [
@@ -52,10 +57,7 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
     )
     assert conf_transitions == ref
 
-    widget = SpectrumWidget()
-    widget.conformer_transitions = conf_transitions
-
-    x, y, x_stick, y_stick = widget._compute_total_cross_section(
+    x, y, x_stick, y_stick = step.spectrum._compute_total_cross_section(
         kernel=BroadeningKernel.GAUSS, energy_unit=EnergyUnit.EV, width=0.05
     )
     x_ref = snapshot(
@@ -95,11 +97,6 @@ def test_multiple_unoptimized_geometries(generate_atmospec_node):
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
 
-    step = ViewSpectrumStep()
-    step.process_uuid = process.uuid
-    assert step.state == step.State.SUCCESS
-    assert step.spectrum.debug_output.value == ""
-
 
 @pytest.mark.skipif(
     sys.version_info < (3, 12),
@@ -109,7 +106,12 @@ def test_optimized_conformers_without_wigner_sampling(generate_atmospec_node):
     """Test a single point spectrum for multiple conformers without Wigner sampling"""
     process = generate_atmospec_node(optimize=True, nstates=1, nconf=3, nwigner=0)
 
-    conf_transitions = _get_conformer_transitions(process)
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
+
+    conf_transitions = step.spectrum.conformer_transitions
 
     ref = snapshot(
         [
@@ -139,10 +141,7 @@ def test_optimized_conformers_without_wigner_sampling(generate_atmospec_node):
 
     assert conf_transitions == ref
 
-    widget = SpectrumWidget()
-    widget.conformer_transitions = conf_transitions
-
-    x, y, x_stick, y_stick = widget._compute_total_cross_section(
+    x, y, x_stick, y_stick = step.spectrum._compute_total_cross_section(
         kernel=BroadeningKernel.GAUSS, energy_unit=EnergyUnit.EV, width=0.05
     )
 
@@ -169,17 +168,18 @@ def test_optimized_conformers_without_wigner_sampling(generate_atmospec_node):
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
 
-    step = ViewSpectrumStep()
-    step.process_uuid = process.uuid
-    assert step.state == step.State.SUCCESS
-    assert step.spectrum.debug_output.value == ""
-
 
 def test_one_conformer_with_wigner_sampling(generate_atmospec_node):
     """Test a single point spectrum for multiple conformers without Wigner sampling"""
     process = generate_atmospec_node(optimize=True, nstates=2, nconf=1, nwigner=2)
 
-    conf_transitions = _get_conformer_transitions(process)
+    step = ViewSpectrumStep()
+    step.process_uuid = process.uuid
+    assert step.state == step.State.SUCCESS
+    assert step.spectrum.debug_output.value == ""
+
+    conf_transitions = step.spectrum.conformer_transitions
+
     ref = snapshot(
         [
             {
@@ -213,10 +213,7 @@ def test_one_conformer_with_wigner_sampling(generate_atmospec_node):
 
     assert conf_transitions == ref
 
-    widget = SpectrumWidget()
-    widget.conformer_transitions = conf_transitions
-
-    x, y, x_stick, y_stick = widget._compute_total_cross_section(
+    x, y, x_stick, y_stick = step.spectrum._compute_total_cross_section(
         kernel=BroadeningKernel.GAUSS, energy_unit=EnergyUnit.EV, width=0.05
     )
 
@@ -258,15 +255,18 @@ def test_one_conformer_with_wigner_sampling(generate_atmospec_node):
     assert x_stick.tolist() == approx(x_stick_ref)
     assert y_stick.tolist() == approx(y_stick_ref)
 
-    step = ViewSpectrumStep()
-    step.process_uuid = process.uuid
-    assert step.state == step.State.SUCCESS
-    assert step.spectrum.debug_output.value == ""
 
-
-def test_failed_workflow(generate_workchain_node):
-    """Test a single point spectrum for multiple conformers without Wigner sampling"""
-    process = generate_workchain_node(exit_code=1)
+@pytest.mark.parametrize(
+    ("process_state", "exit_code"),
+    (
+        (ProcessState.EXCEPTED, None),
+        (ProcessState.KILLED, None),
+        (ProcessState.FINISHED, 1),
+    ),
+)
+def test_excepted_workflow(generate_workchain_node, process_state, exit_code):
+    """Test various failed workflow states"""
+    process = generate_workchain_node(process_state=process_state, exit_code=exit_code)
 
     step = ViewSpectrumStep()
     assert step.state == step.State.INIT
@@ -282,3 +282,24 @@ def test_failed_workflow(generate_workchain_node):
     assert step.process_uuid is None
     assert step.state == step.State.INIT
     assert step.spectrum.debug_output.value == ""
+
+
+def test_running_workflow(generate_workchain_node):
+    """Test a single point spectrum for multiple conformers without Wigner sampling"""
+    process = generate_workchain_node(process_state=ProcessState.RUNNING)
+
+    step = ViewSpectrumStep()
+    step.process_monitor.timeout = 0.05
+    assert step.state == step.State.INIT
+
+    step.process_uuid = process.uuid
+
+    assert step.state == step.State.ACTIVE
+    assert step.spectrum.debug_output.value.startswith("Waiting for the workflow")
+    assert step.spectrum.conformer_transitions is None
+
+    process.set_process_state(ProcessState.EXCEPTED)
+    process.seal()
+    step.process_monitor._monitor_thread.join(timeout=10)
+    assert step.state == step.State.FAIL
+    assert step.spectrum.debug_output.value.startswith("Workflow failed")

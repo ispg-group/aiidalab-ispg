@@ -402,7 +402,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
 
     def _show_spectrum(self):
         if self.process_uuid is None:
-            self.spectrum.debug_output.value = ""
             return
 
         process = load_node(self.process_uuid)
@@ -512,6 +511,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # because ProcessMonitorWidget swallows all exceptions coming from _show_spectrum().
         if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
             self.process_monitor.value = self.process_uuid
-        else:
-            self._show_spectrum()
+
         self._update_state()
+        self._show_spectrum()
