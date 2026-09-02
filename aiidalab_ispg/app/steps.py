@@ -16,6 +16,7 @@ from aiida.orm import (
     Node,
     StructureData,
     TrajectoryData,
+    WorkChainNode,
     load_node,
 )
 from aiidalab_widgets_base import (
@@ -323,6 +324,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             return
 
         process = load_node(self.process_uuid)
+        assert isinstance(process, WorkChainNode)
+
         if not process.is_terminated:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
             return

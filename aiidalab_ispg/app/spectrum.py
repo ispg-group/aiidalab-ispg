@@ -21,7 +21,6 @@ import numpy as np
 from scipy import constants
 
 if TYPE_CHECKING:
-    # ty: ignore[unresolved-import]
     from aiida import orm
 
 # copied from utils.py
