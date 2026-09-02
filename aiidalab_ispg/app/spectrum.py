@@ -196,6 +196,88 @@ class Spectrum:
         return x, y
 
 
+def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Transition]:
+    EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
+    en = output_dict["excitation_energies_cm"]
+    osc = output_dict["oscillator_strengths"]
+    return [
+        {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
+        for tr in zip(en, osc)
+    ]
+
+
+def _wigner_output_to_transitions(wigner_outputs) -> list[Transition]:
+    transitions = []
+    for i, params in enumerate(wigner_outputs):
+        transitions += _orca_output_to_transitions(params, i)
+    return transitions
+
+
+def get_transitions_from_workchain(process) -> list[ConformerTransitions]:
+    """Convert process.outputs.spectrum_data into a data structure that
+    is passed to the SpectrumWidget and Spectrum classes"""
+
+    # Number of conformers
+    optimized = process.inputs.optimize
+    n_input_geoms = len(process.inputs.structure.get_stepids())
+    # Number of Wigner geometries per conformer
+    wigner_sampled = optimized and process.inputs.nwigner.value > 0
+    if wigner_sampled:
+        nconf = n_input_geoms
+        nsample = process.inputs.nwigner.value
+    elif optimized:
+        nconf = n_input_geoms
+        nsample = 1
+    else:
+        # If the input geometries were not optimized, we treat them
+        # as samples, not conformers!
+        nconf = 1
+        nsample = n_input_geoms
+
+    # Unfortunately, we don't have number of states as attribute in process.inputs
+    nstates = None
+    if bp := process.base.extras.get("builder_parameters", None):
+        nstates = bp["nstates"]
+
+    # For the case of unoptimized geometries, flatten the list
+    # so that the geometries are treated as a single conformer
+    spectrum_data = process.outputs.spectrum_data.get_list()
+    if not optimized:
+        spectrum_data = [[conf[0] for conf in spectrum_data]]
+
+    # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
+    if nconf > 1 and optimized:
+        conformer_weights = process.outputs.relaxed_structures.get_array(
+            "boltzmann_weights"
+        )
+    else:
+        equal_weight = 1.0 / nconf
+        conformer_weights = [equal_weight for i in range(nconf)]
+
+    conformer_transitions: list[ConformerTransitions] = [
+        ConformerTransitions(
+            transitions=_wigner_output_to_transitions(conformer),
+            nsample=nsample,
+            weight=conformer_weights[i],
+        )
+        for i, conformer in enumerate(spectrum_data)
+    ]
+
+    # Make sure our data is consistent
+    assert nconf == len(conformer_transitions), (
+        f"{nconf=} != {len(conformer_transitions)=}"
+    )
+    if nstates:
+        for c in conformer_transitions:
+            trans: list = c["transitions"]
+            nsample = c["nsample"]
+            assert nsample * nstates == len(trans), (
+                f"{nstates * nsample=} != {len(trans)=}: {trans=}"
+            )
+
+    return conformer_transitions
+
+
 # Below are functions for CLI standalone use
 def parse_cmd():
     """Parse command line arguments"""
@@ -206,7 +288,17 @@ def parse_cmd():
     )
     prog = "neavis"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
-    parser.add_argument("input_file", metavar="INPUT_FILE", help="TBD: Input file")
+    parser.add_argument("--input_file", help="TBD: Input file")
+    parser.add_argument(
+        "-w",
+        "--workchain-id",
+        type=int,
+        default=None,
+        help="Load data from AtmoSpec workchain",
+    )
+    parser.add_argument(
+        "--json-output", type=str, help="Output spectral data to a json file"
+    )
     parser.add_argument(
         "-n",
         "--nsamples",
@@ -218,9 +310,21 @@ def parse_cmd():
     return parser.parse_args()
 
 
+def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
+    from aiida import load_profile, orm
+
+    load_profile()
+    process = orm.load_node(pk)
+    return get_transitions_from_workchain(process)
+
+
 if __name__ == "__main__":
-    import sys
+    import json
 
     opts = parse_cmd()
+    if opts.workchain_id is not None:
+        transitions = load_atmospec_data(opts.workchain_id)
 
-    sys.exit("ERROR: Command line usage is not ready yet")
+    if opts.json_output:
+        with open(opts.json_output, "w") as f:
+            json.dump(transitions, f, indent=2)
