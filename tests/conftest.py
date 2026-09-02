@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from aiida.engine import ProcessState
 from aiidalab_ispg.app.spectrum import Spectrum
 from aiidalab_ispg.workflows.utils import (
     extract_trajectory_arrays,
@@ -54,7 +55,8 @@ def generate_workchain_node(aiida_localhost):
         computer=None,
         inputs=None,
         outputs=None,
-        exit_code=0,
+        exit_code=None,
+        process_state=ProcessState.FINISHED,
     ) -> orm.WorkChainNode:
         """Fixture to generate a mock `CalcJobNode` for testing parsers.
 
@@ -64,13 +66,17 @@ def generate_workchain_node(aiida_localhost):
         :return: `CalcJobNode` instance with an attached `FolderData` as the `retrieved` node.
         """
 
+        if process_state is ProcessState.FINISHED and exit_code is None:
+            exit_code = 0
+
         entry_point = format_entry_point_string("aiida.workflows", entry_point_name)
 
         node = orm.WorkChainNode(
             computer=computer or aiida_localhost, process_type=entry_point
         )
-        node.set_process_state("finished")
-        node.set_exit_status(exit_code)
+        node.set_process_state(process_state)
+        if exit_code is not None:
+            node.set_exit_status(exit_code)
 
         if inputs:
             for label, input_node in inputs.items():
@@ -89,7 +95,9 @@ def generate_workchain_node(aiida_localhost):
                     node, link_type=LinkType.RETURN, link_label=output_label
                 )
 
-        node.seal()
+        if node.is_terminated:
+            node.seal()
+
         return node
 
     return _generate_workchain_node
