@@ -379,13 +379,18 @@ def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
     from aiida import load_profile, orm
 
     # ty: ignore[unresolved-import]
-    from aiidalab_ispg.workflows import AtmospecWorkChain
 
     load_profile()
 
     process = orm.load_node(pk)
-    if not isinstance(process, AtmospecWorkChain):
-        sys.exit("{pk=} does not correspond to AtmospecWorkChain")
+
+    if not isinstance(process, orm.WorkChainNode):
+        sys.exit(f"{pk=} does not correspond to AtmospecWorkChain, but {type(process)}")
+
+    if process.process_type != "aiidalab_ispg.workflows.atmospec.AtmospecWorkChain":
+        sys.exit(
+            f"{pk=} is not a top-level AtmospecWorkChain, but '{process.process_type}'"
+        )
 
     return get_transitions_from_workchain(process)
 
@@ -406,8 +411,22 @@ if __name__ == "__main__":
     energy, total_cross_section, _x_stick, _y_stick = compute_total_cross_section(
         conformer_transitions, opts.kernel, opts.width, opts.energy_unit
     )
-    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit}.dat"
-    np.savetxt(fname, (energy, total_cross_section))
+    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit.value}.dat"
+    print(f"Saving spectrum to file '{fname}'")
+
+    header = (
+        f"Kernel: {opts.kernel.value}  Width: {opts.width}\n"
+        f"Energy ({opts.energy_unit.value})       Cross Section (cm^-1 per molecule)"
+    )
+    if opts.workchain_id:
+        header = f"AtmoSpec WorkChain: {opts.workchain_id}\n" + header
+
+    np.savetxt(
+        fname,
+        np.column_stack((energy, total_cross_section)),
+        header=header,
+        encoding="utf-8",
+    )
 
     if opts.json_output:
         with open(opts.json_output, "w") as f:
