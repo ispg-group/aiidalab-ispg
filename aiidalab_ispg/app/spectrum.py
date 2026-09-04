@@ -14,6 +14,7 @@ Authors:
 from __future__ import annotations
 
 import sys
+from collections import defaultdict
 from enum import Enum, unique
 from typing import TYPE_CHECKING, TypedDict
 
@@ -207,6 +208,7 @@ def compute_total_cross_section(
     width: float,
     energy_unit: EnergyUnit,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """A wrapper function that computes a total cross-section for all conformers"""
     # Determine spectrum energy range based on all excitation energies
     all_exc_energies = np.array(
         [
@@ -346,6 +348,9 @@ def parse_cmd():
         "--json-output", type=str, help="Output spectral data to a json file"
     )
     parser.add_argument(
+        "--json-input", type=str, help="Input file with spectral data in a JSON format"
+    )
+    parser.add_argument(
         "--kernel",
         type=BroadeningKernel,
         default=BroadeningKernel.GAUSS,
@@ -401,6 +406,9 @@ if __name__ == "__main__":
     conformer_transitions = []
     if opts.workchain_id is not None:
         conformer_transitions = load_atmospec_data(opts.workchain_id)
+    elif opts.json_input:
+        with open(opts.json_input) as f:
+            conformer_transitions = json.load(f)
 
     if not conformer_transitions:
         sys.exit()
@@ -408,7 +416,11 @@ if __name__ == "__main__":
     energy, total_cross_section, _x_stick, _y_stick = compute_total_cross_section(
         conformer_transitions, opts.kernel, opts.width, opts.energy_unit
     )
-    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit.value}.dat"
+
+    if opts.workchain_id is not None:
+        fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit.value}.dat"
+    else:
+        fname = f"spectrum_{opts.energy_unit.value}.dat"
     print(f"Saving spectrum to file '{fname}'")
 
     header = (
@@ -428,3 +440,42 @@ if __name__ == "__main__":
     if opts.json_output:
         with open(opts.json_output, "w") as f:
             json.dump(conformer_transitions, f, indent=2)
+
+    # Collate all adiabatic transitions
+    for iconf, conformer in enumerate(conformer_transitions):
+        all_transitions = conformer["transitions"]
+        ntrans = len(all_transitions)
+        nsample = conformer["nsample"]
+        weight = conformer["weight"]
+        nstates = ntrans // nsample
+        assert nsample * nstates == ntrans
+
+        adiabatic_transitions = defaultdict(list)
+        for j in range(nstates):
+            adiabatic_transitions[f"S{j + 1}"].extend(
+                [all_transitions[i] for i in range(j, ntrans, nstates)]
+            )
+
+        fname = f"adiabatic_spectra_conf{iconf}_{opts.energy_unit.value}.dat"
+        with open(fname, "w") as f:
+            for state, trans in adiabatic_transitions.items():
+                assert len(trans) == nsample, f"{state} {trans=} != {nsample=}"
+
+                spec = Spectrum(trans, nsample)
+                energy, cross_section, _, _ = spec.get_spectrum(
+                    opts.kernel, opts.width, opts.energy_unit
+                )
+
+                if state == "S1":
+                    header = (
+                        f"Conformer {iconf}: Boltzmann weight = {weight}\n{header}\nS1"
+                    )
+                else:
+                    header = state
+                np.savetxt(
+                    f,
+                    np.column_stack((energy, cross_section * weight)),
+                    header=header,
+                    encoding="utf-8",
+                )
+                f.write("\n")
