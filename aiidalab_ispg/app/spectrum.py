@@ -13,11 +13,15 @@ Authors:
 
 from __future__ import annotations
 
+import sys
 from enum import Enum, unique
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 from scipy import constants
+
+if TYPE_CHECKING:
+    from aiida import orm
 
 # copied from utils.py
 AUtoEV = 27.2114386245
@@ -196,6 +200,130 @@ class Spectrum:
         return x, y
 
 
+# A copy from spectrum_widget.py
+def compute_total_cross_section(
+    conformer_transitions,
+    kernel: BroadeningKernel,
+    width: float,
+    energy_unit: EnergyUnit,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    # Determine spectrum energy range based on all excitation energies
+    all_exc_energies = np.array(
+        [
+            transitions["energy"]
+            for conformer in conformer_transitions
+            for transitions in conformer["transitions"]
+        ]
+    )
+
+    x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+
+    total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
+    x_stick = np.array([])
+    y_stick = np.array([])
+
+    # Iterate over conformers, the total spectrum is a sum of
+    # individual conformer spectra multiplied by a Boltzmann factor.
+    for conf_id, conformer in enumerate(conformer_transitions):
+        spec = Spectrum(conformer["transitions"], conformer["nsample"])
+        x, y, xs, ys = spec.get_spectrum(
+            kernel, width, energy_unit, x_min=x_min, x_max=x_max
+        )
+
+        y *= conformer["weight"]
+        total_cross_section += y
+
+        ys *= conformer["weight"]
+        x_stick = np.concatenate((x_stick, xs))
+        y_stick = np.concatenate((y_stick, ys))
+
+    return x, total_cross_section, x_stick, y_stick
+
+
+def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Transition]:
+    EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
+    en = output_dict["excitation_energies_cm"]
+    osc = output_dict["oscillator_strengths"]
+    return [
+        {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
+        for tr in zip(en, osc)
+    ]
+
+
+def _wigner_output_to_transitions(wigner_outputs: list) -> list[Transition]:
+    transitions = []
+    for i, params in enumerate(wigner_outputs):
+        transitions += _orca_output_to_transitions(params, i)
+    return transitions
+
+
+def get_transitions_from_workchain(
+    process: orm.WorkChainNode,
+) -> list[ConformerTransitions]:
+    """Convert process.outputs.spectrum_data into a data structure that
+    is passed to the SpectrumWidget and Spectrum classes"""
+
+    # Number of conformers
+    optimized = process.inputs.optimize
+    n_input_geoms = len(process.inputs.structure.get_stepids())
+    # Number of Wigner geometries per conformer
+    wigner_sampled = optimized and process.inputs.nwigner.value > 0
+    if wigner_sampled:
+        nconf = n_input_geoms
+        nsample = process.inputs.nwigner.value
+    elif optimized:
+        nconf = n_input_geoms
+        nsample = 1
+    else:
+        # If the input geometries were not optimized, we treat them
+        # as samples, not conformers!
+        nconf = 1
+        nsample = n_input_geoms
+
+    # Unfortunately, we don't have number of states as attribute in process.inputs
+    nstates = None
+    if bp := process.base.extras.get("builder_parameters", None):
+        nstates = bp["nstates"]
+
+    # For the case of unoptimized geometries, flatten the list
+    # so that the geometries are treated as a single conformer
+    spectrum_data = process.outputs.spectrum_data.get_list()
+    if not optimized:
+        spectrum_data = [[conf[0] for conf in spectrum_data]]
+
+    # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
+    if nconf > 1 and optimized:
+        conformer_weights = process.outputs.relaxed_structures.get_array(
+            "boltzmann_weights"
+        )
+    else:
+        equal_weight = 1.0 / nconf
+        conformer_weights = [equal_weight for i in range(nconf)]
+
+    conformer_transitions: list[ConformerTransitions] = [
+        ConformerTransitions(
+            transitions=_wigner_output_to_transitions(conformer),
+            nsample=nsample,
+            weight=conformer_weights[i],
+        )
+        for i, conformer in enumerate(spectrum_data)
+    ]
+
+    # Make sure our data is consistent
+    assert nconf == len(conformer_transitions), (
+        f"{nconf=} != {len(conformer_transitions)=}"
+    )
+    if nstates:
+        for c in conformer_transitions:
+            trans: list = c["transitions"]
+            nsample = c["nsample"]
+            assert nsample * nstates == len(trans), (
+                f"{nstates * nsample=} != {len(trans)=}: {trans=}"
+            )
+
+    return conformer_transitions
+
+
 # Below are functions for CLI standalone use
 def parse_cmd():
     """Parse command line arguments"""
@@ -206,7 +334,35 @@ def parse_cmd():
     )
     prog = "neavis"
     parser = argparse.ArgumentParser(description=desc, prog=prog)
-    parser.add_argument("input_file", metavar="INPUT_FILE", help="TBD: Input file")
+    parser.add_argument("--input_file", help="TBD: Input file")
+    parser.add_argument(
+        "-wc",
+        "--workchain-id",
+        type=int,
+        default=None,
+        help="Load data from AtmoSpec workchain",
+    )
+    parser.add_argument(
+        "--json-output", type=str, help="Output spectral data to a json file"
+    )
+    parser.add_argument(
+        "--kernel",
+        type=BroadeningKernel,
+        default=BroadeningKernel.GAUSS,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--energy-unit",
+        type=EnergyUnit,
+        default=EnergyUnit.EV,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--width",
+        type=float,
+        default=0.05,
+        help="Broadening width (eV)",
+    )
     parser.add_argument(
         "-n",
         "--nsamples",
@@ -218,9 +374,57 @@ def parse_cmd():
     return parser.parse_args()
 
 
+def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
+    from aiida import load_profile, orm
+
+    load_profile()
+
+    process = orm.load_node(pk)
+
+    if not isinstance(process, orm.WorkChainNode):
+        sys.exit(f"{pk=} does not correspond to AtmospecWorkChain, but {type(process)}")
+
+    if process.process_type != "aiidalab_ispg.workflows.atmospec.AtmospecWorkChain":
+        sys.exit(
+            f"{pk=} is not a top-level AtmospecWorkChain, but '{process.process_type}'"
+        )
+
+    return get_transitions_from_workchain(process)
+
+
 if __name__ == "__main__":
-    import sys
+    import json
+
+    import numpy as np
 
     opts = parse_cmd()
+    conformer_transitions = []
+    if opts.workchain_id is not None:
+        conformer_transitions = load_atmospec_data(opts.workchain_id)
 
-    sys.exit("ERROR: Command line usage is not ready yet")
+    if not conformer_transitions:
+        sys.exit()
+
+    energy, total_cross_section, _x_stick, _y_stick = compute_total_cross_section(
+        conformer_transitions, opts.kernel, opts.width, opts.energy_unit
+    )
+    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit.value}.dat"
+    print(f"Saving spectrum to file '{fname}'")
+
+    header = (
+        f"Kernel: {opts.kernel.value}  Width: {opts.width}\n"
+        f"Energy ({opts.energy_unit.value})       Cross Section (cm^-1 per molecule)"
+    )
+    if opts.workchain_id:
+        header = f"AtmoSpec WorkChain: {opts.workchain_id}\n" + header
+
+    np.savetxt(
+        fname,
+        np.column_stack((energy, total_cross_section)),
+        header=header,
+        encoding="utf-8",
+    )
+
+    if opts.json_output:
+        with open(opts.json_output, "w") as f:
+            json.dump(conformer_transitions, f, indent=2)
