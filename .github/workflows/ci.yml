@@ -49,6 +49,9 @@ jobs:
           - tag: edge
             image: "ghcr.io/aiidalab/full-stack"
             browser: Chrome
+          - tag: python-3.12
+            image: "ghcr.io/ispg-group/atmospec"
+            browser: Chrome
       fail-fast: false
     env:
       IMAGE: ${{ matrix.image }}
