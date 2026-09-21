@@ -24,10 +24,10 @@ from .widgets import HeaderWarning
 
 try:
     # For numpy 1.x
-    from numpy import trapz as trapezoid
+    from numpy import trapz as trapezoid  # ty: ignore[unresolved-import]
 except ImportError:
     # for numpy >=2.4
-    from numpy import trapezoid  # ty: ignore[unresolved-import]
+    from numpy import trapezoid
 
 
 @unique
@@ -252,8 +252,8 @@ class PhotolysisPlotWidget(ipw.VBox):
         f = figure.get_figure()
         f.xaxis.axis_label = r"$$λ \text{(nm)}$$"
         f.yaxis.axis_label = r"$$j (\text{s}^{-1} \text{nm}^{-1})$$"
-        f.x_range = Range1d(280, 749)
-        f.y_range = Range1d(0, 3.5e-05)
+        f.x_range = Range1d(start=280, end=749)
+        f.y_range = Range1d(start=0, end=3.5e-05)
 
         f.extra_y_ranges = {"V": Range1d(start=1.0, end=1e15)}
         f.extra_y_scales = {"V": LogScale()}
