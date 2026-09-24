@@ -296,6 +296,31 @@ class WignerSamplingSettings(ipw.VBox):
         self.wigner_low_freq_thr.value = self._LOW_FREQ_THR_DEFAULT
 
 
+class OrbitalSettings(ipw.VBox):
+    title = ipw.HTML(
+        """<div style="padding-top: 0px; padding-bottom: 0px">
+        <h4>Generate NTOs</h4>
+        </div>"""
+    )
+
+    _CALCULATE_ORBITALS_DEFAULT = True
+
+    def __init__(self, **kwargs):
+        layout = ipw.Layout(max_width="250px")
+
+        self.calculate_orbitals = ipw.Checkbox(
+            value=self._CALCULATE_ORBITALS_DEFAULT,
+            description="Calculate Natural Transition Orbitals",
+            indent=False,
+            layout=layout,
+        )
+
+        super().__init__(children=[self.title, self.calculate_orbitals])
+
+    def reset(self):
+        self.calculate_orbitals.value = self._CALCULATE_ORBITALS_DEFAULT
+
+
 class CodeSettings(ipw.VBox):
     codes_title = ipw.HTML(
         """<div style="padding-top: 10px; padding-bottom: 0px">
