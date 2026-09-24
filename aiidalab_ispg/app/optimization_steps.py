@@ -124,16 +124,16 @@ class SubmitOptimizationWorkChainStep(SubmitWorkChainStepBase):
         assert self.input_structure is not None
 
         parameters = self._get_parameters_from_ui()
-        builder = ConformerOptimizationWorkChain.get_builder()
+        builder = ConformerOptimizationWorkChain.get_builder()  # ty: ignore[unresolved-attribute]
 
         builder.structure = self.input_structure
-        builder.orca.code = load_code(self.code_settings.orca.value)
+        builder.orca.code = load_code(self.code_settings.orca.value)  # ty: ignore[unresolved-attribute]
 
         num_mpiprocs = self.resources_settings.num_mpi_tasks.value
-        builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)
-        builder.orca.parameters = self._build_orca_params(parameters)
+        builder.orca.metadata = self._build_orca_metadata(num_mpiprocs)  # ty: ignore[unresolved-attribute]
+        builder.orca.parameters = self._build_orca_params(parameters)  # ty: ignore[unresolved-attribute]
         if num_mpiprocs > 1:
-            builder.orca.parameters["input_blocks"]["pal"] = {"nproc": num_mpiprocs}
+            builder.orca.parameters["input_blocks"]["pal"] = {"nproc": num_mpiprocs}  # ty: ignore[unresolved-attribute]
 
         # Clean the remote directory by default,
         # We're copying back the main output file and gbw file anyway.
@@ -264,7 +264,7 @@ class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
 
     # TODO: This approach seems to be unreliable.
     # It might be better if to create a separate WizzardStep to display the final results
-    def _display_results(self):
+    def _display_results(self, _=None):
         if self.process_uuid is None:
             return
         process = load_node(self.process_uuid)
@@ -287,7 +287,7 @@ class ViewOptimizationStatusAndResultsStep(ViewWorkChainStatusStep):
         with self.relaxed_structures:
             clear_output()
 
-    def _update_workflow_state(self):
+    def _update_workflow_state(self, _=None):
         if self.process_uuid is None:
             self.workflow_status = None
             return

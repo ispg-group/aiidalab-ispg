@@ -9,6 +9,8 @@ from aiida.common import NotExistent
 from aiida.orm import load_code
 from aiidalab_widgets_base import ComputationalResourcesWidget
 
+from .utils import NCPUS
+
 # Taken from ORCA-5.0 manual, section 9.41
 PCM_SOLVENT_LIST = (
     "None",
@@ -112,7 +114,7 @@ class MoleculeSettings(ipw.VBox):
 
     def reset(self):
         self.charge.value = self._DEFAULT_CHARGE
-        self.charge.multiplicity.value = self._DEFAULT_MULTIPLICITY
+        self.multiplicity.value = self._DEFAULT_MULTIPLICITY
 
 
 class GroundStateSettings(ipw.VBox):
@@ -234,13 +236,13 @@ class ExcitedStateSettings(ipw.VBox):
 
     def reset(self):
         self.excited_method.value = self._DEFAULT_EXCITED_METHOD
-        self.method.value = self._DEFAULT_FUNCTIONAL
+        self.tddft_functional.value = self._DEFAULT_FUNCTIONAL
         self.basis.value = self._DEFAULT_BASIS
-        self.nstate.value = self._DEFAULT_NSTATES
+        self.nstates.value = self._DEFAULT_NSTATES
 
 
 class WignerSamplingSettings(ipw.VBox):
-    disabled = tl.Bool(default=False)
+    disabled = tl.Bool().tag(default=False)
 
     title = ipw.HTML(
         """<div style="padding-top: 0px; padding-bottom: 0px">
@@ -284,6 +286,7 @@ class WignerSamplingSettings(ipw.VBox):
         if change["new"]:
             self.nwigner.disabled = True
             self.wigner_low_freq_thr.disabled = True
+            self.nwigner.value = 0
         else:
             self.nwigner.disabled = False
             self.wigner_low_freq_thr.disabled = False
@@ -392,8 +395,16 @@ class ResourceSelectionWidget(ipw.VBox):
             # "layout": {"max_width": "200px"},
         }
 
+        # TODO: The maximum is determined by the number of CPUs on the local machine,
+        # which doesn't make sense if user configured a remote computer!
+        # This widget needs to be tied to the selected code and computer instead of being independent.
         self.num_mpi_tasks = ipw.BoundedIntText(
-            value=1, step=1, min=1, max=16, description="Number of MPI tasks", **extra
+            value=1,
+            step=1,
+            min=1,
+            max=NCPUS,
+            description="Number of MPI tasks",
+            **extra,
         )
 
         super().__init__(

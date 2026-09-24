@@ -17,7 +17,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: j178/prek-action@v2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # nbstripout requires python 3.10
+          python-version: "3.10"
+          activate-environment: true
+
+      - name: Install app for type checking
+        run: uv pip install -e .[dev,test]
+
+      - uses: j178/prek-action@v3.0.0
+
 
   test-app:
 
@@ -51,7 +63,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
             python-version: "3.12"
             cache: pip
@@ -67,7 +79,7 @@ jobs:
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
 
       - name: Run pytest
-        run: pytest -sv --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests/app/
+        run: pytest -sv --tb=short --driver ${{ matrix.browser }} -o cache_dir=$PYTEST_CACHE_DIR tests_integration/
 
       - name: Replace slashes in image name
         if: always()
@@ -80,3 +92,44 @@ jobs:
           name: Screenshots-${{env.IMAGE_NAME}}-${{ matrix.tag }}-${{ matrix.browser }}
           path: screenshots/
           if-no-files-found: error
+
+
+  unit-tests:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      packages: read
+      contents: read
+
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.12']
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          python-version: ${{ matrix.python-version }}
+          activate-environment: true
+
+      - name: Install dependencies for tests
+        run: uv pip install -e .[test]
+
+      - name: Run pytest
+        run: pytest --cov aiidalab_ispg tests/
+
+      - name: Smoke test spectrum.py
+        run: uv run -s aiidalab_ispg/app/spectrum.py -h
+
+      - name: Smoke test wigner.py
+        run: uv run -s aiidalab_ispg/wigner/wigner.py -h
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v7
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true

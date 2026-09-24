@@ -1,25 +1,30 @@
-"""Calculating NEA UV/vis spectra and displaying them in an interactive plot.
+# /// script
+# requires-python = ">=3.9"
+# dependencies = [
+#     "numpy>=2.0.2",
+#     "scipy>=1.13.1",
+# ]
+# ///
+"""Class for calculating UV/vis spectra using Nuclear Ensemble Approach (NEA).
 
 Authors:
     * Daniel Hollas <daniel.hollas@bristol.ac.uk>
 """
 
-import base64
-import csv
-from enum import Enum, unique
-from tempfile import SpooledTemporaryFile
+from __future__ import annotations
 
-import bokeh.plotting as plt
-import ipywidgets as ipw
+import sys
+from enum import Enum, unique
+from typing import TYPE_CHECKING, TypedDict
+
 import numpy as np
-import traitlets
 from scipy import constants
 
-from aiida.orm import QueryBuilder, StructureData, TrajectoryData, XyData, load_node
+if TYPE_CHECKING:
+    from aiida import orm
 
-from .spectrum_analysis import SpectrumAnalysisWidget
-from .utils import AUtoEV, BokehFigureContext
-from .widgets import TrajectoryDataViewer
+# copied from utils.py
+AUtoEV = 27.2114386245
 
 
 @unique
@@ -33,6 +38,18 @@ class EnergyUnit(Enum):
 class BroadeningKernel(Enum):
     GAUSS = "gaussian"
     LORENTZ = "lorentzian"
+
+
+class Transition(TypedDict):
+    energy: int
+    osc_strength: float
+    geom_index: int
+
+
+class ConformerTransitions(TypedDict):
+    transitions: list[Transition]
+    nsample: int
+    weight: float
 
 
 class Spectrum:
@@ -57,7 +74,7 @@ class Spectrum:
     # TODO: We should make this dependent on the energy range
     N_SAMPLE_POINTS = 500
 
-    def __init__(self, transitions: dict, nsample: int):
+    def __init__(self, transitions: list[Transition], nsample: int):
         # Excitation energies in eV
         self.excitation_energies = np.array(
             [tr["energy"] for tr in transitions], dtype=float
@@ -70,8 +87,17 @@ class Spectrum:
         # Number of molecular geometries sampled from ground state distribution
         self.nsample = nsample
 
+        num_exc = len(self.excitation_energies)
+        num_osc = len(self.osc_strengths)
+        assert num_exc == num_osc, (
+            f"# excitation energies ({num_exc}) != # osc. strengths ({num_osc})"
+        )
+        assert nsample <= num_exc, (
+            f"Number of samples ({nsample}) cannot be bigger than number of transitions ({num_exc})"
+        )
+
     @staticmethod
-    def get_energy_range_ev(excitation_energies):
+    def get_energy_range_ev(excitation_energies: np.ndarray):
         """Get spectrum energy range in eV based on the minimum and maximum excitation energy"""
         en_min_ev = excitation_energies.min()
         en_max_ev = excitation_energies.max()
@@ -90,7 +116,7 @@ class Spectrum:
         return x_min, x_max
 
     @staticmethod
-    def get_energy_unit_factor(unit: EnergyUnit):
+    def get_energy_unit_factor(unit: EnergyUnit) -> float:
         """Returns a multiplication factor to go from eV to other energy units"""
 
         # TODO: Construct these factors from scipy.constants or use pint
@@ -103,7 +129,9 @@ class Spectrum:
         }
         return unit_factors[unit]
 
-    def _calc_lorentzian_spectrum(self, x, y, tau: float):
+    def _calc_lorentzian_spectrum(
+        self, x: np.ndarray, y: np.ndarray, tau: float
+    ) -> None:
         """Calculate NEA spectrum broadened with a Lorentzian function:
 
         https://en.wikipedia.org/wiki/Cauchy_distribution#Probability_density_function
@@ -115,7 +143,7 @@ class Spectrum:
             prefactor = normalization_factor * self.COEFF * osc_strength
             y += prefactor / ((x - exc_energy) ** 2 + (tau**2) / 4)
 
-    def _calc_gauss_spectrum(self, x, y, sigma: float):
+    def _calc_gauss_spectrum(self, x: np.ndarray, y: np.ndarray, sigma: float) -> None:
         """Calculate NEA spectrum broadened with a Gaussian function
 
         https://en.wikipedia.org/wiki/Normal_distribution
@@ -132,9 +160,9 @@ class Spectrum:
         kernel: BroadeningKernel,
         width: float,
         x_unit: EnergyUnit,
-        x_min=None,
-        x_max=None,
-    ):
+        x_min: float | None = None,
+        x_max: float | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
         if x_min is None or x_max is None:
             x_min, x_max = self.get_energy_range_ev(self.excitation_energies)
 
@@ -160,649 +188,243 @@ class Spectrum:
 
         # We also return "stick" spectrum, e.g. just the transitions themselves,
         # where osc. strengths are normalized to the maximum of the spectrum.
-        y_stick = self.osc_strengths * np.max(y) / np.max(self.osc_strengths)
+        if (max_osc_strength := np.max(self.osc_strengths)) == 0:
+            y_stick = self.osc_strengths
+        else:
+            y_stick = self.osc_strengths * np.max(y) / max_osc_strength
 
         return x, y, x_stick, y_stick
 
-    def _convert_to_nanometers(self, x, y):
+    def _convert_to_nanometers(self, x, y) -> tuple[np.ndarray, np.ndarray]:
         x = self.get_energy_unit_factor(EnergyUnit.NM) / x
         return x, y
 
 
-class SpectrumWidget(ipw.VBox):
-    disabled = traitlets.Bool(default=True)
-    conformer_transitions = traitlets.List(
-        trait=traitlets.Dict, allow_none=True, default=None
-    )
-    conformer_structures = traitlets.Union(
-        [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
-        allow_none=True,
-    )
-
-    selected_conformer_id = traitlets.Int(allow_none=True, default_value=None)
-
-    cross_section_nm = traitlets.Dict(allow_none=True, default=None)
-
-    # We use SMILES to find matching experimental spectra
-    # that are possibly stored in our DB as XyData.
-    smiles = traitlets.Unicode(allow_none=True, default_value=None)
-    experimental_spectrum_uuid = traitlets.Unicode(
-        allow_none=True, default_value=None, read_only=True
-    )
-
-    # For now, we do not allow different intensity units
-    intensity_unit = "cm² per molecule"
-
-    THEORY_SPEC_LABEL = "theory"
-    EXP_SPEC_LABEL = "experiment"
-    STICK_SPEC_LABEL = "sticks"
-
-    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight=tools#specifying-tools
-    _TOOLS = "pan,wheel_zoom,box_zoom,reset,save"
-    # https://docs.bokeh.org/en/latest/docs/user_guide/tools.html?highlight#hovertool
-    _TOOLTIPS = (("(energy, cross_section)", "($x,$y)"),)
-
-    def __init__(self, **kwargs):
-        self.width_slider = ipw.FloatSlider(
-            min=0.01,
-            max=0.5,
-            step=0.01,
-            value=0.05,
-            description="Width (eV)",
-            continuous_update=True,
-            disabled=True,
-        )
-        self.width_slider.observe(self._handle_width_update, names="value")
-
-        self.kernel_selector = ipw.ToggleButtons(
-            options=[(kernel.value, kernel) for kernel in BroadeningKernel],
-            value=BroadeningKernel.GAUSS,
-            description="Broadening",
-            disabled=True,
-            button_style="info",
-            tooltips=[
-                "Gaussian broadening",
-                "Lorentzian broadening",
-            ],
-        )
-        self.kernel_selector.observe(self._handle_kernel_update, names="value")
-
-        self.energy_unit_selector = ipw.RadioButtons(
-            options=[(unit.value, unit) for unit in EnergyUnit],
-            disabled=True,
-            description="Energy unit",
-        )
-        self.energy_unit_selector.observe(
-            self._handle_energy_unit_update, names="value"
-        )
-
-        self.spectrum_controls = ipw.VBox(
-            children=[
-                self.kernel_selector,
-                self.width_slider,
-                self.energy_unit_selector,
-            ]
-        )
-
-        self.stick_toggle = ipw.ToggleButton(
-            description="Show stick spectrum",
-            tooltip="Show individual transitions as sticks in the spectrum.",
-            disabled=True,
-            value=False,
-        )
-        self.stick_toggle.observe(self._handle_stick_toggle, names="value")
-
-        self.conformer_toggle = ipw.ToggleButton(
-            description="Show conformers",
-            tooltip="Show spectra of individual conformers",
-            disabled=True,
-            value=False,
-        )
-        self.conformer_toggle.observe(self._handle_conformer_toggle, names="value")
-
-        self.download_btn = ipw.Button(
-            description="Download spectrum",
-            button_style="primary",
-            tooltip="Download spectrum as CSV file",
-            disabled=True,
-            icon="download",
-            layout=ipw.Layout(width="max-content"),
-        )
-        self.download_btn.on_click(self._download_spectrum)
-
-        self.show_controls = ipw.HBox(
-            [self.download_btn, self.conformer_toggle, self.stick_toggle]
-        )
-
-        self.debug_output = ipw.HTML()
-
-        # https://docs.bokeh.org/en/latest/docs/examples/basic/layouts/sizing_mode.html
-        figure_size = {
-            "sizing_mode": "fixed",
-            "height": 500,
-            "width": 500,
-        }
-        self.figure = self._init_figure(
-            tools=self._TOOLS, tooltips=list(self._TOOLTIPS), **figure_size
-        )
-        self.figure.layout = ipw.Layout(overflow="initial")
-
-        layout = ipw.Layout(justify_content="flex-start")
-        self.conformer_header = ipw.HTML()
-        self.conformer_header.layout.padding = "0px 0px 0px 15px"
-        self.conformer_viewer = TrajectoryDataViewer(configuration_tabs=[])
-        ipw.dlink(
-            (self.conformer_viewer, "selected_structure_id"),
-            (self, "selected_conformer_id"),
-        )
-        ipw.dlink(
-            (self, "conformer_structures"),
-            (self.conformer_viewer, "trajectory"),
-        )
-
-        self.analysis = SpectrumAnalysisWidget()
-        ipw.dlink(
-            (self, "conformer_transitions"),
-            (self.analysis, "conformer_transitions"),
-        )
-
-        ipw.dlink(
-            (self, "cross_section_nm"),
-            (self.analysis, "cross_section_nm"),
-        )
-
-        super().__init__(
-            [
-                self.debug_output,
-                self.show_controls,
-                ipw.HBox(
-                    [
-                        self.figure,
-                        ipw.VBox(
-                            [
-                                self.spectrum_controls,
-                                self.conformer_header,
-                                self.conformer_viewer,
-                            ],
-                            layout=layout,
-                        ),
-                    ],
-                ),
-                self.analysis,
-            ],
-            **kwargs,
-        )
-
-    def _download_spectrum(self, btn):
-        """Download spectrum lines as CSV file"""
-        from IPython.display import Javascript, display
-
-        filename = "spectrum.tsv"
-        if self.smiles:
-            filename = f"spectrum_{self.smiles}.tsv"
-
-        if not (payload := self._prepare_tsv()):
-            return
-
-        js = Javascript(
-            f"""
-            var link = document.createElement('a')
-            link.href = "data:text/csv;base64,{payload}"
-            link.download = "{filename}"
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
-            """
-        )
-        display(js)
-
-    def _prepare_tsv(self):
-        column_names = [
-            f"Energy / ({self.energy_unit_selector.value.value})",
-            (
-                f"Cross section / {self.intensity_unit}, "
-                f"{self.kernel_selector.value.value} broadening, width = {self.width_slider.value} eV"
-            ),
+# A copy from spectrum_widget.py
+def compute_total_cross_section(
+    conformer_transitions,
+    kernel: BroadeningKernel,
+    width: float,
+    energy_unit: EnergyUnit,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    # Determine spectrum energy range based on all excitation energies
+    all_exc_energies = np.array(
+        [
+            transitions["energy"]
+            for conformer in conformer_transitions
+            for transitions in conformer["transitions"]
         ]
+    )
 
-        f = self.figure.get_figure()
+    x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
 
-        # Get the total cross section
-        line = f.select_one({"name": self.THEORY_SPEC_LABEL})
-        x = line.data_source.data.get("x")
-        y_total = line.data_source.data.get("y")
+    total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
+    x_stick = np.array([])
+    y_stick = np.array([])
 
-        # Get cross sections of individual conformers, if available
-        # TODO: Currently this only works when the user activates the
-        # "Show conformers" button, otherwise we don't have access to the conformer data
-        # through the lines in the figure. One way to solve this would be to always
-        # add the conformer lines in the plot, but hide them by default (see hide_line)
-        # TODO: Relatedly above, currently there might be a race condition if the user pressed
-        # "Show conformers" and "Download spectrum" in a quick succession.
-        # The solution proposed above should solve this problem as well,
-        # since the conformer cross section would always be available.
-        # WARNING: Even without conformers, we might still have race condition
-        # in between user modification of the spectrum (e.g. changing kernel width)
-        # and downloading the data. We need to ensure that the Download button is always disabled
-        # when we're recomputing the spectra. This needs more investigation.
-        nconf = len(self.conformer_transitions)
-        y_confs = []
-        if nconf > 1:
-            for conf_id in range(nconf):
-                label = f"conformer_{conf_id}"
-                if line := f.select_one({"name": label}):
-                    y_confs.append(line.data_source.data["y"])
-                    column_names.append(f"Conformer {conf_id + 1}")
-
-        # We're using a tab as a delimiter (TSV file) since the resulting file
-        # should be readabale both by Excel and Xmgrace
-        delimiter = "\t"
-
-        with SpooledTemporaryFile(mode="w+", newline="", max_size=10000000) as csvfile:
-            header = delimiter.join(column_names)
-            csvfile.write(f"# {header}\n")
-            writer = csv.writer(csvfile, delimiter=delimiter)
-            writer.writerows(zip(x, y_total, *y_confs))
-            csvfile.seek(0)
-            return base64.b64encode(csvfile.read().encode()).decode()
-
-    def _validate_transitions(self, transitions):
-        # TODO: Maybe use named tuple instead of dictionary?
-        # https://realpython.com/python-namedtuple/
-        if transitions is None or len(transitions) == 0:
-            self.debug_print("ERROR: Got empty transitions")
-            return False
-
-        for tr in transitions:
-            if not isinstance(tr, dict) or (
-                "energy" not in tr or "osc_strength" not in tr
-            ):
-                self.debug_print("ERROR: Invalid transition", tr)
-                return False
-        return True
-
-    def _handle_stick_toggle(self, change):
-        """Redraw show/hide stick transitions"""
-        # Note: We replot the whole spectrum as sticks are currently tied
-        # to the whole spectrum.
-        self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=self.kernel_selector.value,
-            energy_unit=self.energy_unit_selector.value,
+    # Iterate over conformers, the total spectrum is a sum of
+    # individual conformer spectra multiplied by a Boltzmann factor.
+    for conf_id, conformer in enumerate(conformer_transitions):
+        spec = Spectrum(conformer["transitions"], conformer["nsample"])
+        x, y, xs, ys = spec.get_spectrum(
+            kernel, width, energy_unit, x_min=x_min, x_max=x_max
         )
 
-    def _handle_conformer_toggle(self, change):
-        """Show/hide conformers and their individual spectra"""
-        if not change["new"]:
-            self._hide_all_conformers()
-            return
+        y *= conformer["weight"]
+        total_cross_section += y
 
-        if len(self.conformer_transitions) == 1:
-            return
+        ys *= conformer["weight"]
+        x_stick = np.concatenate((x_stick, xs))
+        y_stick = np.concatenate((y_stick, ys))
 
-        self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=self.kernel_selector.value,
-            energy_unit=self.energy_unit_selector.value,
+    return x, total_cross_section, x_stick, y_stick
+
+
+def _orca_output_to_transitions(output_dict: dict, geom_index: int) -> list[Transition]:
+    EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
+    en = output_dict["excitation_energies_cm"]
+    osc = output_dict["oscillator_strengths"]
+    return [
+        {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
+        for tr in zip(en, osc)
+    ]
+
+
+def _wigner_output_to_transitions(wigner_outputs: list) -> list[Transition]:
+    transitions = []
+    for i, params in enumerate(wigner_outputs):
+        transitions += _orca_output_to_transitions(params, i)
+    return transitions
+
+
+def get_transitions_from_workchain(
+    process: orm.WorkChainNode,
+) -> list[ConformerTransitions]:
+    """Convert process.outputs.spectrum_data into a data structure that
+    is passed to the SpectrumWidget and Spectrum classes"""
+
+    # Number of conformers
+    optimized = process.inputs.optimize
+    n_input_geoms = len(process.inputs.structure.get_stepids())
+    # Number of Wigner geometries per conformer
+    wigner_sampled = optimized and process.inputs.nwigner.value > 0
+    if wigner_sampled:
+        nconf = n_input_geoms
+        nsample = process.inputs.nwigner.value
+    elif optimized:
+        nconf = n_input_geoms
+        nsample = 1
+    else:
+        # If the input geometries were not optimized, we treat them
+        # as samples, not conformers!
+        nconf = 1
+        nsample = n_input_geoms
+
+    # Unfortunately, we don't have number of states as attribute in process.inputs
+    nstates = None
+    if bp := process.base.extras.get("builder_parameters", None):
+        nstates = bp["nstates"]
+
+    # For the case of unoptimized geometries, flatten the list
+    # so that the geometries are treated as a single conformer
+    spectrum_data = process.outputs.spectrum_data.get_list()
+    if not optimized:
+        spectrum_data = [[conf[0] for conf in spectrum_data]]
+
+    # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
+    if nconf > 1 and optimized:
+        conformer_weights = process.outputs.relaxed_structures.get_array(
+            "boltzmann_weights"
         )
+    else:
+        equal_weight = 1.0 / nconf
+        conformer_weights = [equal_weight for i in range(nconf)]
 
-    def _handle_width_update(self, change):
-        """Redraw spectra when user changes broadening width via slider"""
-        self._plot_spectrum(
-            width=change["new"],
-            kernel=self.kernel_selector.value,
-            energy_unit=self.energy_unit_selector.value,
+    conformer_transitions: list[ConformerTransitions] = [
+        ConformerTransitions(
+            transitions=_wigner_output_to_transitions(conformer),
+            nsample=nsample,
+            weight=conformer_weights[i],
         )
+        for i, conformer in enumerate(spectrum_data)
+    ]
 
-    def _handle_kernel_update(self, change):
-        """Redraw spectra when user changes kernel for broadening"""
-        self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=change["new"],
-            energy_unit=self.energy_unit_selector.value,
-        )
-
-    def _handle_energy_unit_update(self, change):
-        """Updates the spectra when user changes energy units"""
-        energy_unit = change["new"]
-        xlabel = f"Energy ({energy_unit.value})"
-        self.figure.get_figure().xaxis.axis_label = xlabel
-
-        self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=self.kernel_selector.value,
-            energy_unit=energy_unit,
-        )
-        if self.experimental_spectrum_uuid:
-            node = load_node(self.experimental_spectrum_uuid)
-            self.plot_experimental_spectrum(spectrum_node=node, energy_unit=energy_unit)
-
-    def _unhighlight_conformer(self, update=True):
-        self.remove_line("conformer_selected", update=update)
-
-    def _highlight_conformer(self, conf_id: int, update=True):
-        f = self.figure.get_figure()
-        label = f"conformer_{conf_id}"
-        if line := f.select_one({"name": label}):
-            # This does not seem to work, possibly because conformers
-            # are not there from the beginning
-            # line.glyph.update(line_dash="solid")
-            x = line.data_source.data["x"]
-            y = line.data_source.data["y"]
-            self.plot_line(
-                x, y, label="conformer_selected", update=update, line_color="red"
+    # Make sure our data is consistent
+    assert nconf == len(conformer_transitions), (
+        f"{nconf=} != {len(conformer_transitions)=}"
+    )
+    if nstates:
+        for c in conformer_transitions:
+            trans: list = c["transitions"]
+            nsample = c["nsample"]
+            assert nsample * nstates == len(trans), (
+                f"{nstates * nsample=} != {len(trans)=}: {trans=}"
             )
 
-    def _hide_all_conformers(self):
-        self._unhighlight_conformer(update=False)
-        f = self.figure.get_figure()
-        labels = [r.name for r in f.renderers]
-        for label in filter(lambda label: label.startswith("conformer_"), labels):
-            # NOTE: Hiding does not seem to work
-            # Removing without immediate figure update also does not work
-            self.remove_line(label, update=False)
-        self.figure.update()
+    return conformer_transitions
 
-    def _plot_conformer(self, x, y, conf_id, update=True, line_dash="dashed"):
-        line_options = {
-            "line_color": "black",
-            "line_dash": line_dash,
-            "line_width": 1,
-        }
-        label = f"conformer_{conf_id}"
-        self.plot_line(x, y, label, update=update, **line_options)
 
-    def _plot_spectrum(
-        self, kernel: BroadeningKernel, width: float, energy_unit: EnergyUnit
-    ):
-        self.download_btn.disabled = True
-        # Determine spectrum energy range based on all excitation energies
-        all_exc_energies = np.array(
-            [
-                transitions["energy"]
-                for conformer in self.conformer_transitions
-                for transitions in conformer["transitions"]
-            ]
+# Below are functions for CLI standalone use
+def parse_cmd():
+    """Parse command line arguments"""
+    import argparse
+
+    desc = (
+        "WIP: Program for computing UV/vis spectra based on Nuclear Ensemble Approach"
+    )
+    prog = "neavis"
+    parser = argparse.ArgumentParser(description=desc, prog=prog)
+    parser.add_argument("--input_file", help="TBD: Input file")
+    parser.add_argument(
+        "-wc",
+        "--workchain-id",
+        type=int,
+        default=None,
+        help="Load data from AtmoSpec workchain",
+    )
+    parser.add_argument(
+        "--json-output", type=str, help="Output spectral data to a json file"
+    )
+    parser.add_argument(
+        "--kernel",
+        type=BroadeningKernel,
+        default=BroadeningKernel.GAUSS,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--energy-unit",
+        type=EnergyUnit,
+        default=EnergyUnit.EV,
+        help="Broadening kernel ('gaussian' or 'lorentzian')",
+    )
+    parser.add_argument(
+        "--width",
+        type=float,
+        default=0.05,
+        help="Broadening width (eV)",
+    )
+    parser.add_argument(
+        "-n",
+        "--nsamples",
+        type=int,
+        default=1,
+        help="Number of samples (molecular geometries)",
+    )
+
+    return parser.parse_args()
+
+
+def load_atmospec_data(pk: int) -> list[ConformerTransitions]:
+    from aiida import load_profile, orm
+
+    load_profile()
+
+    process = orm.load_node(pk)
+
+    if not isinstance(process, orm.WorkChainNode):
+        sys.exit(f"{pk=} does not correspond to AtmospecWorkChain, but {type(process)}")
+
+    if process.process_type != "aiidalab_ispg.workflows.atmospec.AtmospecWorkChain":
+        sys.exit(
+            f"{pk=} is not a top-level AtmospecWorkChain, but '{process.process_type}'"
         )
 
-        x_min, x_max = Spectrum.get_energy_range_ev(all_exc_energies)
+    return get_transitions_from_workchain(process)
 
-        total_cross_section = np.zeros(Spectrum.N_SAMPLE_POINTS)
 
-        x_stick = np.array([])
-        y_stick = np.array([])
-        # Iterate over conformers, the total spectrum is a sum of
-        # individual conformer spectra multiplied by a Boltzmann factor.
-        for conf_id, conformer in enumerate(self.conformer_transitions):
-            spec = Spectrum(conformer["transitions"], conformer["nsample"])
-            x, y, xs, ys = spec.get_spectrum(
-                kernel, width, energy_unit, x_min=x_min, x_max=x_max
-            )
+if __name__ == "__main__":
+    import json
 
-            y *= conformer["weight"]
-            total_cross_section += y
+    import numpy as np
 
-            ys *= conformer["weight"]
-            x_stick = np.concatenate((x_stick, xs))
-            y_stick = np.concatenate((y_stick, ys))
+    opts = parse_cmd()
+    conformer_transitions = []
+    if opts.workchain_id is not None:
+        conformer_transitions = load_atmospec_data(opts.workchain_id)
 
-            # Plot spectrum of an individual conformer
-            if self.conformer_toggle.value:
-                self._plot_conformer(x, y, conf_id, update=False)
+    if not conformer_transitions:
+        sys.exit()
 
-        # Energy unit not nm needs converting for spectrum analysis
-        if energy_unit != EnergyUnit.NM:
-            x_nm = (
-                spec.get_energy_unit_factor(EnergyUnit.NM)
-                * spec.get_energy_unit_factor(energy_unit)
-                / x
-            )
-            self.cross_section_nm = {
-                "wavelengths": np.flip(x_nm),
-                "cross_section": np.flip(total_cross_section),
-            }
-        else:
-            self.cross_section_nm = {
-                "wavelengths": np.flip(x),
-                "cross_section": np.flip(total_cross_section),
-            }
+    energy, total_cross_section, _x_stick, _y_stick = compute_total_cross_section(
+        conformer_transitions, opts.kernel, opts.width, opts.energy_unit
+    )
+    fname = f"spectrum_{opts.workchain_id}_{opts.energy_unit.value}.dat"
+    print(f"Saving spectrum to file '{fname}'")
 
-        # Plot total spectrum
-        self.plot_line(
-            x, total_cross_section, self.THEORY_SPEC_LABEL, update=False, line_width=2
-        )
+    header = (
+        f"Kernel: {opts.kernel.value}  Width: {opts.width}\n"
+        f"Energy ({opts.energy_unit.value})       Cross Section (cm^-1 per molecule)"
+    )
+    if opts.workchain_id:
+        header = f"AtmoSpec WorkChain: {opts.workchain_id}\n" + header
 
-        if self.conformer_toggle.value and len(self.conformer_transitions) > 1:
-            self._highlight_conformer(self.selected_conformer_id, update=False)
+    np.savetxt(
+        fname,
+        np.column_stack((energy, total_cross_section)),
+        header=header,
+        encoding="utf-8",
+    )
 
-        if self.stick_toggle.value:
-            self.plot_sticks(x_stick, y_stick, self.STICK_SPEC_LABEL, update=False)
-        else:
-            self.remove_line(self.STICK_SPEC_LABEL, update=False)
-
-        self.figure.update()
-        self.download_btn.disabled = False
-
-    def debug_print(self, *args):
-        self.debug_output.value = "<br>".join([str(x) for x in args])
-
-    def plot_sticks(self, x, y, label: str, update=True, **args):
-        """Plot stick spectrum"""
-        f = self.figure.get_figure()
-        # First remove existing sticks.
-        if sticks := f.select_one({"name": label}):
-            f.renderers.remove(sticks)
-        sticks = f.segment(
-            x0=x,
-            x1=x,
-            y0=np.zeros(x.size),
-            y1=y,
-            line_color="black",
-            line_width=1,
-            name=label,
-            **args,
-        )
-        if update:
-            self.figure.update()
-
-    # plot_line(), hide_line() and remove_line() are public
-    # so that additinal stuff can be plotted.
-    def plot_line(self, x, y, label, update=True, **args):
-        """Update existing plot line or create a new one.
-        Updating existing plot lines unfortunately only work for label=theory
-        and label=experiment, that are predefined in _init_figure()
-        To modify a custom line, first remove it by calling remove_line(label)
-
-        **args additional arguments are passed into Figure.line()"""
-        # https://docs.bokeh.org/en/latest/docs/reference/models/renderers.html?highlight=renderers#renderergroup
-        self.remove_line(label, update=update)
-        f = self.figure.get_figure()
-        f.line(x, y, name=label, **args)
-        if update:
-            self.figure.update()
-
-    def hide_line(self, label: str, update=True):
-        """Hide given line from the plot"""
-        f = self.figure.get_figure()
-        line = f.select_one({"name": label})
-        if line is None or not line.visible:
-            return
-        line.visible = False
-        if update:
-            self.figure.update()
-
-    def remove_line(self, label: str, update=True):
-        # Observation: Removing and adding lines via
-        # plot_line() and remove_line() works well. However, doing
-        # updates on existing lines only works for lines defined in _init_figure()
-        self.figure.remove_renderer(label, update=update)
-
-    def _init_figure(self, *args, **kwargs) -> BokehFigureContext:
-        """Initialize Bokeh figure. Arguments are passed to bokeh.plt.figure()"""
-        figure = BokehFigureContext(plt.figure(*args, **kwargs))
-        f = figure.get_figure()
-        f.xaxis.axis_label = f"Energy ({self.energy_unit_selector.value.value})"
-        f.yaxis.axis_label = f"Cross section ({self.intensity_unit})"
-
-        # Initialize line for theoretical spectrum.
-        # NOTE: Hardly earned experience: For any lines added later, their updates
-        # via line.data_source are not picked up for some unknown reason.
-        # Thus, if they need to be updated (e.g. experimental spectrum),
-        # they have to be removed (remove_line()) and added again.
-        x = np.array([4.0])
-        y = np.array([0.0])
-        # TODO: Choose inclusive colors!
-        # https://doi.org/10.1038/s41467-020-19160-7
-        theory_line = f.line(x, y, line_width=2, name=self.THEORY_SPEC_LABEL)
-        theory_line.visible = False
-        return figure
-
-    @traitlets.observe("disabled")
-    def _observe_disabled(self, change):
-        disabled = change["new"]
-        with self.hold_trait_notifications():
-            for child in [
-                *self.show_controls.children,
-                *self.spectrum_controls.children,
-            ]:
-                child.disabled = disabled
-            if (
-                self.conformer_transitions is None
-                or len(self.conformer_transitions) == 1
-            ):
-                self.conformer_toggle.disabled = True
-
-    def reset(self):
-        with self.hold_trait_notifications():
-            self.conformer_transitions = None
-            self.conformer_structures = None
-            self.smiles = None
-            self.set_trait("experimental_spectrum_uuid", None)
-            self.analysis.reset()
-            self.disabled = True
-
-        self.figure.clean()
-        self.debug_output.value = ""
-
-    @traitlets.validate("conformer_transitions")
-    def _validate_conformers(self, change):
-        conformer_transitions = change["value"]
-        if conformer_transitions is None:
-            return None
-        if not all(
-            self._validate_transitions(c["transitions"]) for c in conformer_transitions
-        ):
-            msg = "Invalid conformer transitions"
-            raise ValueError(msg)
-        return conformer_transitions
-
-    @traitlets.validate("conformer_structures")
-    def _validate_conformer_structures(self, change):
-        structures = change["value"]
-        if structures is None:
-            return None
-
-        if isinstance(structures, TrajectoryData):
-            return structures
-        elif isinstance(structures, StructureData):
-            return TrajectoryData(structurelist=(structures,))
-        else:
-            msg = f"Unsupported type {type(structures)}"
-            raise TypeError(msg)
-
-    @traitlets.observe("selected_conformer_id")
-    def _observe_selected_conformer(self, change):
-        self._unhighlight_conformer()
-        self._highlight_conformer(change["new"])
-
-    @traitlets.observe("conformer_structures")
-    def _observe_conformers(self, change):
-        self.conformer_viewer._viewer.handle_resize()
-
-    @traitlets.observe("conformer_transitions")
-    def _observe_conformer_transitions(self, change):
-        self.disabled = True
-        self._hide_all_conformers()
-        if change["new"] is None:
-            return
-        self._plot_spectrum(
-            width=self.width_slider.value,
-            kernel=self.kernel_selector.value,
-            energy_unit=self.energy_unit_selector.value,
-        )
-        self.disabled = False
-
-    @traitlets.observe("smiles")
-    def _observe_smiles(self, change):
-        self.find_experimental_spectrum_by_smiles(change["new"])
-
-    @traitlets.observe("experimental_spectrum_uuid")
-    def _observe_experimental_spectrum_uuid(self, change):
-        if change["new"] == change["old"]:
-            return
-        if change["new"] is None:
-            self.remove_line(self.EXP_SPEC_LABEL)
-            return
-        self.plot_experimental_spectrum(
-            spectrum_node=load_node(change["new"]),
-            energy_unit=self.energy_unit_selector.value,
-        )
-
-    def find_experimental_spectrum_by_smiles(self, smiles: str):
-        """Find an experimental spectrum for a given SMILES
-        and plot it if it is available in our DB"""
-
-        self.set_trait("experimental_spectrum_uuid", None)
-        if not smiles:
-            return
-
-        qb = QueryBuilder()
-        # TODO: Should we subclass XyData specifically for UV/Vis spectra?
-        # Or should we differentiate from other possible Xy nodes
-        # by looking at attributes or extras? Maybe label?
-        qb.append(XyData, filters={"extras.smiles": smiles})
-        if qb.count() == 0:
-            return
-
-        # TODO: For now let's just assume we have one
-        # canonical experimental spectrum per compound.
-        # for spectrum in qb.iterall():
-        experimental_spectrum_node = qb.first()[0]
-        self.set_trait("experimental_spectrum_uuid", experimental_spectrum_node.uuid)
-
-    def plot_experimental_spectrum(
-        self, spectrum_node: XyData, energy_unit: EnergyUnit
-    ):
-        """Render experimental spectrum that was loaded to AiiDA database manually
-        param: spectrum_node: XyData node
-        energy_unit: energy unit of the plotted spectra"""
-        # TODO: When we're creating spectrum as XyData,
-        # can we choose nicer names for x and y?
-        # This would also serve as a validation.
-
-        if (
-            "x_array" not in spectrum_node.get_arraynames()
-            or "y_array_0" not in spectrum_node.get_arraynames()
-        ):
-            return
-        energy = spectrum_node.get_array("x_array")
-        cross_section = spectrum_node.get_array("y_array_0")
-        # TODO: Extract units. Right now we expect energy in nanometers
-        # data_energy_unit = spectrum.node.get_attribute('x_units')
-        # cross_section_unit = spectrum.node.get_attribute('y_units')
-
-        if energy_unit is EnergyUnit.EV:
-            energy = Spectrum.get_energy_unit_factor(EnergyUnit.NM) / energy
-        elif energy_unit is EnergyUnit.CM:
-            energy = (
-                Spectrum.get_energy_unit_factor(EnergyUnit.CM)
-                * Spectrum.get_energy_unit_factor(EnergyUnit.NM)
-                / energy
-            )
-
-        line_options = {
-            "line_color": "orange",
-            "line_dash": "dashed",
-            "line_width": 2,
-        }
-        self.plot_line(energy, cross_section, self.EXP_SPEC_LABEL, **line_options)
+    if opts.json_output:
+        with open(opts.json_output, "w") as f:
+            json.dump(conformer_transitions, f, indent=2)

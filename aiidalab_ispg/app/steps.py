@@ -11,8 +11,14 @@ import ipywidgets as ipw
 import traitlets
 
 from aiida.engine import ProcessState
-from aiida.engine.processes.control import kill_processes
-from aiida.orm import StructureData, TrajectoryData, WorkChainNode, load_node
+from aiida.engine.processes.control import ProcessTimeoutException, kill_processes
+from aiida.orm import (
+    Node,
+    StructureData,
+    TrajectoryData,
+    WorkChainNode,
+    load_node,
+)
 from aiidalab_widgets_base import (
     AiidaNodeViewWidget,
     ProcessMonitor,
@@ -20,7 +26,8 @@ from aiidalab_widgets_base import (
 )
 
 from .qeapp import StructureSelectionStep as QeAppStructureSelectionStep
-from .spectrum import EnergyUnit, Spectrum, SpectrumWidget
+from .spectrum import get_transitions_from_workchain
+from .spectrum_widget import SpectrumWidget
 from .utils import get_formula
 from .widgets import HeaderWarning, ISPGProcessNodesTreeWidget, spinner
 
@@ -55,7 +62,7 @@ class SubmitWorkChainStepBase(ipw.VBox, WizardAppWidgetStep):
         [traitlets.Instance(StructureData), traitlets.Instance(TrajectoryData)],
         allow_none=True,
     )
-    process = traitlets.Instance(WorkChainNode, allow_none=True)
+    process = traitlets.Instance(Node, allow_none=True)
     disabled = traitlets.Bool()
 
     def __init__(self, components=None, **kwargs):
@@ -165,7 +172,7 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
                 self._update_step_state,
                 self._update_workflow_state,
             ],
-            on_sealed=[self._display_results],
+            on_sealed=[self._display_results, self._update_kill_button],
         )
         ipw.dlink((self, "process_uuid"), (self.process_monitor, "value"))
 
@@ -277,8 +284,14 @@ class ViewWorkChainStatusStep(ipw.VBox, WizardAppWidgetStep):
         self.kill_button.disabled = True
 
         workchain = [load_node(self.process_uuid)]
-        # TODO: Wait for a bit here
-        kill_processes(workchain, wait=False)
+        try:
+            # TODO: Do this in a thread!
+            # Wait for 5 seconds
+            kill_processes(workchain, timeout=5)  # ty: ignore[invalid-argument-type]
+        except ProcessTimeoutException:
+            # TODO: Print a warning message
+            # Should we enable the button so that user can try again?
+            pass
 
         # update the kill button layout
         self._update_kill_button()
@@ -306,57 +319,25 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         self.process_uuid = None
         self.spectrum.reset()
 
-    def _orca_output_to_transitions(self, output_dict, geom_index):
-        EVtoCM = Spectrum.get_energy_unit_factor(EnergyUnit.CM)
-        en = output_dict["excitation_energies_cm"]
-        osc = output_dict["oscillator_strengths"]
-        return [
-            {"energy": tr[0] / EVtoCM, "osc_strength": tr[1], "geom_index": geom_index}
-            for tr in zip(en, osc)
-        ]
-
-    def _wigner_output_to_transitions(self, wigner_outputs):
-        transitions = []
-        for i, params in enumerate(wigner_outputs):
-            transitions += self._orca_output_to_transitions(params, i)
-        return transitions
-
     def _show_spectrum(self):
         if self.process_uuid is None:
-            self.spectrum.debug_output.value = ""
             return
 
         process = load_node(self.process_uuid)
-        if not process.is_finished_ok:
+        assert isinstance(process, WorkChainNode)
+
+        if not process.is_terminated:
             self.spectrum.debug_output.value = "Waiting for the workflow to finish..."
+            return
+        elif not process.is_finished_ok:
+            self.spectrum.debug_output.value = (
+                "Workflow failed, I have no spectrum to show you 😧"
+            )
             return
 
         self.spectrum.debug_output.value = f"Loading...{spinner}"
 
-        # Number of conformers
-        nconf = len(process.inputs.structure.get_stepids())
-        # Number of Wigner geometries per conformer
-        nsample = process.inputs.nwigner.value if process.inputs.nwigner > 0 else 1
-
-        # Use Boltzmann weighting if we optimized the molecule and have Gibbs energies
-        if nconf > 1 and process.inputs.optimize:
-            conformer_weights = process.outputs.relaxed_structures.get_array(
-                "boltzmann_weights"
-            )
-        else:
-            equal_weight = 1.0 / nconf
-            conformer_weights = [equal_weight for i in range(nconf)]
-
-        conformer_transitions = [
-            {
-                "transitions": self._wigner_output_to_transitions(conformer),
-                "nsample": nsample,
-                "weight": conformer_weights[i],
-            }
-            for i, conformer in enumerate(process.outputs.spectrum_data.get_list())
-        ]
-
-        self.spectrum.conformer_transitions = conformer_transitions
+        self.spectrum.conformer_transitions = get_transitions_from_workchain(process)
 
         smiles = process.inputs.structure.base.extras.get("smiles", None)
         self.spectrum.smiles = smiles
@@ -367,7 +348,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
             process.outputs.relaxed_structures.base.extras.set("smiles", smiles)
 
         if process.inputs.optimize:
-            assert nconf == len(process.outputs.relaxed_structures.get_stepids())
             self.spectrum.conformer_header.value = "<h4>Optimized conformers</h4>"
             self.spectrum.conformer_structures = process.outputs.relaxed_structures
         else:
@@ -415,8 +395,8 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
                 f"in {solvent}</h4>"
                 f"{bp['nstates']} singlet states"
             )
-            if process.inputs.optimize and process.inputs.nwigner > 0:
-                self.header.value += f", {process.inputs.nwigner.value} Wigner samples"
+            if process.inputs.optimize and (nwigner := process.inputs.nwigner.value):
+                self.header.value += f", {nwigner} Wigner samples"
 
     def _update_state(self):
         if self.process_uuid is None:
@@ -452,6 +432,6 @@ class ViewSpectrumStep(ipw.VBox, WizardAppWidgetStep):
         # because ProcessMonitorWidget swallows all exceptions coming from _show_spectrum().
         if self.process_uuid is None or not load_node(self.process_uuid).is_sealed:
             self.process_monitor.value = self.process_uuid
-        else:
-            self._show_spectrum()
+
         self._update_state()
+        self._show_spectrum()

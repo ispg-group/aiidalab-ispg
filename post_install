@@ -26,14 +26,14 @@ CONDA_ENV_PATH="/opt/conda"
 if ! mpirun --version 2>/dev/null | grep -q "Open MPI) ${OPENMPI_VERSION}"; then
   CONDA_ENV_NAME="orca-mpi"
   mamba create --yes -c conda-forge \
-    --name ${CONDA_ENV_NAME} openmpi=${OPENMPI_VERSION}
-  CONDA_ENV_PATH=$(mamba env list | grep ${CONDA_ENV_NAME} | awk '{print $NF}')
+    --name "${CONDA_ENV_NAME}" openmpi="${OPENMPI_VERSION}"
+  CONDA_ENV_PATH=$(mamba env list | grep "${CONDA_ENV_NAME}" | awk '{print $NF}')
   MPIBIN=${CONDA_ENV_PATH}/bin
   MPILIB=${CONDA_ENV_PATH}/lib
 else
-  mpirun=`which mpirun`
-  MPIBIN=`dirname $mpirun`
-  MPILIB=`dirname $MPIBIN`"/lib"
+  mpirun=$(which mpirun)
+  MPIBIN=$(dirname "$mpirun")
+  MPILIB=$(dirname "$MPIBIN")"/lib"
   echo "Detected OpenMPI v${OPENMPI_VERSION} in ${MPIBIN}"
 fi
 
@@ -41,12 +41,12 @@ PREPEND_TEXT="export PATH=${ORCA_PATH}:${MPIBIN}:\$PATH;\
   export LD_LIBRARY_PATH=${ORCA_PATH}:${MPILIB}:\$LD_LIBRARY_PATH"
 
 function create_orca_code() {
-    computer=$1
+    computer="$1"
     code=orca
-    full_label=${code}@${computer}
-    calcjob=${code}.${code}
+    full_label="${code}@${computer}"
+    calcjob="${code}.${code}"
 
-    verdi code list -Y $computer -d $calcjob -P full_label | \
+    verdi code list -Y "$computer" -d "$calcjob" -P full_label | \
     grep -q "$full_label" || (\
         echo "Creating code node $full_label" && \
         # NOTE: We need to add ORCA_PATH to LD_LIBRARY_PATH as well
@@ -55,9 +55,9 @@ function create_orca_code() {
             --non-interactive \
             --label ${code} \
             --description "${code} code mounted via Docker volume." \
-            --default-calc-job-plugin ${calcjob} \
-            --computer ${computer} \
-            --filepath-executable ${ORCA_PATH}/orca \
+            --default-calc-job-plugin "${calcjob}" \
+            --computer "${computer}" \
+            --filepath-executable "${ORCA_PATH}/orca" \
             --prepend-text "${PREPEND_TEXT}" \
     )
 }

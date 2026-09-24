@@ -2,7 +2,7 @@
 
 # Specification of standalone script dependencies according to PEP 723
 # /// script
-# dependencies = ['ase', 'tdqm', 'cclib>=1.8']
+# dependencies = ['ase', 'tdqm', 'cclib~=1.8.0']
 # ///
 
 # Script for the calculation of Wigner distributions in coordinate space
@@ -205,7 +205,7 @@ def error(msg: str):
 
 
 def read_qm_output(fname: str, fmt: str = "auto") -> dict:
-    from cclib.io import ccread
+    from cclib.io import ccread  # ty: ignore[unresolved-import]
 
     path = Path(fname)
     try:
@@ -233,6 +233,7 @@ if __name__ == "__main__":
     opts = parse_cmd()
 
     import ase
+    import ase.io
     from tqdm import tqdm
 
     out = read_qm_output(opts.input_file, fmt=opts.file_fmt)

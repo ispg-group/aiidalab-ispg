@@ -1,7 +1,7 @@
 """AiiDA workflow for generating harmonic wigner sampling"""
 
+from aiida import orm
 from aiida.engine import calcfunction
-from aiida.orm import StructureData, TrajectoryData
 from aiidalab_ispg.wigner import Wigner
 
 __all__ = [
@@ -11,10 +11,10 @@ __all__ = [
 
 @calcfunction
 def generate_wigner_structures(
-    minimum_structure: StructureData,
-    orca_output_dict: dict,
-    nsample: int,
-    low_freq_thr: float,
+    minimum_structure: orm.StructureData,
+    orca_output_dict: orm.Dict,
+    nsample: orm.Int,
+    low_freq_thr: orm.Float,
 ):
     seed = orca_output_dict.extras["_aiida_hash"]
     ase_molecule = minimum_structure.get_ase()
@@ -30,6 +30,6 @@ def generate_wigner_structures(
     )
 
     wigner_list = [
-        StructureData(ase=wigner.get_ase_sample()) for i in range(nsample.value)
+        orm.StructureData(ase=wigner.get_ase_sample()) for i in range(nsample.value)
     ]
-    return TrajectoryData(structurelist=wigner_list)
+    return orm.TrajectoryData(structurelist=wigner_list)
