@@ -7,7 +7,7 @@ from aiida.orm import Dict
 
 
 @calcfunction
-def parse_orca_output(nto_folder, filename="aiida.out", threshold=0, states="all"):
+def parse_orca_output(nto_folder, filename, threshold, states):
 
     # Convert from Aiida nodes to python datatypes if required.
     filename = filename.value
@@ -109,12 +109,12 @@ def extract_text(
                     sub_line,
                 )
                 orblist.append(
-                    (match_orbs.group(1).replace("  ", " "), match_orbs.group(2))
+                    (match_orbs.group(1).replace("  ", " "), match_orbs.group(2))  # ty: ignore[unresolved-attribute]
                 )
             # add orblist to statedict and clear orblist for next state
             elif re.search(r"^\s*$", sub_line):
                 if orblist:
-                    statedict[match_state.group(1)] = orblist
+                    statedict[match_state.group(1)] = orblist  # ty: ignore[unresolved-attribute]
                     orblist = []
 
             # exit here
@@ -136,8 +136,8 @@ def extract_ntos(line, found_nto, nto_orblist, nto_statedict, match_state_nto):
         )
         nto_orblist.append(
             (
-                match_orbs_nto.group(1).replace(" ", "").split("->"),
-                match_orbs_nto.group(2),
+                match_orbs_nto.group(1).replace(" ", "").split("->"),  # ty: ignore[unresolved-attribute]
+                match_orbs_nto.group(2),  # ty: ignore[unresolved-attribute]
             )
         )
 

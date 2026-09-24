@@ -197,7 +197,10 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
     def nto_calc(self):
         # Check ORCA output for NTOs.
         self.ctx.relevant_dict = parse_orca_output(
-            self.ctx.calc_exc.outputs.retrieved, "aiida.out", 5.0
+            self.ctx.calc_exc.outputs.retrieved,
+            filename="aiida.out",
+            threshold=5.0,
+            states="all",
         )
         # This dictionary is also used by the visualiser to create the dropdown menus (not implemented yet).
         # self.out("transition_info", relevant_dict)
@@ -220,7 +223,7 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
                         mo = moa[:-1]
                         builder.mo = mo
                         # Submit the workchain.
-                        results = self.submit(NTOProcessingWorkChain, builder)
+                        results = self.submit(NTOProcessingWorkChain, builder)  # ty: ignore[invalid-argument-type]
                         # Add the PK to the dictionary.
                         nto_processes["s" + s + "_" + mo] = results
             # save the dictionary keys for later use.
@@ -236,8 +239,8 @@ class OrcaWignerSpectrumWorkChain(WorkChain):
             # Iterate through the outputs of the nto processing workchain.
             for key in self.ctx.nto_keys:
                 node = self.ctx.get(key)
-                if "compressed_cube" in node.outputs:
-                    with node.outputs.compressed_cube.open(mode="rb") as file:
+                if "compressed_cube" in node.outputs:  # ty: ignore[unresolved-attribute]
+                    with node.outputs.compressed_cube.open(mode="rb") as file:  # ty: ignore[unresolved-attribute]
                         cube_folder.put_object_from_filelike(file, path=(key))
             cube_folder.store()
             # Output where on the database the compressed files are stored.

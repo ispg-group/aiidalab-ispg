@@ -394,7 +394,7 @@ class SubmitAtmospecAppWorkChainStep(SubmitWorkChainStepBase):
         builder.opt.orca.metadata.options.additional_retrieve_list = ["aiida.gbw"]  # ty: ignore[unresolved-attribute]
 
         # Retrieve .nto and .cube files
-        builder.exc.orca.metadata.options.additional_retrieve_list = ["*.nto", "*.cube"]
+        builder.exc.orca.metadata.options.additional_retrieve_list = ["*.nto", "*.cube"]  # ty: ignore[unresolved-attribute]
 
         # Clean the remote directory by default,
         # we're copying back the main output file and gbw file anyway.
