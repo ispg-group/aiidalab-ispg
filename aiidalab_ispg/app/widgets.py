@@ -366,7 +366,9 @@ class TrajectoryManagerWidget(StructureManagerWidget):
         traitlets.link((data_format, "label"), (self, "node_class"))
 
         # Store button, store class selector, description.
-        store_and_description = [self.btn_store] if storable else []
+        store_and_description = []
+        if storable:
+            store_and_description.append(self.btn_store)
 
         if node_class is None:
             store_and_description.append(data_format)
