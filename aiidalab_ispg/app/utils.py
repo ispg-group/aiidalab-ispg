@@ -82,10 +82,7 @@ class BokehFigureContext(ipw.Output):
         super().__init__()
         self._figure = fig
         self._handle = None
-        # WARNING: The on_displayed method has been removed in ipywidgets 8.0!!!
-        # https://github.com/jupyter-widgets/ipywidgets/issues/3451
-        # https://github.com/jupyter-widgets/ipywidgets/pull/2021
-        self.on_displayed(lambda x: x.set_handle())
+        self.set_handle()
 
     def set_handle(self):
         self.clear_output()
@@ -99,6 +96,8 @@ class BokehFigureContext(ipw.Output):
         return self._figure
 
     def update(self):
+        if self._handle is None:
+            self.set_handle()
         if self._handle is not None:
             bokeh.io.push_notebook(handle=self._handle)
 
@@ -118,3 +117,7 @@ class BokehFigureContext(ipw.Output):
         for label in labels:
             self.remove_renderer(label, update=False)
         self.update()
+        # Workaround for bokeh, the initial set_handle from __init__
+        # is not working when the widgets are not loaded on the JS side yet,
+        # so we simply regenerate the figure every time we change the source data.
+        self.set_handle()
