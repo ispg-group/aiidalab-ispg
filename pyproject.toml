@@ -23,7 +23,7 @@ version = "0.2.6"
 description = "ISPG applications in AiiDALab"
 authors = [{name = 'Daniel Hollas', email = 'daniel.hollas@bristol.ac.uk'}]
 license = 'MIT'
-license-files = ['LICENSE.txt']
+license-files = ['LICENSE']
 readme = 'README.md'
 classifiers = [
   'Operating System :: POSIX :: Linux',
