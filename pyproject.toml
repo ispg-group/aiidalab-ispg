@@ -1,11 +1,75 @@
 [build-system]
-# Version 64.0.0 is needed for editable installs without setup.py file
-# https://setuptools.pypa.io/en/latest/references/keywords.html
 requires = [
-    "setuptools>=64.0.0",
+    "setuptools>=80.0.0",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[tool.aiidalab]
+title = "ISPG Apps"
+description = "AiiDALab applications from the ISPG crew"
+categories = ["quantum"]
+
+#[options.package_data]
+#aiidalab_ispg.app.static =
+#  *.png
+#  *.jinja
+#  *.css
+#  *.csv
+
+[project]
+name = "aiidalab-ispg"
+version = "0.2.6"
+description = "ISPG applications in AiiDALab"
+license = {file = 'LICENSE.txt'}
+readme = 'README.md'
+authors = [{name = 'Daniel Hollas', email = 'daniel.hollas@bristol.ac.uk'}]
+classifiers = [
+  'Operating System :: POSIX :: Linux',
+  'Operating System :: MacOS :: MacOS X',
+  'Programming Language :: Python :: 3',
+  'Development Status :: 4 - Beta',
+  'Topic :: Scientific/Engineering',
+  'Framework :: AiiDA',
+]
+
+requires-python = '>=3.12'
+dependencies = [
+   'aiidalab-widgets-base[smiles]~=3.0.0; python_version > "3.9"',
+   'aiidalab-widgets-base~=2.5.0; python_version <= "3.9"',
+   'aiida-orca~=0.7.0',
+   'bokeh>=2.4,<4',
+   'traitlets~=5.9',
+   'ipywidgets~=7.7; python_version <= "3.9"',
+   'ipywidgets~=8.1; python_version > "3.9"',
+   'psutil>=5.9',
+   'rdkit<2025',
+]
+
+[project.urls]
+Documentation = 'https://github.com/danielhollas/aiidalab-ispg/#readme'
+Home = 'https://github.com/danielhollas/aiidalab-ispg'
+#Bug-Tracker = https://github.com/danielhollas/aiidalab-ispg/issues
+#Logo = https://insilicophotochem.files.wordpress.com/2020/01/squirrel-logo.png
+
+[project.entry-points.'aiida.workflows']
+'ispg.atmospec' = 'aiidalab_ispg.workflows:AtmospecWorkChain'
+'ispg.conformer_opt' = 'aiidalab_ispg.workflows.optimization:ConformerOptimizationWorkChain'
+
+[project.entry-points.'aiida.calculations']
+'ispg.wigner' = 'aiidalab_ispg.workflows:generate_wigner_structures'
+
+[dependency-groups]
+dev = [
+  "ty==0.0.88",
+  "pytest~=8.3.0",
+  "pytest-cov~=7.1",
+  "pytest-docker~=3.0",
+  "pytest-selenium~=4.1",
+  "selenium==4.20.0",
+  "inline-snapshot~=0.35.0",
+]
+
 
 [tool.ruff]
 line-length = 88
