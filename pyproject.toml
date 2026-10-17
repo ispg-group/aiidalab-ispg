@@ -29,13 +29,13 @@ classifiers = [
 
 requires-python = '>=3.9'
 dependencies = [
-   'aiidalab-widgets-base[smiles]~=3.0.0; python_version > "3.9"',
-   'aiidalab-widgets-base~=2.5.0; python_version <= "3.9"',
+   'aiidalab-widgets-base[smiles]~=3.0.0; python_version >= "3.12"',
+   'aiidalab-widgets-base~=2.5.0; python_version < "3.12"',
    'aiida-orca~=0.7.0',
    'bokeh>=2.4,<4',
    'traitlets~=5.9',
-   'ipywidgets~=7.7; python_version <= "3.9"',
-   'ipywidgets~=8.1; python_version > "3.9"',
+   'ipywidgets~=7.7; python_version < "3.12"',
+   'ipywidgets~=8.1; python_version >= "3.12"',
    'psutil>=5.9',
    'rdkit<2025',
 ]
