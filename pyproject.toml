@@ -44,7 +44,7 @@ dependencies = [
 documentation = 'https://github.com/danielhollas/aiidalab-ispg/#readme'
 homepage = 'https://github.com/danielhollas/aiidalab-ispg'
 issues = 'https://github.com/danielhollas/aiidalab-ispg/issues'
-logo = 'https://github.com/danielhollas/aiidalab-ispg/blob/main/aiidalab_ispg/app/static/atmospec_logo-480.png'
+logo = 'https://raw.githubusercontent.com/ispg-group/aiidalab-ispg/refs/heads/main/aiidalab_ispg/app/static/atmospec_logo-480.png'
 
 [project.entry-points.'aiida.workflows']
 'ispg.atmospec' = 'aiidalab_ispg.workflows:AtmospecWorkChain'
