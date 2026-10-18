@@ -12,3 +12,4 @@ __pycache__/
 build/
 notebooks/.*-[0-9]*.ipynb
 .coverage
+uv.lock
