@@ -10,6 +10,16 @@ title = "ISPG Apps"
 description = "AiiDALab applications from the ISPG crew"
 categories = ["quantum"]
 
+[[tool.aiidalab.citations]]
+title = "AtmoSpec – A Tool to Calculate Photoabsorption Cross-Sections for Atmospheric Volatile Organic Compounds"
+authors = ["Daniel Hollas", "Basile F. E. Curchod"]
+journal = "J. Phys. Chem. A"
+year = "2024"
+issue = "39"
+volume = "128"
+pages = "8580–8590"
+doi = "10.1021/acs.jpca.4c05174"
+
 [project]
 name = "aiidalab-ispg"
 version = "0.2.6"
