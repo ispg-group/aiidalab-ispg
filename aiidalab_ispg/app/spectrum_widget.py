@@ -572,7 +572,7 @@ class SpectrumWidget(ipw.VBox):
         if isinstance(structures, TrajectoryData):
             return structures
         elif isinstance(structures, StructureData):
-            return TrajectoryData(structurelist=(structures,))  # ty: ignore[invalid-argument-type]
+            return TrajectoryData(structurelist=(structures,))
         else:
             msg = f"Unsupported type {type(structures)}"
             raise TypeError(msg)
