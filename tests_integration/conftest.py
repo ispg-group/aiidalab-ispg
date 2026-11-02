@@ -11,6 +11,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 
 
+@pytest.fixture(scope="session")
+def docker_setup():
+    """Start compose without Docker's --wait; notebook_service handles readiness."""
+    return ["up --build -d"]
+
+
 def is_responsive(url):
     try:
         response = requests.get(url, timeout=200)
@@ -64,7 +70,9 @@ def notebook_service(docker_ip, docker_services, aiidalab_exec, nb_user, appdir)
     aiidalab_exec(f"chmod -R a+rw {appdir}", user="root")
 
     # Install dependencies via pip
-    aiidalab_exec("pip install --user .", workdir=appdir, user=nb_user)
+    pip_output = aiidalab_exec("pip install --user .", workdir=appdir, user=nb_user)
+    print("\n=== INSTALLING PYTHON DEPENDENCIES ===")
+    print(pip_output.decode().strip().splitlines()[-1])
 
     # `port_for` takes a container port and returns the corresponding host port
     port = docker_services.port_for("aiidalab", 8888)
@@ -100,7 +108,9 @@ def selenium_driver(selenium, notebook_service):
 @pytest.fixture
 def generate_mol_from_smiles(selenium):
     def _generate_mol(smiles):
-        smiles_input = selenium.find_element(By.XPATH, "//input[@placeholder='C=C']")
+        smiles_input = WebDriverWait(selenium, 5).until(
+            EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='C=C']"))
+        )
         smiles_input.clear()
         smiles_input.send_keys(smiles)
         WebDriverWait(selenium, 10).until(
