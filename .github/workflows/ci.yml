@@ -21,12 +21,11 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
-          # nbstripout requires python 3.10
           python-version: "3.12"
           activate-environment: true
 
       - name: Install app for type checking
-        run: uv pip install -e .[dev,test]
+        run: uv sync
 
       - uses: j178/prek-action@v3.1.0
 
@@ -42,13 +41,10 @@ jobs:
 
     strategy:
       matrix:
-        tag: [latest]
-        image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
+        tag: [edge]
+        image: ["ghcr.io/aiidalab/full-stack"]
         browser: [Firefox, Chrome]
         include:
-          - tag: edge
-            image: "ghcr.io/aiidalab/full-stack"
-            browser: Chrome
           - tag: pr-44
             image: "ghcr.io/ispg-group/atmospec"
             browser: Chrome
@@ -69,18 +65,15 @@ jobs:
       - name: Check out app
         uses: actions/checkout@v7
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
         with:
-            python-version: "3.12"
-            cache: pip
-            cache-dependency-path: |
-              **/setup.cfg
-              **/pyproject.toml
-              **/requirements*.txt
+          # nbstripout requires python 3.10
+          python-version: "3.12"
+          activate-environment: true
 
       - name: Install dependencies for tests
-        run: pip install -r requirements-test.txt
+        run: uv sync --only-group dev
 
       - name: Set jupyter token env
         run: echo "JUPYTER_TOKEN=$(openssl rand -hex 32)" >> $GITHUB_ENV
@@ -111,7 +104,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.9', '3.12']
+        python-version: ['3.12', '3.13']
       fail-fast: false
 
     steps:
@@ -124,7 +117,7 @@ jobs:
           activate-environment: true
 
       - name: Install dependencies for tests
-        run: uv pip install -e .[test]
+        run: uv sync
 
       - name: Run pytest
         run: pytest --cov aiidalab_ispg --inline-snapshot=disable tests/
