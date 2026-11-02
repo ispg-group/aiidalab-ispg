@@ -21,7 +21,6 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
-          # nbstripout requires python 3.10
           python-version: "3.12"
           activate-environment: true
 
@@ -42,13 +41,10 @@ jobs:
 
     strategy:
       matrix:
-        tag: [latest]
-        image: ["ghcr.io/aiidalab/full-stack", "ghcr.io/ispg-group/atmospec"]
+        tag: [edge]
+        image: ["ghcr.io/aiidalab/full-stack"]
         browser: [Firefox, Chrome]
         include:
-          - tag: edge
-            image: "ghcr.io/aiidalab/full-stack"
-            browser: Chrome
           - tag: pr-44
             image: "ghcr.io/ispg-group/atmospec"
             browser: Chrome
@@ -108,7 +104,7 @@ jobs:
 
     strategy:
       matrix:
-        python-version: ['3.9', '3.12']
+        python-version: ['3.12']
       fail-fast: false
 
     steps:
